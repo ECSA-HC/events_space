@@ -1,0 +1,32 @@
+INSERT INTO permission (permission, permission_code, system_code)
+VALUES ('Add User', 'ADD_USER', 'DONATIV'),
+       ('View User', 'VIEW_USER', 'DONATIV'),
+       ('Update User', 'UPDATE_USER', 'DONATIV'),
+       ('Delete User', 'DELETE_USER', 'DONATIV');
+
+INSERT INTO permission (permission, permission_code, system_code)
+VALUES ('View Roles', 'VIEW_ROLE', 'DONATIV'),
+       ('Add Role', 'ADD_ROLE', 'DONATIV'),
+       ('Update Role', 'UPDATE_ROLE', 'DONATIV'),
+       ('Delete Role', 'DELETE_ROLE', 'DONATIV');
+
+INSERT INTO permission (permission, permission_code, system_code)
+VALUES ('View Permission', 'VIEW_PERMISSION', 'DONATIV'),
+       ('Add Permission', 'ADD_PERMISSION', 'DONATIV'),
+       ('Update Permission', 'UPDATE_PERMISSION', 'DONATIV'),
+       ('Delete Permission', 'DELETE_PERMISSION', 'DONATIV');
+
+
+INSERT INTO permission (permission, permission_code, system_code)
+VALUES ('View Organisation', 'VIEW_ORGANISATION', 'DONATIV'),
+       ('Add Organisation', 'ADD_ORGANISATION', 'DONATIV'),
+       ('Update Organisation', 'UPDATE_ORGANISATION', 'DONATIV'),
+       ('Delete Organisation', 'DELETE_ORGANISATION', 'DONATIV');    
+       ('Organisation Verification Approval', 'ORGANISATION_VERIFICATION_APPROVAL', 'DONATIV');    
+
+
+
+INSERT INTO permission (permission, permission_code, system_code)
+VALUES ('Organisation Verification Approval', 'ORGANISATION_VERIFICATION_APPROVAL', 'DONATIV');           
+
+          
