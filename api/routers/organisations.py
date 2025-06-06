@@ -11,7 +11,7 @@ from dependencies.dependency import Dependency
 from dependencies.auth_dependency import get_current_user
 from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from models.models import Organisation, OrganisationVerificationRequest, User, OrganisationApprovalStatus
-from schemas.donativ import OrganisationSchema, OrganisationIDSchema, OrganisationApprovalSchema
+from schemas.events_space import OrganisationSchema, OrganisationIDSchema, OrganisationApprovalSchema
 
 
 router = APIRouter()

@@ -34,9 +34,11 @@ class SectorType(PyEnum):
 
 
 class DocumentType(PyEnum):
-    Certificate = "Certificate"
-    Agreement = "Agreement"
-    License = "License"
+    ProgrammeBooklet = "ProgrammeBooklet"
+    Presentation = "Presentation"
+    Photo = "Photo"
+    Advert = "Advert"
+    Guidelines = "Guidelines"
     Other = "Other"
 
 
@@ -44,7 +46,22 @@ class OrganisationStatus(PyEnum):
     Pending = "Pending"
     Approved = "Approved"
     Denied = "Denied"
+    
+class OrgUnitType(PyEnum):
+    project = "project"
+    department = "department"
+    college = "college"
+    secretariat = "secretariat"
+    other = "other"
 
+class ParticipationRole(PyEnum):
+    secretariat = "secretariat"
+    delegate = "delegate"
+    presenter = "presenter"
+    speaker = "speaker"
+    sponsor = "sponsor"
+    moderator = "moderator"
+    participant = "participant"
 
 class BaseWithSoftDelete(Base):
     __abstract__ = True
@@ -73,10 +90,9 @@ class User(BaseWithSoftDelete):
     user_roles = relationship(
         "UserRole", back_populates="user"
     )
-
-    organisations = relationship(
-        "Organisation", back_populates="users"
-    )
+    events = relationship("Event", back_populates="user")
+    registrations = relationship("Registration", back_populates="user")
+    user_photo = relationship("UserPhoto", back_populates="user")
 
     __table_args__ = (
         Index('ix_user', 'deleted_at', 'email', 'phone', 'id'),
@@ -85,6 +101,29 @@ class User(BaseWithSoftDelete):
     def __repr__(self):
         return f"<User {self.id}>"
 
+
+class UserPhoto(BaseWithSoftDelete):
+    __tablename__ = "user_photo"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey(
+        "user.id", ondelete="CASCADE"), nullable=False)
+    path = Column(Text, nullable=False)
+    created_at = Column(TIMESTAMP(timezone=True),
+                        nullable=False, server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=False,
+                        server_default=func.now(), onupdate=func.now())
+    deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)
+
+    user = relationship("User", back_populates="user_photo")
+
+    __table_args__ = (
+        Index('ix_user_photo',
+              'user_id', 'deleted_at'),
+    )
+
+    def __repr__(self):
+        return f"<UserPhoto user_id={self.user_id}, path={self.path}>"
 
 class Role(BaseWithSoftDelete):
     __tablename__ = "role"
@@ -205,8 +244,8 @@ class Country(BaseWithSoftDelete):
                         server_default=func.now(), onupdate=func.now())
     deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)
 
-    organisations = relationship(
-        "Organisation", back_populates="country")
+    events = relationship("Event", back_populates="country")
+    registrations = relationship("Registration", back_populates="country")
 
     Index('ix_country_deleted_at', 'country', 'deleted_at')
 
@@ -285,6 +324,149 @@ class AccountVerification(BaseWithSoftDelete):
         return f"<AccountVerification {self.id}>"
 
 
+class OrgUnit(Base):
+    __tablename__ = "org_unit"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)
+    type = Column(Enum(OrgUnitType), nullable=False)
+    description = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)
+
+    events = relationship("Event", back_populates="org_unit")
+
+    def __repr__(self):
+        return f"<OrgUnit id={self.id}, name={self.name}, type={self.type}>"
+
+
+class Event(Base):
+    __tablename__ = "event"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=False)  # link event to org unit (project/department/college)
+    org_unit_id = Column(Integer, ForeignKey("org_unit.id"), nullable=False)  # link event to org unit (project/department/college)
+    country_id = Column(Integer, ForeignKey("country.id"), nullable=False)  # link event to org unit (project/department/college)
+    event = Column(Text, nullable=False)
+    theme = Column(Text, nullable=False)
+    description = Column(Text, nullable=True)
+    start_date = Column(TIMESTAMP(timezone=True), nullable=False)
+    end_date = Column(TIMESTAMP(timezone=True), nullable=False)
+    location = Column(String(200), nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)
+
+    org_unit = relationship("OrgUnit", back_populates="events")
+    country = relationship("Country", back_populates="events")
+    user = relationship("User", back_populates="events")
+    registrations = relationship("Registration", back_populates="events")
+    documents = relationship("Document", back_populates="events")
+    links = relationship("Link", back_populates="events")
+
+    def __repr__(self):
+        return f"<Event id={self.id}, name={self.name}>"
+
+
+class Registration(Base):
+    __tablename__ = "registration"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    country_id = Column(Integer, ForeignKey("country.id"), nullable=False)
+    event_id = Column(Integer, ForeignKey("event.id"), nullable=False)
+    participation_role = Column(Enum(ParticipationRole), nullable=False)
+    paid = Column(Boolean, nullable=False, default=False)
+    organisation = Column(String(200), nullable=True)
+    registered_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)
+
+    user = relationship("User", back_populates="registrations")
+    events = relationship("Event", back_populates="registrations")
+    country = relationship("Country", back_populates="registrations")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "event_id", name="unique_user_event_registration"),
+    )
+
+    def __repr__(self):
+        return f"<Registration user_id={self.user_id} event_id={self.event_id} paid={self.paid}>"
+
+class Document(BaseWithSoftDelete):
+    __tablename__ = "document"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(Integer, ForeignKey(
+        "event.id", ondelete="CASCADE"), nullable=False)
+    document_type = Column(Enum(DocumentType, validate_strings=True), nullable=False)
+    file_type = Column(String(200), nullable=False)
+    file_name = Column(Text, nullable=False)
+    name = Column(Text, nullable=False)
+    path = Column(Text, nullable=False)
+    access_level = Column(Text, nullable=False)
+    created_at = Column(TIMESTAMP(timezone=True),
+                        nullable=False, server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=False,
+                        server_default=func.now(), onupdate=func.now())
+    deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)
+
+    events = relationship("Event", back_populates="documents")
+
+    __table_args__ = (
+        Index('ix_document',
+              'document_type', 'deleted_at'),
+    )
+
+    def __repr__(self):
+        return f"<Document document_type={self.document_type}, path={self.path}>"
+    
+class Link(BaseWithSoftDelete):
+    __tablename__ = "link"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(Integer, ForeignKey(
+        "event.id", ondelete="CASCADE"), nullable=False)
+    link = Column(Text, nullable=False)
+    name = Column(Text, nullable=False)
+    created_at = Column(TIMESTAMP(timezone=True),
+                        nullable=False, server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=False,
+                        server_default=func.now(), onupdate=func.now())
+    deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)
+
+    events = relationship("Event", back_populates="links")
+
+    __table_args__ = (
+        Index('ix_document',
+              'link', 'deleted_at'),
+    )
+
+    def __repr__(self):
+        return f"<Link link={self.link}, name={self.name}>"    
+
+# class Document(Base):
+#     __tablename__ = "document"
+
+#     id = Column(Integer, primary_key=True, index=True)
+#     filename = Column(Text, nullable=False)
+#     filepath = Column(Text, nullable=False)
+#     file_name = Column(Text, nullable=False)
+#     access_level = Column(Text, nullable=True)
+#     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+#     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+#     deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)
+
+#     events = relationship("Event", back_populates="document")
+
+#     def __repr__(self):
+#         return f"<document id={self.id}, name={self.name}, type={self.type}>"
+
+    
+# This is un used database from here going down
+
 class Organisation(BaseWithSoftDelete):
     __tablename__ = "organisation"
 
@@ -316,10 +498,6 @@ class Organisation(BaseWithSoftDelete):
               'country_id', 'deleted_at')
     )
 
-    country = relationship(
-        "Country", back_populates="organisations")
-    users = relationship(
-        "User", back_populates="organisations")
     registrations = relationship(
         "OrganisationRegistration", back_populates="organisations")
     documents = relationship(

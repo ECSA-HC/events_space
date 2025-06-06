@@ -4,8 +4,8 @@ from starlette import status
 from typing import Annotated
 from sqlalchemy.orm import Session
 from core.database import get_db
-from models.models import Permission
-from schemas.events_space import PermissionSchema
+from models.models import OrgUnit
+from schemas.events_space import OrgUnitSchema
 from dependencies.auth_dependency import Auth
 from dependencies.dependency import Dependency
 from dependencies.auth_dependency import get_current_user
@@ -33,7 +33,7 @@ def get_object(id, db, model):
 
 
 @router.get("/")
-async def get_permissions(
+async def get_org_units(
     request: Request,
     current_user: user_dependency,
     db: Session = Depends(get_db),
@@ -43,141 +43,142 @@ async def get_permissions(
     dependency: Dependency = Depends(get_dependency),
     auth_dependency: Auth = Depends(get_auth_dependency),
 ):
-    auth_dependency.secure_access("VIEW_PERMISSION", current_user['user_id'])
+        
+    auth_dependency.secure_access("VIEW_ORG_UNIT", current_user['user_id'])
     client_ip = dependency.request_ip(request)
     dependency.log_activity(
         current_user['user_id'],
-        'VIEW_PERMISSIONS',
+        'VIEW_ORG_UNITS',
         current_user['username'],
         client_ip,
-        "Get all permissions"
+        "Get all org units"
     )
 
-    offset = (skip - 1) * limit
-    query = (
-        db.query(Permission)
-        .filter(or_(Permission.permission.ilike(f"%{search}%")))
-        .offset(offset)
-        .limit(limit)
-        .all()
+    search_filter = or_(
+        OrgUnit.name.ilike(f"%{search}%"),
     )
-    total_count = (
-        db.query(Permission)
-        .filter(or_(Permission.permission.ilike(f"%{search}%")))
-        .count()
-    )
+
+    org_unit_query = db.query(OrgUnit).filter(
+        search_filter, OrgUnit.deleted_at == None)
+
+    total_count = org_unit_query.count()
+    org_units = org_unit_query.offset(
+        (skip - 1) * limit).limit(limit).all()
+
     pages = math.ceil(total_count / limit)
-    return {"pages": pages, "data": query}
+    return {"pages": pages, "data": org_units}
+
 
 
 @router.post("/")
-async def add_permission(
+async def add_org_unit(
     request: Request,
-    permission_schema: PermissionSchema,
+    org_unit_schema: OrgUnitSchema,
     current_user: user_dependency,
     db: Session = Depends(get_db),
     dependency: Dependency = Depends(get_dependency),
     auth_dependency: Auth = Depends(get_auth_dependency),
 ):
-    auth_dependency.secure_access("ADD_PERMISSION", current_user['user_id'])
+    auth_dependency.secure_access("ADD_ORG_UNIT", current_user['user_id'])
     client_ip = dependency.request_ip(request)
     dependency.log_activity(
         current_user['user_id'],
-        'ADD_PERMISSION',
+        'ADD_ORG_UNIT',
         current_user['username'],
         client_ip,
-        permission_schema.permission_code
+        org_unit_schema.name
     )
 
-    create_permission_model = Permission(
-        system_code=permission_schema.system_code,
-        permission=permission_schema.permission,
-        permission_code=permission_schema.permission_code,
+    create_org_unit_model = OrgUnit(
+        name=org_unit_schema.name,
+        type=org_unit_schema.type,
+        description=org_unit_schema.description,
     )
 
-    db.add(create_permission_model)
+    db.add(create_org_unit_model)
     db.commit()
-    return permission_schema
+    return org_unit_schema
 
 
-@router.get("/{permission_id}")
-async def get_permission(
+@router.get("/{org_unit_id}")
+async def get_org_unit(
     request: Request,
-    permission_id: int,
+    org_unit_id: int,
     current_user: user_dependency,
     db: Session = Depends(get_db),
     dependency: Dependency = Depends(get_dependency),
     auth_dependency: Auth = Depends(get_auth_dependency),
 ):
-    auth_dependency.secure_access("VIEW_PERMISSION", current_user['user_id'])
+    auth_dependency.secure_access("VIEW_ORG_UNIT", current_user['user_id'])
     client_ip = dependency.request_ip(request)
     dependency.log_activity(
         current_user['user_id'],
-        'VIEW_PERMISSION',
+        'VIEW_ORG_UNIT',
         current_user['username'],
         client_ip,
-        f"View permission id {permission_id}"
+        f"View org unit id {org_unit_id}"
     )
-    return get_object(permission_id, db, Permission)
+    return get_object(org_unit_id, db, OrgUnit)
 
 
-@router.put("/{permission_id}")
-async def update_permission(
+@router.put("/{org_unit_id}")
+async def update_org_unit(
     request: Request,
-    permission_id: int,
+    org_unit_id: int,
     current_user: user_dependency,
-    permission_schema: PermissionSchema,
+    org_unit_schema: OrgUnitSchema,
     db: Session = Depends(get_db),
     dependency: Dependency = Depends(get_dependency),
     auth_dependency: Auth = Depends(get_auth_dependency),
 ):
-    auth_dependency.secure_access("UPDATE_PERMISSION", current_user['user_id'])
+    auth_dependency.secure_access("UPDATE_ORG_UNIT", current_user['user_id'])
     client_ip = dependency.request_ip(request)
     dependency.log_activity(
         current_user['user_id'],
-        'UPDATE_PERMISION',
+        'UPDATE_ORG_UNIT',
         current_user['username'],
         client_ip,
-        f"Update permission id {permission_id} permission code {permission_schema.permission_code}"
+        f"Update orgvunit id {org_unit_id} org unit code {org_unit_schema.name}"
     )
 
-    permission_model = get_object(permission_id, db, Permission)
+    org_unit_model = get_object(org_unit_id, db, OrgUnit)
 
-    permission_model.permission = permission_schema.permission
-    permission_model.permission_code = permission_schema.permission_code
+    org_unit_model.name = org_unit_schema.name
+    org_unit_model.type = org_unit_schema.type
+    org_unit_model.description = org_unit_schema.description
 
     db.commit()
-    db.refresh(permission_model)
-    return permission_schema
+    db.refresh(org_unit_model)
+    return org_unit_schema
 
 
-@router.delete("/{permission_id}")
-async def delete_permission(
+@router.delete("/{org_unit_id}")
+async def delete_org_unit(
     request: Request,
-    permission_id: int,
+    org_unit_id: int,
     current_user: user_dependency,
     db: Session = Depends(get_db),
     dependency: Dependency = Depends(get_dependency),
     auth_dependency: Auth = Depends(get_auth_dependency),
 ):
-    auth_dependency.secure_access("DELETE_PERMISSION", current_user['user_id'])
-    permission = get_object(permission_id, db, Permission)
+    auth_dependency.secure_access("DELETE_ORG_UNIT", current_user['user_id'])
+    org_unit = get_object(org_unit_id, db, OrgUnit)
 
     try:
-        db.delete(permission)
+        db.delete(org_unit)
         db.commit()
     except Exception as error:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete permission") from error
+            detail="Failed to delete org unit") from error
 
     client_ip = dependency.request_ip(request)
     dependency.log_activity(
         current_user['user_id'],
-        'DELETE_PERMISION',
+        'DELETE_ORG_UNIT',
         current_user['username'],
         client_ip,
-        f"Update permission id {permission_id}, permission {permission.permission_code} "
+        f"Update org_unit id {org_unit_id}, org_unit {org_unit.name} "
     )
-    return {"detail": "Permission successfully deleted"}
+    return {"detail": "Org Unit successfully deleted"}

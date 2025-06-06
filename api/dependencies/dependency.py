@@ -29,6 +29,22 @@ class Dependency:
         if x_forwarded_for := request.headers.get('X-Forwarded-For'):
             client_ip = x_forwarded_for.split(',')[0]
         return client_ip
+    
+    def hard_delete(self, model, record_id):
+        record = self.db.query(model).get(record_id)
+        if not record:
+            return
+
+        self.db.delete(record)
+        self.db.commit()
+    
+    def soft_delete(self, model, record_id):
+        record = self.db.query(model).get(record_id)
+        if not record:
+            return
+
+        record.deleted_at = func.now()
+        self.db.commit()
 
     def cascade_soft_delete_recursive(self, model, record_id, visited=None):
         if visited is None:

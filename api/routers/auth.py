@@ -10,7 +10,7 @@ from dependencies.auth_dependency import Auth
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from models.models import User, UserRole, PasswordReset, AccountVerification, Role, RolePermission
-from schemas.donativ import UserSchema, EmailSchema, PasswordResetSchema, VerificationTokenSchema, AuthSchema
+from schemas.events_space import UserSchema, EmailSchema, PasswordResetSchema, VerificationTokenSchema, AuthSchema
 
 router = APIRouter()
 

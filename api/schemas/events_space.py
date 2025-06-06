@@ -1,4 +1,6 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, model_validator, HttpUrl
+from datetime import date
+
 import re
 
 
@@ -59,7 +61,43 @@ class CountrySchema(BaseModel):
     country: str
     short_code: str
     phone_code: str
+    
+class OrgUnitSchema(BaseModel):
+    name: str
+    type: str
+    description: str    
+ 
 
+class EventSchema(BaseModel):
+    org_unit_id: int
+    country_id: int
+    event: str
+    theme: str
+    description: str
+    start_date: date
+    end_date: date
+    location: str
+
+    @field_validator('start_date', 'end_date')
+    def check_dates_not_in_past(cls, v: date):
+        if v < date.today():
+            raise ValueError('Date must be today or in the future')
+        return v
+
+    @model_validator(mode='after')
+    def check_date_order(self):
+        if self.end_date < self.start_date:
+            raise ValueError('end_date must be after or equal to start_date')
+        return self
+ 
+ 
+class RegistrationSchema(BaseModel):
+    user_id: int
+    country_id: int
+    event_id: int
+    participation_role: str
+    organisation: str
+ 
 
 class OrganisationSchema(BaseModel):
     country_id: int
@@ -82,3 +120,9 @@ class OrganisationApprovalSchema(BaseModel):
     organisation_id: int
     is_approved: str
     comment: str
+
+
+class LinkSchema(BaseModel):
+    event_id: int
+    name: str
+    link: HttpUrl

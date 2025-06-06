@@ -8,7 +8,7 @@ from dependencies.auth_dependency import Auth
 from models.models import Role, RolePermission
 from dependencies.dependency import Dependency
 from dependencies.auth_dependency import get_current_user
-from schemas.donativ import RoleSchema, RolePermissionSchema
+from schemas.events_space import RoleSchema, RolePermissionSchema
 from fastapi import APIRouter, HTTPException, Depends, Query, Request
 
 
@@ -133,7 +133,7 @@ async def get_role(
                     "permission": permission.permission.permission,
                     "permission_code": permission.permission.permission_code,
                 }
-                for permission in role.role_permission
+                for permission in role.role_permissions
             ],
         }
     else:

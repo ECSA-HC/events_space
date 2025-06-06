@@ -1,13 +1,14 @@
 from fastapi import FastAPI
 
 from routers import (
-    auth, users, roles, permissions, countries, organisations
+    auth, users, roles, permissions, countries, org_units, events
 )
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
-    title="Donativ APP API",
-    description="The Donativ API connects donors and recipients across countries. It allows recipients to create calls for donations with specific needs, while donors can browse or search calls by location, type, or recipient.",
+    title="ECSA Events Space API Documentation",
+ 
+    description="The ECSA Events Space API is an API for ECSA Events Management System.",
     version="0.0.1",
     terms_of_service="http://example.com/terms/",
     contact={
@@ -41,5 +42,6 @@ app.include_router(roles.router, tags=["Roles"], prefix="/roles")
 app.include_router(permissions.router, tags=[
                    "Permissions"], prefix="/permissions")
 app.include_router(countries.router, tags=["Countries"], prefix="/countries")
-app.include_router(organisations.router, tags=[
-                   "Organisations"], prefix="/organisations")
+app.include_router(org_units.router, tags=[
+                   "Org units"], prefix="/org_units")
+app.include_router(events.router, tags=["Events"], prefix="/events")

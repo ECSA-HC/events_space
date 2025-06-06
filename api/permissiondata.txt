@@ -1,32 +1,36 @@
 INSERT INTO permission (permission, permission_code, system_code)
-VALUES ('Add User', 'ADD_USER', 'DONATIV'),
-       ('View User', 'VIEW_USER', 'DONATIV'),
-       ('Update User', 'UPDATE_USER', 'DONATIV'),
-       ('Delete User', 'DELETE_USER', 'DONATIV');
+VALUES ('Add User', 'ADD_USER', 'EVENTS_SPACE'),
+       ('View User', 'VIEW_USER', 'EVENTS_SPACE'),
+       ('Update User', 'UPDATE_USER', 'EVENTS_SPACE'),
+       ('Delete User', 'DELETE_USER', 'EVENTS_SPACE');
 
 INSERT INTO permission (permission, permission_code, system_code)
-VALUES ('View Roles', 'VIEW_ROLE', 'DONATIV'),
-       ('Add Role', 'ADD_ROLE', 'DONATIV'),
-       ('Update Role', 'UPDATE_ROLE', 'DONATIV'),
-       ('Delete Role', 'DELETE_ROLE', 'DONATIV');
+VALUES ('View Roles', 'VIEW_ROLE', 'EVENTS_SPACE'),
+       ('Add Role', 'ADD_ROLE', 'EVENTS_SPACE'),
+       ('Update Role', 'UPDATE_ROLE', 'EVENTS_SPACE'),
+       ('Delete Role', 'DELETE_ROLE', 'EVENTS_SPACE');
 
 INSERT INTO permission (permission, permission_code, system_code)
-VALUES ('View Permission', 'VIEW_PERMISSION', 'DONATIV'),
-       ('Add Permission', 'ADD_PERMISSION', 'DONATIV'),
-       ('Update Permission', 'UPDATE_PERMISSION', 'DONATIV'),
-       ('Delete Permission', 'DELETE_PERMISSION', 'DONATIV');
-
-
-INSERT INTO permission (permission, permission_code, system_code)
-VALUES ('View Organisation', 'VIEW_ORGANISATION', 'DONATIV'),
-       ('Add Organisation', 'ADD_ORGANISATION', 'DONATIV'),
-       ('Update Organisation', 'UPDATE_ORGANISATION', 'DONATIV'),
-       ('Delete Organisation', 'DELETE_ORGANISATION', 'DONATIV');    
-       ('Organisation Verification Approval', 'ORGANISATION_VERIFICATION_APPROVAL', 'DONATIV');    
-
+VALUES ('View Permission', 'VIEW_PERMISSION', 'EVENTS_SPACE'),
+       ('Add Permission', 'ADD_PERMISSION', 'EVENTS_SPACE'),
+       ('Update Permission', 'UPDATE_PERMISSION', 'EVENTS_SPACE'),
+       ('Delete Permission', 'DELETE_PERMISSION', 'EVENTS_SPACE');
 
 
 INSERT INTO permission (permission, permission_code, system_code)
-VALUES ('Organisation Verification Approval', 'ORGANISATION_VERIFICATION_APPROVAL', 'DONATIV');           
+VALUES ('View Organisation Unit', 'VIEW_ORG_UNIT', 'EVENTS_SPACE'),
+       ('Add Organisation Unit', 'ADD_ORG_UNIT', 'EVENTS_SPACE'),
+       ('Update Organisation Unit', 'UPDATE_ORG_UNIT', 'EVENTS_SPACE'),
+       ('Delete Organisation Unit', 'DELETE_ORG_UNIT', 'EVENTS_SPACE'); 
+
+INSERT INTO permission (permission, permission_code, system_code)
+VALUES ('View Event', 'VIEW_EVENT', 'EVENTS_SPACE'),
+       ('Add Event', 'ADD_EVENT', 'EVENTS_SPACE'),
+       ('Update Event', 'UPDATE_EVENT', 'EVENTS_SPACE'),
+       ('Delete Event', 'DELETE_EVENT', 'EVENTS_SPACE');           
+  
+
+INSERT INTO permission (permission, permission_code, system_code)
+VALUES ('Organisation Unit Verification Approval', 'ORG_UNIT_VERIFICATION_APPROVAL', 'EVENTS_SPACE');           
 
           

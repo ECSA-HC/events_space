@@ -1,40 +1,44 @@
 
 
-from schemas.donativ import UserSchema, UserRoleSchema
+import math, os
+import uuid
+import shutil
+from fastapi.responses import JSONResponse
+from schemas.events_space import UserSchema, UserRoleSchema
 from passlib.hash import bcrypt
 import utils.mailer_util as mailer_util
-import math
+from datetime import datetime, timedelta    
 from sqlalchemy import or_
 from starlette import status
 from typing import Annotated
 from core.database import get_db
 from sqlalchemy.orm import Session
 from dependencies.auth_dependency import Auth
-from models.models import User, UserRole
+from models.models import User, UserRole, UserPhoto
 from dependencies.dependency import Dependency
 from dependencies.auth_dependency import get_current_user
-from schemas.donativ import RoleSchema, RolePermissionSchema
+from schemas.events_space import RoleSchema, RolePermissionSchema
 from fastapi import (
     APIRouter,
     HTTPException,
     Depends,
     Query,
-    status, Request
+    status, Request, HTTPException,File,Form,UploadFile
 )
-
 
 router = APIRouter()
 
 user_dependency = Annotated[dict, Depends(get_current_user)]
 
-
 def get_dependency(db: Session = Depends(get_db)) -> Dependency:
     return Dependency(db)
-
 
 def get_auth_dependency(db: Session = Depends(get_db)) -> Auth:
     return Auth(db)
 
+USER_PHOTO_DIR = "uploads/picture/profile_picture/"
+if not os.path.exists(USER_PHOTO_DIR):
+    os.makedirs(USER_PHOTO_DIR)
 
 def get_object(id, db, model):
     data = db.query(model).filter(model.id == id).first()
@@ -84,10 +88,10 @@ async def get_users(
 @router.post("/")
 async def add_user(
     user_schema: UserSchema,
-    user: user_dependency,
+    current_user: user_dependency,
     db: Session = Depends(get_db),
 ):
-    security.secureAccess("ADD_USER", user["id"], db)
+    security.secureAccess("ADD_USER", current_user["user_id"], db)
 
     existing_email = db.query(Users).filter(
         Users.email == user_schema.email).first()
@@ -118,6 +122,136 @@ async def add_user(
         user_schema.email, user_schema.firstname, password)
     return user_schema
 
+@ router.get("/{user_id}")
+async def get_user(
+    request: Request,
+    user_id: int,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    dependency: Dependency = Depends(get_dependency),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    auth_dependency.secure_access("VIEW_USER", current_user["user_id"])
+    client_ip = dependency.request_ip(request)
+
+    dependency.log_activity(
+        current_user['user_id'],
+        'VIEW_USER',
+        current_user['username'],
+        client_ip,
+        f"View user id {user_id} and associated permissions"
+    )
+
+    if user := get_object(user_id, db, User):
+        return {
+            "event": {
+                "id": user.id,
+                "firstname": user.firstname,
+                "lastname": user.lastname,
+                "phone": user.phone,
+                "email": user.email,   
+            },
+            "profile_picture": [
+                {
+                    "id": profile_picture.id,
+                    "profile_picture": profile_picture.path,                 
+                }
+                for profile_picture in user.user_photo
+            ],
+            "events": [
+                {
+                    "id": event.id,
+                    "event": event.event,
+                    "country_id": event.country_id,
+                    "country": event.country.country,
+                    "org_unit_id": event.org_unit_id,
+                    "org_unit": event.org_unit.name,
+                    "user_id": event.user_id,
+                    "firstname": event.user.firstname,
+                    "lastname": event.user.lastname,
+                    "theme": event.theme,
+                    "description": event.description,
+                    "start_date": event.start_date,   
+                    "end_date": event.end_date,
+                }
+                for event in user.events
+            ],          
+        }
+    else:
+        raise HTTPException(status_code=404, detail="user not found")  
+
+@router.post("/upload_user_photo/")
+async def upload_user_photo(
+    current_user: user_dependency,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    try:
+        unique_dir = os.path.join(
+            USER_PHOTO_DIR,
+            f"{current_user["user_id"]}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
+        )
+        os.makedirs(unique_dir, exist_ok=True)
+        file_path = os.path.join(unique_dir, file.filename)
+        with open(file_path, "wb+") as file_object:
+            file_object.write(await file.read())
+
+        user_photo_model = UserPhoto(
+            user_id = current_user["user_id"],
+            path = file_path,
+        )
+        db.add(user_photo_model)
+        db.commit()
+        db.refresh(user_photo_model)
+
+        return JSONResponse(
+            content={
+                "status": "success",
+                "message": f"Photo '{file.filename}' uploaded to '{unique_dir}'",
+                "file_path": file_path,
+            },
+            status_code=200,
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+    
+@ router.delete("/delete_user_photo/{user_photo_id}")
+async def delete_profile_picture(
+    request: Request,
+    user_photo_id: int,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    dependency: Dependency = Depends(get_dependency),
+    auth_dependency: Auth = Depends(get_auth_dependency)
+):
+    client_ip = dependency.request_ip(request)
+    user_photo = get_object(user_photo_id, db, UserPhoto)
+    
+    client_ip = dependency.request_ip(request)
+    dependency.log_activity(
+        current_user['user_id'],
+        'DELETE_PHOTO',
+        current_user['username'],
+        client_ip,
+        f"Delete user photo with user id {user_photo.user_id} and photo id {user_photo.id}"
+    )
+    
+    if not user_photo:
+        raise HTTPException(status_code=404, detail="User photo not found")
+    user_photo_folder = os.path.dirname(user_photo.path)
+    if os.path.exists(user_photo_folder):
+        try:
+            shutil.rmtree(user_photo_folder)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to delete folder: {str(e)}")
+    else:
+        raise HTTPException(status_code=404, detail="Folder not found on disk")
+
+    dependency.hard_delete(UserPhoto, user_photo_id)
+
+    return {"status": "success", "message": f"User photo and folder deleted successfully"}    
+     
 # @router.get("/{user_id}")
 # async def get_user(
 #     user_id: int,
