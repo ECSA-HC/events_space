@@ -1,5 +1,6 @@
 from enum import Enum as PyEnum
 from sqlalchemy.sql import func
+from sqlalchemy import Numeric
 from sqlalchemy import (
     Column,
     Integer,
@@ -62,6 +63,16 @@ class ParticipationRole(PyEnum):
     sponsor = "sponsor"
     moderator = "moderator"
     participant = "participant"
+    
+class PaymentMethod(PyEnum):
+    CASH = "Cash"
+    MPESA = "Mpesa"
+    BANK_TRANSFER = "Bank Transfer"
+    CARD = "Card"
+
+class PaymentStatus(PyEnum):
+    PENDING = "Pending"
+    COMPLETED = "Completed"    
 
 class BaseWithSoftDelete(Base):
     __abstract__ = True
@@ -93,6 +104,7 @@ class User(BaseWithSoftDelete):
     events = relationship("Event", back_populates="user")
     registrations = relationship("Registration", back_populates="user")
     user_photo = relationship("UserPhoto", back_populates="user")
+    user_profile = relationship("UserProfile", back_populates="user")
 
     __table_args__ = (
         Index('ix_user', 'deleted_at', 'email', 'phone', 'id'),
@@ -101,6 +113,31 @@ class User(BaseWithSoftDelete):
     def __repr__(self):
         return f"<User {self.id}>"
 
+
+class UserProfile(BaseWithSoftDelete):
+    __tablename__ = "user_profile"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    country_id = Column(Integer, ForeignKey("country.id"), nullable=False)
+    title = Column(String(10), nullable=False)
+    middle_name = Column(String(100), nullable=False)
+    gender = Column(String(10), nullable=False)
+    created_at = Column(TIMESTAMP(timezone=True),
+                        nullable=False, server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=False,
+                        server_default=func.now(), onupdate=func.now())
+    deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)
+
+    user = relationship("User", back_populates="user_profile")
+
+    __table_args__ = (
+        Index('ix_user_profile',
+              'user_id', 'deleted_at'),
+    )
+
+    def __repr__(self):
+        return f"<UserProfile user_id={self.user_id}, gender={self.gender}>"
 
 class UserPhoto(BaseWithSoftDelete):
     __tablename__ = "user_photo"
@@ -377,9 +414,11 @@ class Registration(Base):
     country_id = Column(Integer, ForeignKey("country.id"), nullable=False)
     event_id = Column(Integer, ForeignKey("event.id"), nullable=False)
     participation_role = Column(Enum(ParticipationRole), nullable=False)
+    profession = Column(String(200), nullable=True)
+    position = Column(String(200), nullable=True)
     paid = Column(Boolean, nullable=False, default=False)
     organisation = Column(String(200), nullable=True)
-    registered_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    registered_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())    
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
     deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)
@@ -387,6 +426,8 @@ class Registration(Base):
     user = relationship("User", back_populates="registrations")
     events = relationship("Event", back_populates="registrations")
     country = relationship("Country", back_populates="registrations")
+    payment = relationship("Payment", back_populates="registration", uselist=False)
+
 
     __table_args__ = (
         UniqueConstraint("user_id", "event_id", name="unique_user_event_registration"),
@@ -394,6 +435,32 @@ class Registration(Base):
 
     def __repr__(self):
         return f"<Registration user_id={self.user_id} event_id={self.event_id} paid={self.paid}>"
+    
+class Payment(Base):
+    __tablename__ = "payment"
+
+    id = Column(Integer, primary_key=True, index=True)
+    registration_id = Column(Integer, ForeignKey("registration.id"), nullable=False)
+    payment_date = Column(TIMESTAMP(timezone=True), nullable=False)
+    payment_method = Column(Enum(PaymentMethod), nullable=False)
+    payment_reference = Column(String(100), nullable=False)  # transaction ID/reference
+    payment_amount = Column(Numeric(10, 2), nullable=False)
+    payment_status = Column(Enum(PaymentStatus), nullable=False)
+    payment_receipt = Column(String(255), nullable=True)  # file path or URL to the receipt
+
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)
+
+    registration = relationship("Registration", back_populates="payment")
+
+    __table_args__ = (
+        UniqueConstraint("registration_id", name="unique_payment"),
+    )
+
+    def __repr__(self):
+        return f"<Payment registration_id={self.registration_id} paid={self.payment_amount}>"   
+    
 
 class Document(BaseWithSoftDelete):
     __tablename__ = "document"

@@ -92,12 +92,26 @@ class EventSchema(BaseModel):
  
  
 class RegistrationSchema(BaseModel):
-    user_id: int
     country_id: int
     event_id: int
+    title: str  
+    firstname: str
+    lastname: str
+    middle_name: str
+    email: EmailStr
+    phone: str 
+    gender: str
+    profession: str
+    position: str
+    organisation: str    
     participation_role: str
-    organisation: str
- 
+    @field_validator('phone')
+    def validate_phone(cls, value):
+        phone_regex = r'^\+?\d{1,4}?[-.\s]?\(?\d{1,3}?\)?[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}$'
+        if not re.match(phone_regex, value):
+            raise ValueError('Invalid phone number format')
+        return value  
+    
 
 class OrganisationSchema(BaseModel):
     country_id: int

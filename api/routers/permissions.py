@@ -37,7 +37,7 @@ async def get_permissions(
     request: Request,
     current_user: user_dependency,
     db: Session = Depends(get_db),
-    skip: int = Query(default=1, ge=1),
+    skip: int = Query(default=0, ge=0),
     limit: int = 10,
     search: str = "",
     dependency: Dependency = Depends(get_dependency),
@@ -52,22 +52,18 @@ async def get_permissions(
         client_ip,
         "Get all permissions"
     )
+    search_filter = or_(
+        Permission.permission.ilike(f"%{search}%"),
+    )
 
-    offset = (skip - 1) * limit
-    query = (
-        db.query(Permission)
-        .filter(or_(Permission.permission.ilike(f"%{search}%")))
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
-    total_count = (
-        db.query(Permission)
-        .filter(or_(Permission.permission.ilike(f"%{search}%")))
-        .count()
-    )
+    permission_query = db.query(Permission).filter(
+        search_filter, Permission.deleted_at == None)
+
+    total_count = permission_query.count()
+    permissions = permission_query.offset(skip).limit(limit).all()
+
     pages = math.ceil(total_count / limit)
-    return {"pages": pages, "data": query}
+    return {"pages": pages, "data": permissions}
 
 
 @router.post("/")

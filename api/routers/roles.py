@@ -38,7 +38,7 @@ async def get_roles(
     request: Request,
     current_user: user_dependency,
     db: Session = Depends(get_db),
-    skip: int = Query(default=1, ge=1),
+    skip: int = Query(default=0, ge=0),
     limit: int = 10,
     search: str = "",
     dependency: Dependency = Depends(get_dependency),
@@ -62,8 +62,7 @@ async def get_roles(
     roles_query = db.query(Role).filter(search_filter)
 
     total_count = roles_query.count()
-    roles = roles_query.offset(
-        (skip - 1) * limit).limit(limit).all()
+    roles = roles_query.offset(skip).limit(limit).all()
 
     pages = math.ceil(total_count / limit)
     return {"pages": pages, "data": roles}

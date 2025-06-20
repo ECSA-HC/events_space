@@ -53,7 +53,7 @@ async def get_users(
     request: Request,
     current_user: user_dependency,
     db: Session = Depends(get_db),
-    skip: int = Query(default=1, ge=1),
+    skip: int = Query(default=0, ge=0),
     limit: int = 10,
     search: str = "",
     dependency: Dependency = Depends(get_dependency),
@@ -78,8 +78,7 @@ async def get_users(
     users_query = db.query(User).filter(search_filter)
 
     total_count = users_query.count()
-    users = users_query.offset(
-        (skip - 1) * limit).limit(limit).all()
+    users = users_query.offset(skip).limit(limit).all()
 
     pages = math.ceil(total_count / limit)
     return {"pages": pages, "data": users}

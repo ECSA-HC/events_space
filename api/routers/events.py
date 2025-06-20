@@ -13,8 +13,23 @@ from dependencies.auth_dependency import Auth
 from dependencies.dependency import Dependency
 from dependencies.auth_dependency import get_current_user
 from fastapi import APIRouter, HTTPException, Depends, Query, Request
-from models.models import Event, User, Registration, Document,Link
+from models.models import Event, User, Registration, Document,Link, UserProfile
 from schemas.events_space import EventSchema, RegistrationSchema, LinkSchema
+
+from fastapi.responses import StreamingResponse
+import io
+import openpyxl
+
+from fastapi.responses import StreamingResponse
+from openpyxl import Workbook
+from io import BytesIO
+from typing import Literal
+from fastapi import Query
+
+import unicodedata
+import re
+import urllib.parse
+
 
 
 router = APIRouter()
@@ -43,24 +58,27 @@ def get_object(id: int, db: Session, model):
         )
     return data
 
+def sanitize_filename(name: str) -> str:
+    # Normalize to remove accents
+    name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
+    # Replace spaces and remove non-word characters
+    name = re.sub(r"[^\w\s-]", "", name).strip().replace(" ", "_")
+    return name
 
 @router.get("/")
 async def get_events(
     request: Request,
-    current_user: user_dependency,
     db: Session = Depends(get_db),
-    skip: int = Query(default=1, ge=1),
+    skip: int = Query(default=0, ge=0),
     limit: int = 10,
     search: str = "",
     dependency: Dependency = Depends(get_dependency),
-    auth_dependency: Auth = Depends(get_auth_dependency),
 ):
-    auth_dependency.secure_access("VIEW_EVENT", current_user['user_id'])
     client_ip = dependency.request_ip(request)
     dependency.log_activity(
-        current_user['user_id'],
+        1,
         'VIEW_EVENTS',
-        current_user['username'],
+        "None",
         client_ip,
         "Get all events"
     )
@@ -75,8 +93,7 @@ async def get_events(
         search_filter, Event.deleted_at == None)
 
     total_count = events_query.count()
-    events = events_query.offset(
-        (skip - 1) * limit).limit(limit).all()
+    events = events_query.offset(skip).limit(limit).all()
 
     pages = math.ceil(total_count / limit)
     return {"pages": pages, "data": events}
@@ -123,18 +140,15 @@ async def add_event(
 async def get_event(
     request: Request,
     event_id: int,
-    current_user: user_dependency,
     db: Session = Depends(get_db),
     dependency: Dependency = Depends(get_dependency),
-    auth_dependency: Auth = Depends(get_auth_dependency),
 ):
-    auth_dependency.secure_access("VIEW_EVENT", current_user["user_id"])
     client_ip = dependency.request_ip(request)
 
     dependency.log_activity(
-        current_user['user_id'],
+        1,
         'VIEW_EVENT',
-        current_user['username'],
+        "None",
         client_ip,
         f"View event id {event_id} and associated permissions"
     )
@@ -151,6 +165,7 @@ async def get_event(
                 "user_id": event.user_id,
                 "firstname": event.user.firstname,
                 "lastname": event.user.lastname,
+                "location": event.location,
                 "theme": event.theme,
                 "description": event.description,
                 "start_date": event.start_date,   
@@ -164,6 +179,13 @@ async def get_event(
                     "lastname": participant.user.lastname,
                     "phone": participant.user.phone,
                     "email": participant.user.email,
+                    "photo": participant.user.user_photo if participant.user.user_photo else None,
+                    "country_id": participant.country_id,
+                    "country": participant.country.country,
+                    "participation_role": participant.participation_role,
+                    "organisation": participant.organisation,  
+                    "paid": participant.paid if hasattr(participant, 'paid') else None,
+                    "registered_at": participant.registered_at, 
                 }
                 for participant in event.registrations
             ],
@@ -257,42 +279,97 @@ async def delete_event(
     )
     return {"detail": "event Successfully deleted"}
 
-@ router.post("/registration/")
+
+@router.post("/registration/")
 async def event_registration(
     request: Request,
     registration_schema: RegistrationSchema,
-    current_user: user_dependency,
     db: Session = Depends(get_db),
     dependency: Dependency = Depends(get_dependency),
     auth_dependency: Auth = Depends(get_auth_dependency),
 ):
     client_ip = dependency.request_ip(request)
     dependency.log_activity(
-        current_user['user_id'],
+        1,
         'ADD_EVENT',
-        current_user['username'],
+        registration_schema.email,
         client_ip,
         registration_schema.event_id
     )
 
-    create_registration_model = Registration(
-        country_id=registration_schema.country_id,
-        user_id=registration_schema.user_id,
-        event_id=registration_schema.event_id,
-        participation_role=registration_schema.participation_role,
-        organisation=registration_schema.organisation,
-        registered_at=datetime.now(),
-        # payment_date=registration_schema.payment_date,
-        # payment_method=registration_schema.payment_method,
-        # payment_reference=registration_schema.payment_reference,
-        # payment_amount=registration_schema.payment_amount,
-        # payment_status=registration_schema.payment_status,
-        # payment_receipt=registration_schema.payment_receipt, 
-    )
-    
-    db.add(create_registration_model)
+    # Check if user exists
+    user = db.query(User).filter(User.email == registration_schema.email).first()
+
+    if user is None:
+        # Create new user
+        role = auth_dependencies.get_user_role('User')
+        hashed_password = auth_dependencies.hash_password("defaultpassword123")  # or generate one securely
+        user = User(
+            firstname=registration_schema.firstname,
+            lastname=registration_schema.lastname,
+            phone=registration_schema.phone,
+            email=registration_schema.email,
+            hashed_password=hashed_password,
+            verified=True,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    else:
+        # Update user info
+        user.firstname = registration_schema.firstname
+        user.lastname = registration_schema.lastname
+        user.phone = registration_schema.phone
+        db.commit()
+
+    # Handle user profile
+    profile = db.query(UserProfile).filter(UserProfile.user_id == user.id).first()
+    if profile:
+        # Update existing profile
+        profile.country_id = registration_schema.country_id
+        profile.title = registration_schema.title
+        profile.middle_name = registration_schema.middle_name
+        profile.gender = registration_schema.gender
+    else:
+        # Create profile
+        profile = UserProfile(
+            user_id=user.id,
+            country_id=registration_schema.country_id,
+            title=registration_schema.title,
+            middle_name=registration_schema.middle_name,
+            gender=registration_schema.gender,
+        )
+        db.add(profile)
     db.commit()
-    return registration_schema
+
+    # Check if registration already exists
+    existing_registration = db.query(Registration).filter(
+        Registration.user_id == user.id,
+        Registration.event_id == registration_schema.event_id
+    ).first()
+
+    if existing_registration:
+        raise HTTPException(
+            status_code=409,
+            detail="User already registered for this event."
+        )
+
+    # Create new registration
+    new_registration = Registration(
+        user_id=user.id,
+        country_id=registration_schema.country_id,
+        event_id=registration_schema.event_id,
+        participation_role=registration_schema.participation_role,  
+        profession=registration_schema.profession,
+        position=registration_schema.position,      
+        organisation=registration_schema.organisation,
+    )
+    db.add(new_registration)
+    db.commit()
+    db.refresh(new_registration)
+
+    return {"message": "Registration successful", "registration_id": new_registration.id}
 
 
 @router.post("/upload_document/")
@@ -457,3 +534,100 @@ async def delete_link(
         f"Delete event id {link} event {link.name}"
     )
     return {"detail": "link Successfully deleted"}
+
+
+@router.get("/{event_id}/participants/download")
+async def download_event_participants(
+    request: Request,
+    event_id: int,
+    current_user: user_dependency,
+    paid: Literal["all", "true", "false"] = Query("all"),
+    db: Session = Depends(get_db),
+    dependency: Dependency = Depends(get_dependency),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    auth_dependency.secure_access("VIEW_EVENT", current_user["user_id"])
+    client_ip = dependency.request_ip(request)
+
+    dependency.log_activity(
+        current_user['user_id'],
+        'DOWNLOAD_PARTICIPANTS',
+        current_user['username'],
+        client_ip,
+        f"Downloaded participants for event {event_id} with filter paid={paid}"
+    )
+
+    event = get_object(event_id, db, Event)
+    if not event:
+        raise HTTPException(status_code=404, detail="event not found")
+
+    # Get participants
+    participants = [
+        {
+            "registration_id": participant.id,
+            "firstname": participant.user.firstname,
+            "lastname": participant.user.lastname,
+            "email": participant.user.email,
+            "phone": participant.user.phone,
+            "organisation": participant.organisation,
+            "country": participant.country.country,
+            "participation_role": participant.participation_role,
+            "paid": participant.paid if hasattr(participant, 'paid') else None,
+            "registered_at": participant.registered_at
+        }
+        for participant in event.registrations
+    ]
+
+
+    # Filter by paid
+    if paid != "all":
+        is_paid = paid == "true"
+        participants = [p for p in participants if p["paid"] == is_paid]
+
+    if not participants:
+        raise HTTPException(status_code=404, detail="No participants found")
+
+    # Create Excel
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Participants"
+
+    headers = [
+        "ID", "First Name", "Last Name", "Email", "Phone",
+        "Organisation", "Country", "Participation Role", "Paid", "Registered At"
+    ]
+    ws.append(headers)
+
+
+    for p in participants:
+        ws.append([
+            p["registration_id"],
+            p["firstname"],
+            p["lastname"],
+            p["email"],
+            p["phone"],
+            p["organisation"],
+            p["country"],
+            p["participation_role"].value if hasattr(p["participation_role"], "value") else str(p["participation_role"]),
+            "Yes" if p["paid"] else "No",
+            p["registered_at"].strftime("%Y-%m-%d %H:%M:%S")
+        ])
+
+
+    # Prepare Excel stream
+    file_stream = BytesIO()
+    wb.save(file_stream)
+    file_stream.seek(0)
+
+    # Sanitize event name for filename
+    safe_event_name = sanitize_filename(event.event)
+    ascii_filename = f"{safe_event_name}_participants.xlsx"
+    utf8_filename = urllib.parse.quote(ascii_filename)
+
+    return StreamingResponse(
+        file_stream,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f"attachment; filename={ascii_filename}; filename*=UTF-8''{utf8_filename}"
+        }
+    )
