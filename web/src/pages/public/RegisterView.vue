@@ -21,6 +21,11 @@
       <div class="space-y-6">
         <h2 class="text-2xl font-semibold text-bondi-blue">Register for this Event</h2>
 
+        <!-- Error Alert -->
+        <div v-if="registrationError" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+          {{ registrationError }}
+        </div>
+
         <form @submit.prevent="handleRegister" class="space-y-4">
           <!-- Personal Details -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -71,16 +76,15 @@
             </div>
           </div>
 
+          <!-- Country -->
           <div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Country *</label>
-                <select v-model="country_id" required class="input-style">
-                  <option disabled value="">Select country</option>
-                  <option v-for="c in countries" :key="c.id" :value="c.id">
-                    {{ c.country }}
-                  </option>
-                </select>
-              </div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Country *</label>
+            <select v-model="country_id" required class="input-style">
+              <option disabled value="">Select country</option>
+              <option v-for="c in countries" :key="c.id" :value="c.id">
+                {{ c.country }}
+              </option>
+            </select>
           </div>
 
           <!-- Contact -->
@@ -115,9 +119,11 @@
           <!-- Submit -->
           <button
             type="submit"
+            :disabled="isSubmitting"
             class="w-full bg-bondi-blue text-white py-3 rounded-2xl font-semibold hover:bg-bondi-blue/90 transition"
           >
-            Register
+            <span v-if="isSubmitting">Registering...</span>
+            <span v-else>Register</span>
           </button>
         </form>
 
@@ -133,41 +139,22 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import api from '@/plugins/axios'
 import DataLoadingSpinner from '@/components/common/DataLoadingSpinner.vue'
 
+// Routing
 const route = useRoute()
+const router = useRouter()
 const eventId = Number(route.params.id)
 
+// State
 const event = ref(null)
 const loading = ref(true)
 const error = ref(null)
-const countries = ref([]) // Holds the country list from API
-
-
-const loadEventData = async () => {
-  loading.value = true
-  error.value = null
-  try {
-    const res = await api.get(`/events/${eventId}`)
-    event.value = res.data.event
-  } catch (err) {
-    error.value = err.response?.data?.detail || 'Failed to load event'
-  } finally {
-    loading.value = false
-  }
-}
-
-onMounted(() => {
-  loadEventData()
-})
-
-const formatDate = (dateStr) => {
-  if (!dateStr) return ''
-  const options = { year: 'numeric', month: 'long', day: 'numeric' }
-  return new Date(dateStr).toLocaleDateString(undefined, options)
-}
+const countries = ref([])
+const registrationError = ref(null)
+const isSubmitting = ref(false)
 
 // Form fields
 const title = ref('')
@@ -183,7 +170,38 @@ const email = ref('')
 const phone = ref('')
 const participation_role = ref('')
 
-// Submit handler
+// Load event
+const loadEventData = async () => {
+  loading.value = true
+  error.value = null
+  try {
+    const res = await api.get(`/events/${eventId}`)
+    event.value = res.data.event
+  } catch (err) {
+    error.value = err.response?.data?.detail || 'Failed to load event'
+  } finally {
+    loading.value = false
+  }
+}
+
+// Fetch countries
+const fetchCountries = async () => {
+  try {
+    const response = await api.get('/countries/', { params: { skip: 0, limit: 100 } })
+    countries.value = response.data.data
+  } catch (err) {
+    console.error('Failed to fetch countries:', err)
+  }
+}
+
+// Format date
+const formatDate = (dateStr) => {
+  if (!dateStr) return ''
+  const options = { year: 'numeric', month: 'long', day: 'numeric' }
+  return new Date(dateStr).toLocaleDateString(undefined, options)
+}
+
+// Form submit
 const handleRegister = async () => {
   const payload = {
     event_id: eventId,
@@ -201,32 +219,23 @@ const handleRegister = async () => {
     participation_role: participation_role.value,
   }
 
-  const isSubmitting = ref(false)
-  const submitted = ref(false)
+  registrationError.value = null
+  isSubmitting.value = true
 
   try {
-    isSubmitting.value = true
     await api.post('/events/registration/', payload)
-    router.push({ name: 'EventPayment' })
+    router.push({ name: 'EventPayment' }) // adjust route name if needed
   } catch (error) {
-    console.error('Failed to register for event:', error.response?.data || error.message)
+    console.error('Failed to register:', error)
+    registrationError.value = error.response?.data?.detail || 'Registration failed. Please try again.'
   } finally {
     isSubmitting.value = false
   }
-
-  console.log('Submitting registration:', payload)
-  // TODO: Send payload to backend via axios.post
 }
 
-const fetchCountries = async () => {
-  try {
-    const response = await api.get('/countries/', { params: { skip: 0, limit: 100 } })
-    countries.value = response.data.data
-  } catch (err) {
-    console.error('Failed to fetch countries:', err)
-  }
-}
+// On mount
 onMounted(() => {
+  loadEventData()
   fetchCountries()
 })
 </script>

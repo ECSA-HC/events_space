@@ -110,7 +110,6 @@ async function loadEventData() {
 
 onMounted(() => {
   loadEventData()
-  fetchCountries()
 })
 
 function formatDate(dateStr) {
