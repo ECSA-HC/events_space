@@ -56,7 +56,7 @@
         <TabPanels class="pt-4">
           <!-- Participants -->
           <TabPanel>
-            <div class="flex justify-end mb-3">
+            <div class="flex justify-end mb-3 space-x-2">
     <select
       @change="downloadParticipants($event.target.value)"
       class="bg-bondi-blue text-white px-4 pr-4 py-2 rounded-full hover:bg-bondi-blue-700"
@@ -66,6 +66,17 @@
       <option value="true">Paid</option>
       <option value="false">Not Paid</option>
     </select>
+
+    <select
+      @change="downloadBadgesAsPDF($event.target.value)"
+      class="bg-bondi-blue text-white px-4 pr-4 py-2 rounded-full hover:bg-bondi-blue-700"
+    >
+      <option disabled selected>Download Badge List</option>
+      <option value="all">All</option>
+      <option value="true">Paid</option>
+      <option value="false">Not Paid</option>
+    </select>
+
   </div>
             <div class="bg-white shadow rounded-lg overflow-auto">
               <table class="min-w-full divide-y divide-gray-200">
@@ -188,12 +199,17 @@
         </TabPanels>
       </TabGroup>
 
-      <ParticipantBadge
-        v-if="showBadge"
-        :participant="selectedParticipant"
-        :event="event"
-        @close="showBadge = false"
-      />
+<ParticipantBadgeModal
+  v-if="selectedParticipant && showBadge"
+  :visible="showBadge"
+  :user="selectedParticipant"
+  :event="event"
+  @close="showBadge = false"
+/>
+
+
+
+
 
       <!-- Upload Document Modal -->
       <UploadDocumentModal
@@ -215,20 +231,21 @@
 </template>
 
 <script setup>
-import { ref, onMounted, defineComponent, h } from 'vue'
+import { ref, onMounted } from 'vue'
 import { TabGroup, TabList, Tab, TabPanels, TabPanel } from '@headlessui/vue'
 import { EyeIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import { useRoute } from 'vue-router'
 import AdminBar from '@/components/common/AdminBar.vue'
 import DataLoadingSpinner from '@/components/common/DataLoadingSpinner.vue'
 import api from '@/plugins/axios'
-import ParticipantBadge from '@/components/specific/ParticipantBadge.vue'
+import ParticipantBadgeModal from '@/components/specific/ParticipantBadgeModal.vue'
 import DetailItem from '@/components/specific/DetailItem.vue'
-
 import UploadDocumentModal from '@/components/specific/UploadDocumentModal.vue'
 import AddLinkModal from '@/components/specific/AddLinkModal.vue'
 
+
 const baseUrl = import.meta.env.VITE_API_BASE_URL
+
 
 const route = useRoute()
 const eventId = Number(route.params.id)
@@ -265,6 +282,40 @@ async function loadEventData() {
     loading.value = false
   }
 }
+
+async function downloadBadgesAsPDF(paidFilter) {
+  if (!paidFilter) return;
+
+  try {
+    const url = `/events/${eventId}/participants/badges?paid=${paidFilter}`;
+    const response = await api.get(url, { responseType: 'blob' });
+
+    const contentDisposition = response.headers['content-disposition'] || '';
+    let filename = 'participant_badges.pdf';
+    const filenameMatch = contentDisposition.match(/filename\*?=.*['"]?([^;'"]+)/);
+    if (filenameMatch && filenameMatch[1]) {
+      filename = decodeURIComponent(filenameMatch[1]);
+    }
+
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const link = document.createElement('a');
+    const objectUrl = URL.createObjectURL(blob);
+
+    link.href = objectUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+
+    // Clean up
+    document.body.removeChild(link);
+    URL.revokeObjectURL(objectUrl);
+
+  } catch (error) {
+    console.error('Failed to download badges PDF:', error);
+    alert('Failed to download participant badges PDF.');
+  }
+}
+
 
 function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString()

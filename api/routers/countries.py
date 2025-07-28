@@ -13,7 +13,7 @@ router = APIRouter()
 async def get_countries(
     db: Session = Depends(get_db),
     skip: int = Query(default=0, ge=0),
-    limit: int = 10,
+    limit: int = 300,
     search: str = "",
 ):
     search_filter = or_(

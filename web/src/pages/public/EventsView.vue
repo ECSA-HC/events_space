@@ -8,9 +8,10 @@
       </p>
     </div>
 
-    <!-- Filters -->
+    <!-- Filters (show only if more than one event) -->
     <div
-      class="bg-white sm:rounded-full rounded-xl shadow-md p-4 mb-6 flex flex-col md:flex-row md:items-end md:space-x-4 space-y-4 md:space-y-0"
+      v-if="filteredEvents.length > 1"
+      class="bg-white sm:rounded-2xl rounded-xl shadow-md p-4 mb-6 flex flex-col md:flex-row md:items-end md:space-x-4 space-y-4 md:space-y-0"
     >
       <div class="flex-1">
         <div class="relative">
@@ -18,7 +19,7 @@
             v-model="filters.search"
             type="text"
             placeholder="Search events..."
-            class="w-full border border-gray-300 rounded-3xl p-3 py-2 pl-10 shadow-sm focus:outline-none focus:ring-2 focus:ring-bondi-blue focus:border-transparent transition"
+            class="w-full border border-gray-300 rounded-xl p-3 py-2 pl-10 shadow-sm focus:outline-none focus:ring-2 focus:ring-bondi-blue focus:border-transparent transition"
           />
           <svg class="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none"
             viewBox="0 0 24 24" stroke="currentColor">
@@ -32,7 +33,7 @@
           v-model="filters.title"
           type="text"
           placeholder="Event title..."
-          class="w-full border border-gray-300 rounded-3xl p-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-bondi-blue focus:border-transparent transition"
+          class="w-full border border-gray-300 rounded-xl p-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-bondi-blue focus:border-transparent transition"
         />
       </div>
       <div class="flex-1">
@@ -40,7 +41,7 @@
           v-model="filters.organizer"
           type="text"
           placeholder="Organizer name..."
-          class="w-full border border-gray-300 rounded-3xl p-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-bondi-blue focus:border-transparent transition"
+          class="w-full border border-gray-300 rounded-xl p-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-bondi-blue focus:border-transparent transition"
         />
       </div>
     </div>
@@ -48,6 +49,11 @@
     <!-- Loading Spinner -->
     <div v-if="isLoading" class="text-center my-10">
       <DataLoadingSpinner />
+    </div>
+
+    <!-- No Events Found -->
+    <div v-else-if="filteredEvents.length === 0" class="text-center text-gray-500 my-10">
+      No events found.
     </div>
 
     <!-- Events List -->
@@ -59,19 +65,22 @@
         class="bg-white rounded-xl shadow-md p-5 hover:shadow-lg transition cursor-pointer"
       >
         <h3 class="text-lg font-semibold text-gray-800">{{ event.event }}</h3>
-        <p class="text-sm text-gray-500">Organized by: Org Unit ID {{ event.org_unit_id }}</p>
+        <p class="text-sm text-gray-500">Organized by: {{ event.org_unit.name }}</p>
         <p class="text-sm text-gray-600 mt-1">
           <strong>Date:</strong> {{ formatDate(event.start_date) }}
         </p>
         <p class="text-sm text-gray-600">
           <strong>Location:</strong> {{ event.location }}
         </p>
-        <p class="text-sm text-gray-700 mt-2">{{ event.description }}</p>
+        <p class="text-sm text-gray-700 mt-2">{{ event.theme }}</p>
       </router-link>
     </div>
 
-    <!-- Pagination -->
-    <div class="mt-8 flex justify-center items-center space-x-2">
+    <!-- Pagination (only if more than one event) -->
+    <div
+      v-if="filteredEvents.length > 1"
+      class="mt-8 flex justify-center items-center space-x-2"
+    >
       <button
         @click="prevPage"
         :disabled="currentPage === 1"
@@ -178,33 +187,30 @@ export default {
       alert(`Clicked event: ${event.event}`);
     };
 
-    // Auto-fetch on mount
     onMounted(() => {
       fetchEvents();
     });
 
-    // Debounce search
     watch(filters, debounce(fetchEvents, 500), { deep: true });
 
     return {
-  events,
-  filters,
-  isLoading,
-  currentPage,
-  perPage,
-  filteredEvents, // ← Add this line
-  paginatedEvents,
-  endIndex,
-  nextPage,
-  prevPage,
-  formatDate,
-  onEventClick,
-};
-
+      events,
+      filters,
+      isLoading,
+      currentPage,
+      perPage,
+      filteredEvents,
+      paginatedEvents,
+      endIndex,
+      nextPage,
+      prevPage,
+      formatDate,
+      onEventClick,
+    };
   },
 };
 </script>
 
 <style scoped>
-/* Add any additional styling if needed */
+/* Add additional styles if needed */
 </style>

@@ -1,13 +1,18 @@
 <template>
   <section class="max-w-7xl px-4 py-6 space-y-12">
     <!-- Featured Event -->
-    <div class="bg-white shadow-lg rounded-2xl p-6 sm:p-10 space-y-6 text-center">
-      <h1 class="text-4xl sm:text-5xl font-black font-title bg-gradient-to-r from-bondi-blue to-yellow-orange text-transparent bg-clip-text">
-        African Digital Health Summit 2025
-      </h1>
+    <div
+      v-if="featuredEvent"
+      class="bg-white shadow-lg rounded-2xl p-6 sm:p-10 space-y-6 text-center"
+    >
+      <router-link :to="{ name: 'Event', params: { id: featuredEvent.id } }"
+        class="text-3xl sm:text-4xl font-black font-title bg-gradient-to-r from-bondi-blue to-yellow-orange text-transparent bg-clip-text"
+      >
+        {{ featuredEvent.event }}
+      </router-link>
 
       <p class="text-lg sm:text-xl text-gray-700 font-medium">
-        “Innovating Health Systems through Digital Transformation”
+        {{ featuredEvent.theme }}
       </p>
 
       <div class="flex justify-center items-center gap-2 text-gray-600 text-sm sm:text-base">
@@ -15,43 +20,45 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
-        <span>July 15–17, 2025</span>
+        <span>{{ formatDate(featuredEvent.start_date) }} - {{ formatDate(featuredEvent.end_date) }}</span>
       </div>
 
       <div class="flex justify-center items-center gap-2 text-gray-600 text-sm sm:text-base">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-orange" fill="currentColor" viewBox="0 0 20 20">
           <path fill-rule="evenodd" d="M5 8a5 5 0 1110 0c0 3-5 9-5 9S5 11 5 8zm5-2a2 2 0 100 4 2 2 0 000-4z" clip-rule="evenodd" />
         </svg>
-        <span class="text-bondi-blue font-medium">Arusha International Conference Centre, Tanzania</span>
+        <span class="text-bondi-blue font-medium">{{ featuredEvent.location }}</span>
       </div>
 
       <div class="text-sm text-gray-600">
-        Organised by <span class="text-bondi-blue font-bold">ECSA-HC</span>
+        Organised by <span class="text-bondi-blue font-bold">{{ featuredEvent.org_unit.name }}</span>
       </div>
-
-      <button class="mt-4 bg-bondi-blue text-white px-6 py-3 rounded-full text-sm sm:text-base font-normal hover:bg-bondi-blue/90 transition">
+<div></div>
+      <router-link :to="{ name: 'Register', params: { id: featuredEvent.id } }" class="mt-4 bg-bondi-blue text-white px-6 py-3 rounded-full text-sm sm:text-base font-normal hover:bg-bondi-blue/90 transition">
         Register Now
-      </button>
+      </router-link>
     </div>
 
     <!-- All Events -->
-    <div>
+    <div v-if="events.length > 0">
       <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">All Upcoming Events</h2>
 
-      <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <DataLoadingSpinner v-if="isLoading" />
+
+      <div v-else class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <div
           v-for="event in paginatedEvents"
           :key="event.id"
           class="bg-white rounded-xl shadow p-5 space-y-4"
         >
-          <h3 class="text-xl font-semibold text-gray-800">{{ event.title }}</h3>
+          <h3 class="text-xl font-semibold text-gray-800">{{ event.event }}</h3>
 
           <div class="flex items-center gap-2 text-gray-600 text-sm">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-bondi-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            <span>{{ event.date }}</span>
+            <span>{{ formatDate(event.start_date) }}</span>
           </div>
 
           <div class="flex items-center gap-2 text-gray-600 text-sm">
@@ -62,12 +69,12 @@
           </div>
 
           <div class="text-sm text-gray-600">
-            Organised by <span class="text-bondi-blue font-bold">{{ event.organiser }}</span>
+            Organised by <span class="text-bondi-blue font-bold">{{ event.org_unit.name }}</span>
           </div>
 
-          <button class="mt-2 bg-white border border-bondi-blue text-bondi-blue px-4 py-2 rounded-full text-sm font-normal hover:bg-bondi-blue/10 transition">
-            View Details
-          </button>
+          <router-link :to="{ name: 'Event', params: { id: event.id } }" class="mt-2 bg-white border border-bondi-blue text-bondi-blue px-4 py-2 rounded-full text-sm font-normal hover:bg-bondi-blue/10 transition">
+            View Event Details
+          </router-link>
         </div>
       </div>
 
@@ -104,75 +111,69 @@
   </section>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
+<script>
+import { ref, computed, onMounted } from 'vue'
+import api from '@/plugins/axios'
+import DataLoadingSpinner from '@/components/common/DataLoadingSpinner.vue'
 
-const events = [
-  {
-    id: 1,
-    title: 'Regional Health Innovation Fair',
-    date: 'August 10, 2025',
-    location: 'Nairobi, Kenya',
-    organiser: 'ECSA-HC'
-  },
-  {
-    id: 2,
-    title: 'Digital Health Policy Workshop',
-    date: 'September 5, 2025',
-    location: 'Kigali, Rwanda',
-    organiser: 'COSECSA'
-  },
-  {
-    id: 3,
-    title: 'Community eHealth Outreach',
-    date: 'October 20, 2025',
-    location: 'Lilongwe, Malawi',
-    organiser: 'CANESCA'
-  },
-  {
-    id: 4,
-    title: 'mHealth Design Sprint',
-    date: 'November 12, 2025',
-    location: 'Lusaka, Zambia',
-    organiser: 'ECSACOG'
-  },
-  {
-    id: 5,
-    title: 'Telemedicine Training Bootcamp',
-    date: 'December 2, 2025',
-    location: 'Dar es Salaam, Tanzania',
-    organiser: 'ECSACOP'
-  },
-  {
-    id: 6,
-    title: 'eHealth Developers Hackathon',
-    date: 'January 15, 2026',
-    location: 'Addis Ababa, Ethiopia',
-    organiser: 'ECSA-HC'
-  },
-  {
-    id: 7,
-    title: 'Health Tech Expo 2026',
-    date: 'March 10, 2026',
-    location: 'Gaborone, Botswana',
-    organiser: 'COSECSA'
-  },
-]
+export default {
+  name: 'EventsView',
+  components: { DataLoadingSpinner },
+  setup() {
+    const isLoading = ref(false)
+    const events = ref([])
+    const featuredEvent = ref(null)
+    const currentPage = ref(1)
+    const perPage = ref(6)
 
-const currentPage = ref(1)
-const perPage = 3
+    const fetchEvents = async () => {
+      isLoading.value = true
+      try {
+        const response = await api.get('/events/')
+        const allEvents = response.data.data || []
 
-const totalPages = computed(() => Math.ceil(events.length / perPage))
+        const sorted = allEvents.sort((a, b) => new Date(a.start_date) - new Date(b.start_date))
+        featuredEvent.value = sorted[0] || null
+        events.value = sorted.slice(1)
+      } catch (error) {
+        console.error('Error fetching events:', error.response?.data || error.message)
+      } finally {
+        isLoading.value = false
+      }
+    }
 
-const paginatedEvents = computed(() => {
-  const start = (currentPage.value - 1) * perPage
-  return events.slice(start, start + perPage)
-})
+    const paginatedEvents = computed(() => {
+      const start = (currentPage.value - 1) * perPage.value
+      return events.value.slice(start, start + perPage.value)
+    })
 
-function goToPage(page) {
-  if (page >= 1 && page <= totalPages.value) {
-    currentPage.value = page
-  }
+    const totalPages = computed(() => Math.ceil(events.value.length / perPage.value))
+
+    const goToPage = (page) => {
+      if (page >= 1 && page <= totalPages.value) {
+        currentPage.value = page
+      }
+    }
+
+    const formatDate = (dateStr) => {
+      const options = { year: 'numeric', month: 'long', day: 'numeric' }
+      return new Date(dateStr).toLocaleDateString(undefined, options)
+    }
+
+    onMounted(fetchEvents)
+
+    return {
+      isLoading,
+      featuredEvent,
+      events,
+      paginatedEvents,
+      currentPage,
+      perPage,
+      totalPages,
+      goToPage,
+      formatDate,
+    }
+  },
 }
 </script>
 

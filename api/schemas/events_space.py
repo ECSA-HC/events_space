@@ -10,12 +10,22 @@ class UserSchema(BaseModel):
     phone: str
     email: EmailStr
 
-    @field_validator('phone')
+    @field_validator("phone")
     def validate_phone(cls, value):
-        phone_regex = r'^\+?\d{1,4}?[-.\s]?\(?\d{1,3}?\)?[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}$'
+        phone_regex = r"^\+?\d{1,4}?[-.\s]?\(?\d{1,3}?\)?[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}$"
         if not re.match(phone_regex, value):
-            raise ValueError('Invalid phone number format')
+            raise ValueError("Invalid phone number format")
         return value
+
+
+class ProfileSchema(BaseModel):
+    title: str
+    middle_name: str
+    country_id: int
+    gender: str
+    organisation: str
+    position: str
+    profession: str
 
 
 class EmailSchema(BaseModel):
@@ -61,12 +71,13 @@ class CountrySchema(BaseModel):
     country: str
     short_code: str
     phone_code: str
-    
+
+
 class OrgUnitSchema(BaseModel):
     name: str
     type: str
-    description: str    
- 
+    description: str
+
 
 class EventSchema(BaseModel):
     org_unit_id: int
@@ -78,40 +89,23 @@ class EventSchema(BaseModel):
     end_date: date
     location: str
 
-    @field_validator('start_date', 'end_date')
+    @field_validator("start_date", "end_date")
     def check_dates_not_in_past(cls, v: date):
         if v < date.today():
-            raise ValueError('Date must be today or in the future')
+            raise ValueError("Date must be today or in the future")
         return v
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def check_date_order(self):
         if self.end_date < self.start_date:
-            raise ValueError('end_date must be after or equal to start_date')
+            raise ValueError("end_date must be after or equal to start_date")
         return self
- 
- 
+
+
 class RegistrationSchema(BaseModel):
-    country_id: int
     event_id: int
-    title: str  
-    firstname: str
-    lastname: str
-    middle_name: str
-    email: EmailStr
-    phone: str 
-    gender: str
-    profession: str
-    position: str
-    organisation: str    
     participation_role: str
-    @field_validator('phone')
-    def validate_phone(cls, value):
-        phone_regex = r'^\+?\d{1,4}?[-.\s]?\(?\d{1,3}?\)?[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}$'
-        if not re.match(phone_regex, value):
-            raise ValueError('Invalid phone number format')
-        return value  
-    
+
 
 class OrganisationSchema(BaseModel):
     country_id: int

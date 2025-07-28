@@ -1,42 +1,68 @@
 <template>
   <div class="flex-1 flex flex-col max-w-7xl w-full mx-auto overflow-hidden">
     <!-- Admin Bar -->
-    <AdminBar title="Add Role">
-      <a href="#" class="text-sm text-blue-600 hover:underline">Roles</a>
+    <AdminBar title="Add User">
+      <a href="#" class="text-sm text-blue-600 hover:underline">Users</a>
       <span class="mx-2 text-sm text-gray-500">/</span>
       <span class="text-sm text-gray-700">Add</span>
     </AdminBar>
 
     <!-- Page Title -->
     <div class="px-6 pt-4 pb-2">
-      <h1 class="text-xl font-bold text-gray-800">Add Role</h1>
+      <h1 class="text-xl font-bold text-gray-800">Add User</h1>
     </div>
 
-    <!-- Add Role Form -->
+    <!-- Add User Form -->
     <main class="px-6 pb-6">
       <div class="w-full bg-white shadow rounded-lg p-6">
-        <form @submit.prevent="submitRole" class="space-y-4" novalidate>
-          <!-- Role Field -->
+        <form @submit.prevent="submitUser" class="space-y-4" novalidate>
+          <!-- First Name -->
           <div class="mb-4 w-full md:w-1/2">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Role</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">First Name</label>
             <input
-              v-model="newRole.role"
+              v-model="newUser.firstname"
               type="text"
               required
-              autofocus
               class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0095B6]"
             />
-            <p v-if="submitted && !newRole.role" class="text-sm text-red-500 mt-1">Role is required.</p>
+            <p v-if="submitted && !newUser.firstname" class="text-sm text-red-500 mt-1">First name is required.</p>
           </div>
 
-          <!-- Description Field -->
-          <div class="mb-6 w-full md:w-1/2">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-            <textarea
-              v-model="newRole.description"
-              rows="4"
+          <!-- Last Name -->
+          <div class="mb-4 w-full md:w-1/2">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+            <input
+              v-model="newUser.lastname"
+              type="text"
+              required
               class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0095B6]"
-            ></textarea>
+            />
+            <p v-if="submitted && !newUser.lastname" class="text-sm text-red-500 mt-1">Last name is required.</p>
+          </div>
+
+          <!-- Phone -->
+          <div class="mb-4 w-full md:w-1/2">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+            <input
+              v-model="newUser.phone"
+              type="tel"
+              required
+              placeholder="+1234567890"
+              class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0095B6]"
+            />
+            <p v-if="submitted && !newUser.phone" class="text-sm text-red-500 mt-1">Phone number is required.</p>
+          </div>
+
+          <!-- Email -->
+          <div class="mb-6 w-full md:w-1/2">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+            <input
+              v-model="newUser.email"
+              type="email"
+              required
+              class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0095B6]"
+            />
+            <p v-if="submitted && !newUser.email" class="text-sm text-red-500 mt-1">Valid email is required.</p>
           </div>
 
           <!-- Buttons -->
@@ -44,13 +70,13 @@
             <LoadingButton
               :loading="isSubmitting"
               :loadingLabel="'Saving...'"
-              @click="submitRole"
+              @click="submitUser"
             >
-              Save Role
+              Save User
             </LoadingButton>
 
             <router-link
-              :to="{ name: 'Roles' }"
+              :to="{ name: 'Users' }"
               class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-2 rounded-xl transition"
             >
               Cancel
@@ -70,27 +96,29 @@ import LoadingButton from '@/components/common/LoadingButton.vue'
 import api from '@/plugins/axios'
 
 const router = useRouter()
-const newRole = ref({
-  role: '',
-  description: ''
+const newUser = ref({
+  firstname: '',
+  lastname: '',
+  phone: '',
+  email: ''
 })
 
 const isSubmitting = ref(false)
 const submitted = ref(false)
 
-const submitRole = async () => {
+const submitUser = async () => {
   submitted.value = true
 
-  if (!newRole.value.role) {
+  if (!newUser.value.firstname || !newUser.value.lastname || !newUser.value.phone || !newUser.value.email) {
     return
   }
 
   try {
     isSubmitting.value = true
-    await api.post('/roles/', newRole.value)
-    router.push({ name: 'Roles' })
+    await api.post('/users/', newUser.value)
+    router.push({ name: 'Users' })
   } catch (error) {
-    console.error('Failed to create role:', error.response?.data || error.message)
+    console.error('Failed to create user:', error.response?.data || error.message)
   } finally {
     isSubmitting.value = false
   }

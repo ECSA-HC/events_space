@@ -1,62 +1,72 @@
 import math, os
 import uuid
 import shutil
+import io
+from fastapi.responses import StreamingResponse
+from openpyxl import Workbook
+from io import BytesIO
+from typing import Literal
 from fastapi.responses import JSONResponse
 from sqlalchemy import or_
-from fastapi import status, HTTPException,File,Form,UploadFile
+from fastapi import status, HTTPException, File, Form, UploadFile
 from typing import Annotated
 from core.database import get_db
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 import utils.mailer_util as mailer_util
 from datetime import datetime, timedelta
 from dependencies.auth_dependency import Auth
 from dependencies.dependency import Dependency
 from dependencies.auth_dependency import get_current_user
 from fastapi import APIRouter, HTTPException, Depends, Query, Request
-from models.models import Event, User, Registration, Document,Link, UserProfile
+from models.models import Event, User, Registration, Document, Link, Payment
 from schemas.events_space import EventSchema, RegistrationSchema, LinkSchema
 
-from fastapi.responses import StreamingResponse
-import io
-import openpyxl
+from PIL import Image
+
+
+from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
+import qrcode
+
 
 from fastapi.responses import StreamingResponse
-from openpyxl import Workbook
-from io import BytesIO
-from typing import Literal
-from fastapi import Query
+
+from reportlab.lib.units import mm
+from reportlab.pdfgen import canvas
+
 
 import unicodedata
 import re
 import urllib.parse
 
 
-
 router = APIRouter()
 
 user_dependency = Annotated[dict, Depends(get_current_user)]
 
+
 def get_dependency(db: Session = Depends(get_db)) -> Dependency:
     return Dependency(db)
 
+
 def get_auth_dependency(db: Session = Depends(get_db)) -> Auth:
     return Auth(db)
+
 
 EVENT_DOCUMENT_DIR = "uploads/event/documents"
 if not os.path.exists(EVENT_DOCUMENT_DIR):
     os.makedirs(EVENT_DOCUMENT_DIR)
 
+
 def get_object(id: int, db: Session, model):
-    data = db.query(model).filter(
-        model.id == id,
-        model.deleted_at.is_(None)
-    ).first()
+    data = db.query(model).filter(model.id == id).first()
     if data is None:
         raise HTTPException(
             status_code=404,
-            detail=f"{model.__name__} with ID {id} does not exist or has been deleted"
+            detail=f"{model.__name__} with ID {id} does not exist or has been deleted",
         )
     return data
+
 
 def sanitize_filename(name: str) -> str:
     # Normalize to remove accents
@@ -64,6 +74,37 @@ def sanitize_filename(name: str) -> str:
     # Replace spaces and remove non-word characters
     name = re.sub(r"[^\w\s-]", "", name).strip().replace(" ", "_")
     return name
+
+
+# Define mapping of participation_role keys to display names
+PARTICIPATION_ROLE_MAP = {
+    "secretariat": "ECSA-HC secretariat",
+    "moh": "Country delegate (from Ministry of Health)",
+    "member_state": "Participant from ECSA Member States",
+    "other_africa": "Participant from other African countries",
+    "world": "Participant from the Rest of the World",
+    "student": "Student",
+    "exibitor": "Sponsor/Exhibitor",
+}
+
+
+def convert_png_to_rgb(path):
+    img = Image.open(path)
+    if img.mode in ("RGBA", "LA"):
+        background = Image.new("RGB", img.size, (255, 255, 255))
+        background.paste(img, mask=img.split()[3])  # Use alpha channel as mask
+        return ImageReader(background)
+    return ImageReader(img)
+
+
+def normalize_event_name(name: str) -> str:
+    return (
+        name.replace("ᵗʰ", "th")
+        .replace("ˢᵗ", "st")
+        .replace("ⁿᵈ", "nd")
+        .replace("ʳᵈ", "rd")
+    )
+
 
 @router.get("/")
 async def get_events(
@@ -75,22 +116,19 @@ async def get_events(
     dependency: Dependency = Depends(get_dependency),
 ):
     client_ip = dependency.request_ip(request)
-    dependency.log_activity(
-        1,
-        'VIEW_EVENTS',
-        "None",
-        client_ip,
-        "Get all events"
-    )
+    dependency.log_activity(1, "VIEW_EVENTS", "None", client_ip, "Get all events")
 
     search_filter = or_(
         Event.event.ilike(f"%{search}%"),
         Event.theme.ilike(f"%{search}%"),
         Event.description.ilike(f"%{search}%"),
-    )  
-      
-    events_query = db.query(Event).filter(
-        search_filter, Event.deleted_at == None)
+    )
+
+    filters = [Event.deleted_at.is_(None)]
+    if search_filter is not None:
+        filters.insert(0, search_filter)
+
+    events_query = db.query(Event).options(joinedload(Event.org_unit)).filter(*filters)
 
     total_count = events_query.count()
     events = events_query.offset(skip).limit(limit).all()
@@ -99,7 +137,7 @@ async def get_events(
     return {"pages": pages, "data": events}
 
 
-@ router.post("/")
+@router.post("/")
 async def add_event(
     request: Request,
     event_schema: EventSchema,
@@ -112,11 +150,11 @@ async def add_event(
 
     client_ip = dependency.request_ip(request)
     dependency.log_activity(
-        current_user['user_id'],
-        'ADD_EVENT',
-        current_user['username'],
+        current_user["user_id"],
+        "ADD_EVENT",
+        current_user["username"],
         client_ip,
-        event_schema.event
+        event_schema.event,
     )
 
     create_event_model = Event(
@@ -130,13 +168,13 @@ async def add_event(
         start_date=event_schema.start_date,
         end_date=event_schema.end_date,
     )
-    
+
     db.add(create_event_model)
     db.commit()
     return event_schema
 
 
-@ router.get("/{event_id}")
+@router.get("/{event_id}")
 async def get_event(
     request: Request,
     event_id: int,
@@ -147,73 +185,95 @@ async def get_event(
 
     dependency.log_activity(
         1,
-        'VIEW_EVENT',
+        "VIEW_EVENT",
         "None",
         client_ip,
-        f"View event id {event_id} and associated permissions"
+        f"View event id {event_id} and associated permissions",
     )
 
     if event := get_object(event_id, db, Event):
+        registrations = event.registrations or []
+        documents = event.documents or []
+        links = event.links or []
+
         return {
             "event": {
                 "id": event.id,
                 "event": event.event,
                 "country_id": event.country_id,
-                "country": event.country.country,
+                "country": event.country.country if event.country else None,
                 "org_unit_id": event.org_unit_id,
-                "org_unit": event.org_unit.name,
+                "org_unit": event.org_unit.name if event.org_unit else None,
                 "user_id": event.user_id,
-                "firstname": event.user.firstname,
-                "lastname": event.user.lastname,
+                "firstname": event.user.firstname if event.user else None,
+                "lastname": event.user.lastname if event.user else None,
                 "location": event.location,
                 "theme": event.theme,
                 "description": event.description,
-                "start_date": event.start_date,   
-                "end_date": event.end_date,   
+                "start_date": event.start_date,
+                "end_date": event.end_date,
+                "participation_role": (
+                    registrations[0].participation_role if registrations else None
+                ),
             },
             "participants": [
                 {
-                    "id": participant.id,
-                    "user_id": participant.user_id,
-                    "firstname": participant.user.firstname,
-                    "lastname": participant.user.lastname,
-                    "phone": participant.user.phone,
-                    "email": participant.user.email,
-                    "photo": participant.user.user_photo if participant.user.user_photo else None,
-                    "country_id": participant.country_id,
-                    "country": participant.country.country,
-                    "participation_role": participant.participation_role,
-                    "organisation": participant.organisation,  
-                    "paid": participant.paid if hasattr(participant, 'paid') else None,
-                    "registered_at": participant.registered_at, 
+                    "id": r.id,
+                    "user_id": r.user_id,
+                    "firstname": r.user.firstname if r.user else None,
+                    "lastname": r.user.lastname if r.user else None,
+                    "phone": r.user.phone if r.user else None,
+                    "email": r.user.email if r.user else None,
+                    "photo": (
+                        r.user.user_photo if r.user and r.user.user_photo else None
+                    ),
+                    "country_id": (
+                        r.user.user_profile[0].country_id
+                        if r.user and r.user.user_profile
+                        else None
+                    ),
+                    "country": (
+                        r.user.user_profile[0].country.country
+                        if r.user and r.user.user_profile
+                        else None
+                    ),
+                    "participation_role": r.participation_role,
+                    "organisation": (
+                        r.user.user_profile[0].organisation
+                        if r.user and r.user.user_profile
+                        else None
+                    ),
+                    "paid": getattr(r, "paid", None),
+                    "registered_at": r.registered_at,
                 }
-                for participant in event.registrations
+                for r in registrations
             ],
             "documents": [
                 {
-                    "id": document.id,
-                    "document_type": document.document_type,
-                    "file_type": document.file_type,
-                    "file_name": document.file_name,
-                    "name": document.name,
-                    "path": document.path,
-                    "access_level": document.access_level,                    
+                    "id": d.id,
+                    "document_type": d.document_type,
+                    "file_type": d.file_type,
+                    "file_name": d.file_name,
+                    "name": d.name,
+                    "path": d.path,
+                    "access_level": d.access_level,
                 }
-                for document in event.documents
+                for d in documents
             ],
             "links": [
                 {
-                    "id": link.id,
-                    "name": link.name,
-                    "link": link.link,
+                    "id": l.id,
+                    "name": l.name,
+                    "link": l.link,
                 }
-                for link in event.links
-            ],            
+                for l in links
+            ],
         }
     else:
-        raise HTTPException(status_code=404, detail="event not found")    
-    
-@ router.put("/{event_id}")
+        raise HTTPException(status_code=404, detail="event not found")
+
+
+@router.put("/{event_id}")
 async def update_event(
     request: Request,
     event_id: int,
@@ -221,19 +281,18 @@ async def update_event(
     event_schema: EventSchema,
     db: Session = Depends(get_db),
     dependency: Dependency = Depends(get_dependency),
-    auth_dependency: Auth = Depends(get_auth_dependency)
+    auth_dependency: Auth = Depends(get_auth_dependency),
 ):
-    auth_dependency.secure_access(
-        "UPDATE_EVENT", current_user["user_id"])
+    auth_dependency.secure_access("UPDATE_EVENT", current_user["user_id"])
 
     client_ip = dependency.request_ip(request)
 
     dependency.log_activity(
-        current_user['user_id'],
-        'UPDATE_EVENT',
-        current_user['username'],
+        current_user["user_id"],
+        "UPDATE_EVENT",
+        current_user["username"],
         client_ip,
-        f"Update event id {event_id}"
+        f"Update event id {event_id}",
     )
     event_model = get_object(event_id, db, Event)
 
@@ -246,23 +305,22 @@ async def update_event(
     event_model.location = event_schema.location
     event_model.start_date = event_schema.start_date
     event_model.end_date = event_schema.end_date
-        
+
     db.commit()
     db.refresh(event_model)
     return event_schema
 
 
-@ router.delete("/{event_id}")
+@router.delete("/{event_id}")
 async def delete_event(
     request: Request,
     event_id: int,
     current_user: user_dependency,
     db: Session = Depends(get_db),
     dependency: Dependency = Depends(get_dependency),
-    auth_dependency: Auth = Depends(get_auth_dependency)
+    auth_dependency: Auth = Depends(get_auth_dependency),
 ):
-    auth_dependency.secure_access(
-        "DELETE_EVENT", current_user["user_id"])
+    auth_dependency.secure_access("DELETE_EVENT", current_user["user_id"])
 
     dependency.cascade_soft_delete_recursive(Event, event_id)
 
@@ -271,105 +329,182 @@ async def delete_event(
 
     client_ip = dependency.request_ip(request)
     dependency.log_activity(
-        current_user['user_id'],
-        'DELETE_EVENT',
-        current_user['username'],
+        current_user["user_id"],
+        "DELETE_EVENT",
+        current_user["username"],
         client_ip,
-        f"Delete event id {event_id} event {event.event}"
+        f"Delete event id {event_id} event {event.event}",
     )
     return {"detail": "event Successfully deleted"}
 
 
-@router.post("/registration/")
-async def event_registration(
+@router.get("/registration/{registration_id}")
+async def get_registration_details(
     request: Request,
-    registration_schema: RegistrationSchema,
+    registration_id: int,
     db: Session = Depends(get_db),
     dependency: Dependency = Depends(get_dependency),
-    auth_dependency: Auth = Depends(get_auth_dependency),
 ):
     client_ip = dependency.request_ip(request)
+
     dependency.log_activity(
         1,
-        'ADD_EVENT',
-        registration_schema.email,
+        "VIEW_REGISTRATION",
+        "None",
         client_ip,
-        registration_schema.event_id
+        f"View registration ID {registration_id}",
     )
 
-    # Check if user exists
-    user = db.query(User).filter(User.email == registration_schema.email).first()
+    registration = get_object(registration_id, db, Registration)
+    if not registration:
+        raise HTTPException(status_code=404, detail="Registration not found")
 
-    if user is None:
-        # Create new user
-        role = auth_dependencies.get_user_role('User')
-        hashed_password = auth_dependencies.hash_password("defaultpassword123")  # or generate one securely
-        user = User(
-            firstname=registration_schema.firstname,
-            lastname=registration_schema.lastname,
-            phone=registration_schema.phone,
-            email=registration_schema.email,
-            hashed_password=hashed_password,
-            verified=True,
+    user = db.query(User).filter(User.id == registration.user_id).first()
+    event = db.query(Event).filter(Event.id == registration.event_id).first()
+
+    return {
+        "registration": {
+            "id": registration.id,
+            "user_id": registration.user_id,
+            "event_id": registration.event_id,
+            "participation_role": registration.participation_role.name,
+            "paid": registration.paid,
+            "created_at": registration.created_at,
+            "updated_at": registration.updated_at,
+        },
+        "user": (
+            {
+                "id": user.id,
+                "firstname": user.firstname,
+                "lastname": user.lastname,
+                "email": user.email,
+                "phone": user.phone,
+            }
+            if user
+            else None
+        ),
+        "event": (
+            {
+                "id": event.id,
+                "event": event.event,
+                "location": event.location,
+                "start_date": event.start_date,
+                "end_date": event.end_date,
+            }
+            if event
+            else None
+        ),
+    }
+
+
+@router.post("/registration/{user_id}")
+async def event_registration(
+    request: Request,
+    user_id: int,
+    registration_schema: RegistrationSchema,
+    # current_user: user_dependency,
+    db: Session = Depends(get_db),
+    dependency: Dependency = Depends(get_dependency),
+    # auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    # user = db.query(User).filter(User.id == user_id).first()
+    # client_ip = dependency.request_ip(request)
+
+    # dependency.log_activity(
+    #     1,
+    #     "EVENT_REGISTRATION",
+    #     user.email,
+    #     client_ip,
+    #     f"Event ID: {registration_schema.event_id}",
+    # )
+
+    # Check for existing registration
+    existing_registration = (
+        db.query(Registration)
+        .filter(
+            Registration.user_id == user_id,
+            Registration.event_id == registration_schema.event_id,
         )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-    else:
-        # Update user info
-        user.firstname = registration_schema.firstname
-        user.lastname = registration_schema.lastname
-        user.phone = registration_schema.phone
-        db.commit()
-
-    # Handle user profile
-    profile = db.query(UserProfile).filter(UserProfile.user_id == user.id).first()
-    if profile:
-        # Update existing profile
-        profile.country_id = registration_schema.country_id
-        profile.title = registration_schema.title
-        profile.middle_name = registration_schema.middle_name
-        profile.gender = registration_schema.gender
-    else:
-        # Create profile
-        profile = UserProfile(
-            user_id=user.id,
-            country_id=registration_schema.country_id,
-            title=registration_schema.title,
-            middle_name=registration_schema.middle_name,
-            gender=registration_schema.gender,
-        )
-        db.add(profile)
-    db.commit()
-
-    # Check if registration already exists
-    existing_registration = db.query(Registration).filter(
-        Registration.user_id == user.id,
-        Registration.event_id == registration_schema.event_id
-    ).first()
+        .first()
+    )
 
     if existing_registration:
-        raise HTTPException(
-            status_code=409,
-            detail="User already registered for this event."
+        # Update existing registration
+        existing_registration.participation_role = (
+            registration_schema.participation_role
         )
+        db.commit()
+        db.refresh(existing_registration)
+        return {
+            "message": "Registration updated successfully",
+            "registration_id": existing_registration.id,
+        }
 
     # Create new registration
     new_registration = Registration(
-        user_id=user.id,
-        country_id=registration_schema.country_id,
+        user_id=user_id,
         event_id=registration_schema.event_id,
-        participation_role=registration_schema.participation_role,  
-        profession=registration_schema.profession,
-        position=registration_schema.position,      
-        organisation=registration_schema.organisation,
+        participation_role=registration_schema.participation_role,
     )
     db.add(new_registration)
     db.commit()
     db.refresh(new_registration)
 
-    return {"message": "Registration successful", "registration_id": new_registration.id}
+    return {
+        "message": "Registration successful",
+        "registration_id": new_registration.id,
+    }
+
+
+@router.delete("/registration/{event_id}")
+async def event_deregistration(
+    request: Request,
+    event_id: int,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    dependency: Dependency = Depends(get_dependency),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    client_ip = dependency.request_ip(request)
+
+    dependency.log_activity(
+        1,
+        "EVENT_DEREGISTER",
+        "None",
+        client_ip,
+        f"Deregister event id {event_id}",
+    )
+
+    existing_registration = (
+        db.query(Registration)
+        .filter(
+            Registration.user_id == current_user["user_id"],
+            Registration.event_id == event_id,
+        )
+        .first()
+    )
+
+    try:
+        # First: delete any payment (if exists)
+        existing_payment = (
+            db.query(Payment)
+            .filter(Payment.registration_id == existing_registration.id)
+            .first()
+        )
+        if existing_payment:
+            db.delete(existing_payment)
+            db.flush()  # flush ensures DB sees the delete before the next delete
+
+        # Now delete the registration
+        db.delete(existing_registration)
+        db.commit()
+
+    except Exception as error:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete user event registration",
+        ) from error
 
 
 @router.post("/upload_document/")
@@ -385,7 +520,7 @@ async def upload_document(
     try:
         unique_dir = os.path.join(
             EVENT_DOCUMENT_DIR,
-            f"{event_id}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
+            f"{event_id}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}",
         )
         os.makedirs(unique_dir, exist_ok=True)
         file_path = os.path.join(unique_dir, file.filename)
@@ -425,11 +560,10 @@ async def delete_document(
     current_user: user_dependency,
     db: Session = Depends(get_db),
     dependency: Dependency = Depends(get_dependency),
-    auth_dependency: Auth = Depends(get_auth_dependency)
+    auth_dependency: Auth = Depends(get_auth_dependency),
 ):
-    auth_dependency.secure_access(
-        "DELETE_EVENT", current_user["user_id"])    
-    
+    auth_dependency.secure_access("DELETE_EVENT", current_user["user_id"])
+
     document = get_object(document_id, db, Document)
 
     if not document:
@@ -439,7 +573,9 @@ async def delete_document(
         try:
             shutil.rmtree(document_folder)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to delete folder: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail=f"Failed to delete folder: {str(e)}"
+            )
     else:
         raise HTTPException(status_code=404, detail="Folder not found on disk")
 
@@ -449,7 +585,7 @@ async def delete_document(
     return {"status": "success", "message": f"Document and folder deleted successfully"}
 
 
-@ router.post("/add_link/")
+@router.post("/add_link/")
 async def add_link(
     request: Request,
     link_schema: LinkSchema,
@@ -460,11 +596,11 @@ async def add_link(
 ):
     client_ip = dependency.request_ip(request)
     dependency.log_activity(
-        current_user['user_id'],
-        'ADD_EVENT',
-        current_user['username'],
+        current_user["user_id"],
+        "ADD_EVENT",
+        current_user["username"],
         client_ip,
-        link_schema.event_id
+        link_schema.event_id,
     )
 
     create_event_link_model = Link(
@@ -472,12 +608,13 @@ async def add_link(
         name=link_schema.name,
         link=str(link_schema.link),
     )
-    
+
     db.add(create_event_link_model)
     db.commit()
-    return link_schema    
+    return link_schema
 
-@ router.put("/update_link/{link_id}")
+
+@router.put("/update_link/{link_id}")
 async def update_link(
     request: Request,
     link_id: int,
@@ -485,40 +622,39 @@ async def update_link(
     link_schema: LinkSchema,
     db: Session = Depends(get_db),
     dependency: Dependency = Depends(get_dependency),
-    auth_dependency: Auth = Depends(get_auth_dependency)
+    auth_dependency: Auth = Depends(get_auth_dependency),
 ):
-    auth_dependency.secure_access(
-        "UPDATE_EVENT", current_user["user_id"])
+    auth_dependency.secure_access("UPDATE_EVENT", current_user["user_id"])
 
     client_ip = dependency.request_ip(request)
 
     dependency.log_activity(
-        current_user['user_id'],
-        'UPDATE_EVENT',
-        current_user['username'],
+        current_user["user_id"],
+        "UPDATE_EVENT",
+        current_user["username"],
         client_ip,
-        f"Update event id {link_id}"
+        f"Update event id {link_id}",
     )
     link_model = get_object(link_id, db, Link)
 
     link_model.name = link_schema.name
     link_model.link = str(link_schema.link)
-        
+
     db.commit()
     db.refresh(link_model)
     return link_schema
 
-@ router.delete("/delete_link/{link_id}")
+
+@router.delete("/delete_link/{link_id}")
 async def delete_link(
     request: Request,
     link_id: int,
     current_user: user_dependency,
     db: Session = Depends(get_db),
     dependency: Dependency = Depends(get_dependency),
-    auth_dependency: Auth = Depends(get_auth_dependency)
+    auth_dependency: Auth = Depends(get_auth_dependency),
 ):
-    auth_dependency.secure_access(
-        "DELETE_EVENT", current_user["user_id"])
+    auth_dependency.secure_access("DELETE_EVENT", current_user["user_id"])
 
     dependency.hard_delete(Link, link_id)
 
@@ -527,11 +663,11 @@ async def delete_link(
 
     client_ip = dependency.request_ip(request)
     dependency.log_activity(
-        current_user['user_id'],
-        'DELETE_EVENT',
-        current_user['username'],
+        current_user["user_id"],
+        "DELETE_EVENT",
+        current_user["username"],
         client_ip,
-        f"Delete event id {link} event {link.name}"
+        f"Delete event id {link} event {link.name}",
     )
     return {"detail": "link Successfully deleted"}
 
@@ -543,43 +679,60 @@ async def download_event_participants(
     current_user: user_dependency,
     paid: Literal["all", "true", "false"] = Query("all"),
     db: Session = Depends(get_db),
-    dependency: Dependency = Depends(get_dependency),
+    dependency=Depends(get_dependency),
     auth_dependency: Auth = Depends(get_auth_dependency),
 ):
+    # Permission check
     auth_dependency.secure_access("VIEW_EVENT", current_user["user_id"])
     client_ip = dependency.request_ip(request)
 
     dependency.log_activity(
-        current_user['user_id'],
-        'DOWNLOAD_PARTICIPANTS',
-        current_user['username'],
+        current_user["user_id"],
+        "DOWNLOAD_PARTICIPANTS",
+        current_user["username"],
         client_ip,
-        f"Downloaded participants for event {event_id} with filter paid={paid}"
+        f"Downloaded participants for event {event_id} with filter paid={paid}",
     )
 
     event = get_object(event_id, db, Event)
     if not event:
-        raise HTTPException(status_code=404, detail="event not found")
+        raise HTTPException(status_code=404, detail="Event not found")
 
-    # Get participants
-    participants = [
-        {
-            "registration_id": participant.id,
-            "firstname": participant.user.firstname,
-            "lastname": participant.user.lastname,
-            "email": participant.user.email,
-            "phone": participant.user.phone,
-            "organisation": participant.organisation,
-            "country": participant.country.country,
-            "participation_role": participant.participation_role,
-            "paid": participant.paid if hasattr(participant, 'paid') else None,
-            "registered_at": participant.registered_at
-        }
-        for participant in event.registrations
-    ]
+    # Collect participant details
+    participants = []
+    for reg in event.registrations:
+        user = reg.user
+        profile = user.user_profile[0] if user.user_profile else None
+        country = profile.country.country if profile and profile.country else None
+        organisation = profile.organisation if profile else None
 
+        # Convert participation_role to string key (adjust this if ParticipationRole is Enum)
+        role_key = (
+            reg.participation_role.name
+            if hasattr(reg.participation_role, "name")
+            else str(reg.participation_role).lower()
+        )
 
-    # Filter by paid
+        participants.append(
+            {
+                "registration_id": reg.id,
+                "firstname": user.firstname,
+                "lastname": user.lastname,
+                "email": user.email,
+                "phone": user.phone,
+                "title": profile.title if profile else "",
+                "middle_name": profile.middle_name if profile else "",
+                "gender": profile.gender if profile else "",
+                "position": profile.position if profile else "",
+                "organisation": organisation,
+                "country": country,
+                "participation_role": PARTICIPATION_ROLE_MAP.get(role_key, role_key),
+                "paid": reg.paid,
+                "registered_at": reg.registered_at,
+            }
+        )
+
+    # Filter by paid status
     if paid != "all":
         is_paid = paid == "true"
         participants = [p for p in participants if p["paid"] == is_paid]
@@ -587,39 +740,54 @@ async def download_event_participants(
     if not participants:
         raise HTTPException(status_code=404, detail="No participants found")
 
-    # Create Excel
+    # Create Excel workbook
     wb = Workbook()
     ws = wb.active
     ws.title = "Participants"
 
     headers = [
-        "ID", "First Name", "Last Name", "Email", "Phone",
-        "Organisation", "Country", "Participation Role", "Paid", "Registered At"
+        "ID",
+        "Title",
+        "First Name",
+        "Middle Name",
+        "Last Name",
+        "Gender",
+        "Email",
+        "Phone",
+        "Organisation",
+        "Position",
+        "Country",
+        "Participation Role",
+        "Paid",
+        "Registered At",
     ]
     ws.append(headers)
 
-
     for p in participants:
-        ws.append([
-            p["registration_id"],
-            p["firstname"],
-            p["lastname"],
-            p["email"],
-            p["phone"],
-            p["organisation"],
-            p["country"],
-            p["participation_role"].value if hasattr(p["participation_role"], "value") else str(p["participation_role"]),
-            "Yes" if p["paid"] else "No",
-            p["registered_at"].strftime("%Y-%m-%d %H:%M:%S")
-        ])
+        ws.append(
+            [
+                p["registration_id"],
+                p["title"],
+                p["firstname"],
+                p["middle_name"],
+                p["lastname"],
+                p["gender"],
+                p["email"],
+                p["phone"],
+                p["organisation"] or "",
+                p["position"],
+                p["country"] or "",
+                p["participation_role"],
+                "Yes" if p["paid"] else "No",
+                p["registered_at"].strftime("%Y-%m-%d %H:%M:%S"),
+            ]
+        )
 
-
-    # Prepare Excel stream
+    # Stream response
     file_stream = BytesIO()
     wb.save(file_stream)
     file_stream.seek(0)
 
-    # Sanitize event name for filename
     safe_event_name = sanitize_filename(event.event)
     ascii_filename = f"{safe_event_name}_participants.xlsx"
     utf8_filename = urllib.parse.quote(ascii_filename)
@@ -629,5 +797,224 @@ async def download_event_participants(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
             "Content-Disposition": f"attachment; filename={ascii_filename}; filename*=UTF-8''{utf8_filename}"
-        }
+        },
+    )
+
+
+@router.get("/with-registration/{user_id}")
+def list_events_with_user_registration(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),  # or your custom dependency
+):
+    # Get all events
+    events = db.query(Event).all()
+
+    # Get all registrations by the user
+    user_regs = (
+        db.query(Registration)
+        .filter(Registration.user_id == user_id, Registration.deleted_at.is_(None))
+        .all()
+    )
+
+    # Build a lookup dictionary for quick access: event_id -> registration
+    reg_map = {reg.event_id: reg for reg in user_regs}
+
+    # Construct result
+    result = []
+    for event in events:
+        registration = reg_map.get(event.id)
+        result.append(
+            {
+                "event": {
+                    "id": event.id,
+                    "title": event.event,
+                    "theme": event.theme,
+                    "description": event.description,
+                    "start_date": event.start_date,
+                    "end_date": event.end_date,
+                    "location": event.location,
+                    "country": event.country.country,
+                    "org_unit": event.org_unit.name,
+                },
+                "registered": bool(registration),
+                "registration_details": (
+                    {
+                        "registration_id": registration.id,
+                        "participation_role": registration.participation_role,
+                        "paid": registration.paid,
+                        "payment_status": "Paid" if registration.paid else "Not Paid",
+                        "registered_at": registration.registered_at,
+                    }
+                    if registration
+                    else None
+                ),
+            }
+        )
+
+    return result
+
+
+@router.get("/{event_id}/participants/badges")
+async def download_participant_badges_pdf(
+    request: Request,
+    event_id: int,
+    current_user: user_dependency,
+    paid: Literal["all", "true", "false"] = Query("all"),
+    db: Session = Depends(get_db),
+    dependency=Depends(get_dependency),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    auth_dependency.secure_access("VIEW_EVENT", current_user["user_id"])
+    client_ip = dependency.request_ip(request)
+    dependency.log_activity(
+        current_user["user_id"],
+        "DOWNLOAD_BADGES",
+        current_user["username"],
+        client_ip,
+        f"Downloaded participant badges for event {event_id} with filter paid={paid}",
+    )
+
+    event = get_object(event_id, db, Event)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    participants = []
+    for reg in event.registrations:
+        user = reg.user
+        profile = user.user_profile[0] if user.user_profile else None
+        country = profile.country.country if profile and profile.country else None
+        organisation = profile.organisation if profile else None
+        role_key = (
+            reg.participation_role.name
+            if hasattr(reg.participation_role, "name")
+            else str(reg.participation_role).lower()
+        )
+        participants.append(
+            {
+                "registration_id": reg.id,
+                "title": profile.title if profile else "",
+                "firstname": user.firstname,
+                "middle_name": profile.middle_name if profile else "",
+                "lastname": user.lastname,
+                "position": profile.position if profile else "",
+                "organisation": organisation,
+                "country": country,
+                "participation_role": PARTICIPATION_ROLE_MAP.get(role_key, role_key),
+                "event_name": event.event,
+                "location": event.location or "",
+                "paid": reg.paid,  # or the correct attribute for paid status
+            }
+        )
+
+    if paid != "all":
+        is_paid = paid == "true"
+        participants = [p for p in participants if p["paid"] == is_paid]
+
+    if not participants:
+        raise HTTPException(status_code=404, detail="No participants found")
+
+    buffer = BytesIO()
+    width, height = (100 * mm, 140 * mm)  # Increased badge size
+    c = canvas.Canvas(buffer, pagesize=(width, height))
+
+    logo_left = convert_png_to_rgb("assets/logo_left.png")
+    logo_right = convert_png_to_rgb("assets/logo_right.png")
+
+    for p in participants:
+        c.setFillColorRGB(1, 1, 1)
+        c.rect(0, 0, width, height, fill=True, stroke=False)
+        c.setFillColorRGB(0, 0, 0)
+
+        # Logos (increased size)
+        logo_size = 25 * mm
+        c.drawImage(
+            logo_left,
+            5 * mm,
+            height - logo_size - 5 * mm,
+            logo_size,
+            logo_size,
+            preserveAspectRatio=True,
+        )
+        c.drawImage(
+            logo_right,
+            width - logo_size - 5 * mm,
+            height - logo_size - 5 * mm,
+            logo_size,
+            logo_size,
+            preserveAspectRatio=True,
+        )
+
+        # Text section (increased font sizes and spacing)
+        y = height - 45 * mm
+        c.setFont("Helvetica-Bold", 16)
+        full_name = (
+            f"{p['title']} {p['firstname']} {p['middle_name']} {p['lastname']}".strip()
+        )
+        c.drawCentredString(width / 2, y, full_name)
+
+        if p["position"]:
+            y -= 9 * mm
+            c.setFont("Helvetica-Bold", 13)
+            c.drawCentredString(width / 2, y, p["position"])
+
+        if p["organisation"]:
+            y -= 8 * mm
+            c.setFont("Helvetica-Bold", 13)
+            c.drawCentredString(width / 2, y, p["organisation"])
+
+        if p["country"]:
+            y -= 8 * mm
+            c.setFont("Helvetica", 11)
+            c.drawCentredString(width / 2, y, p["country"])
+
+            # Participant ID
+            y -= 8 * mm
+            c.setFont("Helvetica", 11)
+            participant_id_line = f"Participant ID #: BPF{p['registration_id']}"
+            c.drawCentredString(width / 2, y, participant_id_line)
+
+        if p["participation_role"]:
+            y -= 8 * mm
+            c.setFont("Helvetica-Bold", 11)
+            c.drawCentredString(width / 2, y, p["participation_role"])
+
+        if p["location"]:
+            y -= 8 * mm
+            c.setFont("Helvetica-Oblique", 10)  # italic font
+            location_text = f"({p['location']})"  # add brackets
+            c.drawCentredString(width / 2, y, location_text)
+
+        if p["event_name"]:
+            y -= 8 * mm
+            event_name_clean = normalize_event_name(p["event_name"])
+            c.setFont("Helvetica-Bold", 10)
+            c.drawCentredString(width / 2, y, event_name_clean)
+
+        # QR Code (increased to 30 mm), shifted down to avoid event name overlap
+        qr_size = 30 * mm
+        qr_y_position = 3 * mm  # Lowered from 10 mm to 3 mm
+        qr_data = f"{p['registration_id']} - {full_name}"
+        qr = qrcode.make(qr_data)
+        qr_buffer = BytesIO()
+        qr.save(qr_buffer, format="PNG")
+        qr_buffer.seek(0)
+        qr_reader = ImageReader(qr_buffer)
+        c.drawImage(qr_reader, (width - qr_size) / 2, qr_y_position, qr_size, qr_size)
+
+        c.showPage()
+
+    c.save()
+    buffer.seek(0)
+
+    safe_event_name = sanitize_filename(event.event)
+    ascii_filename = f"{safe_event_name}_participant_badges.pdf"
+    utf8_filename = urllib.parse.quote(ascii_filename)
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename={ascii_filename}; filename*=UTF-8''{utf8_filename}"
+        },
     )

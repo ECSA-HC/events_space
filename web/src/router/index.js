@@ -4,13 +4,18 @@ import { useAuthStore } from "@/stores/auth";
 // Layouts
 import DefaultLayout from "@/layouts/DefaultLayout.vue";
 import AdminLayout from "@/layouts/AdminLayout.vue";
+import MyAccountLayout from "@/layouts/MyAccountLayout.vue";
 
 // Public Pages
 import HomeView from "@/pages/public/HomeView.vue";
 import EventsView from "@/pages/public/EventsView.vue";
 import EventView from "@/pages/public/EventView.vue";
 import LoginView from "@/pages/public/LoginView.vue";
+import PasswordResetLinkView from "@/pages/public/PasswordResetLinkView.vue";
+import ResetPasswordView from "@/pages/public/ResetPasswordView.vue";
 import RegisterView from "@/pages/public/RegisterView.vue";
+import RegisterAccountView from "@/pages/public/RegisterAccountView.vue";
+import PaymentView from "@/pages/public/PaymentView.vue";
 
 // Admin Pages
 import DashboardView from "@/pages/admin/DashboardView.vue";
@@ -21,7 +26,7 @@ import EditClusterView from "@/pages/admin/clusters/EditClusterView.vue";
 import AdminEventsView from "@/pages/admin/events/EventsView.vue";
 import AddEventView from "@/pages/admin/events/AddEventView.vue";
 import EditEventView from "@/pages/admin/events/EditEventView.vue";
-import MyEventsView from "@/pages/admin/events/MyEventsView.vue";
+// import MyEventsView from "@/pages/admin/events/MyEventsView.vue";
 import AdminEventView from "@/pages/admin/events/AdminEventView.vue";
 import UsersView from "@/pages/admin/users/UsersView.vue";
 import AddUserView from "@/pages/admin/users/AddUserView.vue";
@@ -32,6 +37,10 @@ import AddRoleView from "@/pages/admin/roles/AddRoleView.vue";
 import RoleView from "@/pages/admin/roles/RoleView.vue";
 import EditRoleView from "@/pages/admin/roles/EditRoleView.vue";
 import SettingsView from "@/pages/admin/settings/SettingsView.vue";
+import MyAccountDashboardView from "@/pages/my_account/DashboardView.vue";
+import MyProfileView from "@/pages/my_account/MyProfileView.vue";
+import MyEventsView from "@/pages/my_account/MyEventsView.vue";
+import MyEventView from "@/pages/my_account/MyEventView.vue";
 
 // Error Pages
 import ForbiddenView from "@/pages/errors/ForbiddenView.vue";
@@ -45,9 +54,61 @@ const routes = [
       { path: "events", name: "Events", component: EventsView },
       { path: "event/:id", name: "Event", component: EventView },
       { path: "login", name: "Login", component: LoginView },
+      {
+        path: "password-reset-link",
+        name: "PasswordResetLink",
+        component: PasswordResetLinkView,
+      },
+      {
+        path: "reset-password/:token",
+        name: "ResetPasswordView",
+        component: ResetPasswordView,
+      },
       { path: "register/:id", name: "Register", component: RegisterView },
+      {
+        path: "register-account",
+        name: "RegisterAccount",
+        component: RegisterAccountView,
+      },
+      {
+        path: "/payment/:event_id/:registration_id",
+        name: "EventPayment",
+        component: PaymentView,
+      },
     ],
   },
+
+  {
+    path: "/my-account",
+    component: MyAccountLayout,
+    children: [
+      {
+        path: "dashboard",
+        name: "MyDashboard",
+        component: MyAccountDashboardView,
+        meta: { requiresAuth: true },
+      },
+      {
+        path: "my-profile",
+        name: "MyProfile",
+        component: MyProfileView,
+        meta: { requiresAuth: true },
+      },
+      {
+        path: "my-events",
+        name: "MyEvents",
+        component: MyEventsView,
+        meta: { requiresAuth: true },
+      },
+      {
+        path: "my-event/:id",
+        name: "MyEvent",
+        component: MyEventView,
+        meta: { requiresAuth: true },
+      },
+    ],
+  },
+
   {
     path: "/admin",
     component: AdminLayout,
@@ -89,12 +150,6 @@ const routes = [
         meta: { requiresAuth: true },
       },
       {
-        path: "my-events",
-        name: "MyEvents",
-        component: MyEventsView,
-        meta: { requiresAuth: true },
-      },
-      {
         path: "add-event",
         name: "AddEvent",
         component: AddEventView,
@@ -131,7 +186,7 @@ const routes = [
         meta: { requiresAuth: true, permissions: ["VIEW_USER"] },
       },
       {
-        path: "users/:id/edit",
+        path: "edit-user/:id",
         name: "EditUser",
         component: EditUserView,
         meta: { requiresAuth: true, permissions: ["UPDATE_USER"] },

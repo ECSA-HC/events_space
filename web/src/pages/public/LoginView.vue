@@ -1,7 +1,12 @@
 <template>
-  <div class="flex flex-1 items-center justify-center bg-gray-100">
+  <div class="flex flex-1 items-center justify-center bg-gray-100 min-h-screen">
     <div class="w-full max-w-xl bg-white rounded-3xl shadow-md p-8 space-y-6">
       <h2 class="text-2xl font-bold text-center text-bondi-blue">Sign In to Your Account</h2>
+
+      <!-- Error Alert -->
+      <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded-md text-sm text-center">
+        {{ error }}
+      </div>
 
       <form @submit.prevent="login" class="space-y-4">
         <!-- Email -->
@@ -30,7 +35,7 @@
 
         <!-- Forgot Password -->
         <div class="text-right">
-          <router-link to="/forgot-password" class="text-sm text-bondi-blue hover:underline">
+          <router-link :to="{ name: 'PasswordResetLink'}" class="text-sm text-bondi-blue hover:underline">
             Forgot password?
           </router-link>
         </div>
@@ -42,13 +47,12 @@
         >
           Login
         </button>
-        <p v-if="error" class="text-red-600 text-sm text-center mt-2">{{ error }}</p>
       </form>
 
       <!-- Register Link -->
       <p class="text-center text-sm text-gray-600">
         Don’t have an account?
-        <router-link to="/register" class="text-bondi-blue hover:underline">Register</router-link>
+        <router-link :to="{ name: 'RegisterAccount'}" class="text-bondi-blue hover:underline">Register</router-link>
       </p>
     </div>
   </div>
@@ -69,6 +73,7 @@ const error = ref('')
 
 const login = async () => {
   error.value = ''
+
   const form = new URLSearchParams()
   form.append('grant_type', 'password')
   form.append('username', email.value)
@@ -78,18 +83,20 @@ const login = async () => {
 
   try {
     const { data } = await api.post('/auth/login', form)
-    // Check if the response contains the expected data
-    // Save auth info to store
+
     auth.setAuth({
       user: data.user,
       token: data.access_token,
       permissions: data.permissions,
     })
 
-    // Redirect to home or dashboard
-    router.push({ name: 'AdminDashboard' })
+    router.push({ name: 'MyDashboard' })
   } catch (err) {
-    error.value = 'Invalid email or password.'
+    if (err.response?.status === 401) {
+      error.value = 'Invalid email or password.'
+    } else {
+      error.value = 'Something went wrong. Please try again later.'
+    }
   }
 }
 </script>

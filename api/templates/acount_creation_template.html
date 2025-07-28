@@ -20,22 +20,22 @@
         background-color: #ffffff;
         padding: 40px;
         box-sizing: border-box;
-        border-top: 4px solid #cb437d;
+        border-top: 6px solid #0095b6; /* ECSA-HC Bondi Blue */
       }
       h1 {
         font-size: 24px;
         margin-bottom: 16px;
-        color: #111111;
+        color: #003f5c; /* ECSA-HC deep navy */
       }
       p {
         font-size: 16px;
         line-height: 1.5;
         margin-bottom: 16px;
-        color: #555555;
+        color: #444444;
       }
       a.button {
         display: inline-block;
-        background-color: #b21f5e;
+        background-color: #0095b6; /* ECSA-HC blue */
         color: #ffffff;
         text-decoration: none;
         padding: 12px 24px;
@@ -45,7 +45,7 @@
         margin-top: 20px;
       }
       a.button:hover {
-        background-color: #cb437d;
+        background-color: #007a99;
       }
       .footer {
         font-size: 14px;
@@ -59,26 +59,22 @@
   <body>
     <div class="email-container">
       <h1>{{subject}}</h1>
-      <p>Hi <strong>{{firstname}}</strong>,</p>
-      <p>Your account is now ready! Here are your login details:</p>
+      <p>Dear <strong>{{firstname}}</strong>,</p>
+      <p>Your ECSA-HC Event Spaces account has been successfully created. Below are your login details:</p>
       <p><strong>Email:</strong> {{username}}</p>
       <p><strong>Password:</strong> {{password}}</p>
-      <p>To get started, click the button below to log in:</p>
-      <a href="https://donativ.org/#/login" class="button">Log In to Donativ</a>
-      <p><strong>About Donativ:</strong></p>
+      <p>To access your account, please use the button below:</p>
+      <a href="https://dev.ecsa-hc.org/login" class="button">Log In to ECSA-HC Events Portal</a>
+      <p><strong>About ECSA-HC:</strong></p>
       <p>
-        Donativ is a platform that connects compassionate donors with
-        individuals and organizations in need. Whether you're looking to support
-        with clothes, food, or funds, Donativ makes it easy to find and respond
-        to specific donation calls. Together, we make giving simple and
-        impactful.
+        The East, Central and Southern Africa Health Community (ECSA-HC) is a regional intergovernmental health organization that promotes and encourages efficiency and effectiveness in the delivery of health services. Your participation supports regional collaboration for stronger health systems.
       </p>
       <p>
-        If you have any questions, we're here to help at
-        <a href="mailto:support@donativ.org">support@donativ.org</a>.
+        If you need assistance, feel free to contact our team at
+        <a href="mailto:support@ecsa-hc.org">support@ecsa-hc.org</a>.
       </p>
-      <p>Sincerely,<br />The Donativ Team</p>
-      <div class="footer">&copy; {{year}} Donativ. All rights reserved.</div>
+      <p>Warm regards,<br />ECSA-HC Secretariat</p>
+      <div class="footer">&copy; {{year}} ECSA-HC. All rights reserved.</div>
     </div>
   </body>
 </html>

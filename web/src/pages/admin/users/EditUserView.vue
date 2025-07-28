@@ -1,40 +1,64 @@
 <template>
   <div class="flex-1 flex flex-col max-w-7xl w-full mx-auto overflow-hidden">
     <!-- Admin Bar -->
-    <AdminBar title="Edit Role">
-      <router-link :to="{ name: 'Roles' }" class="text-sm text-blue-600 hover:underline">Roles</router-link>
+    <AdminBar title="Edit User">
+      <router-link :to="{ name: 'Users' }" class="text-sm text-blue-600 hover:underline">Users</router-link>
       <span class="mx-2 text-sm text-gray-500">/</span>
       <span class="text-sm text-gray-700">Edit</span>
     </AdminBar>
 
     <!-- Page Title -->
     <div class="px-6 pt-4 pb-2">
-      <h1 class="text-xl font-bold text-gray-800">Edit Role</h1>
+      <h1 class="text-xl font-bold text-gray-800">Edit User</h1>
     </div>
 
-    <!-- Edit Role Form -->
+    <!-- Edit User Form -->
     <main class="px-6 pb-6">
       <div class="w-full bg-white shadow rounded-lg p-6">
-        <form @submit.prevent="updateRole" class="space-y-4">
-          <!-- Role Name -->
+        <form @submit.prevent="submitForm" class="space-y-4" novalidate>
+          <!-- Firstname -->
           <div class="mb-4 w-full md:w-1/2">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Role Name</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">First Name</label>
             <input
-              v-model="role.role"
+              v-model="user.firstname"
               type="text"
-              required
               class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0095B6]"
+              required
             />
           </div>
 
-          <!-- Description -->
-          <div class="mb-6 w-full md:w-1/2">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-            <textarea
-              v-model="role.description"
-              rows="4"
+          <!-- Lastname -->
+          <div class="mb-4 w-full md:w-1/2">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+            <input
+              v-model="user.lastname"
+              type="text"
               class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0095B6]"
-            ></textarea>
+              required
+            />
+          </div>
+
+          <!-- Phone -->
+          <div class="mb-4 w-full md:w-1/2">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+            <input
+              v-model="user.phone"
+              type="tel"
+              placeholder="+123456789"
+              class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0095B6]"
+              required
+            />
+          </div>
+
+          <!-- Email -->
+          <div class="mb-6 w-full md:w-1/2">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input
+              v-model="user.email"
+              type="email"
+              class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0095B6]"
+              required
+            />
           </div>
 
           <!-- Buttons -->
@@ -42,13 +66,13 @@
             <LoadingButton
               :loading="isSubmitting"
               :loadingLabel="'Updating...'"
-              type="submit"
+              @click="submitForm"
             >
-              Update Role
+              Update User
             </LoadingButton>
 
             <router-link
-              :to="{ name: 'Roles' }"
+              :to="{ name: 'Users' }"
               class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-2 rounded-xl transition"
             >
               Cancel
@@ -69,39 +93,39 @@ import api from '@/plugins/axios'
 
 const route = useRoute()
 const router = useRouter()
-const roleId = route.params.id
+const userId = route.params.id
 
-const role = ref({
-  role: '',
-  description: ''
+const user = ref({
+  firstname: '',
+  lastname: '',
+  phone: '',
+  email: ''
 })
 
 const isSubmitting = ref(false)
 
-const fetchRole = async () => {
+const fetchUser = async () => {
   try {
-    const response = await api.get(`/roles/${roleId}`)
-    role.value = {
-      role: response.data.role.role,
-      description: response.data.role.description
-    }
+    const response = await api.get(`/users/${userId}`)
+    user.value = response.data.user // extract only the `user` object
   } catch (error) {
-    console.error('Error fetching role:', error.response?.data || error.message)
+    console.error('Failed to fetch user:', error.response?.data || error.message)
   }
 }
 
-const updateRole = async () => {
-  console.log('Updating role:', role.value)
+const submitForm = async () => {
   try {
     isSubmitting.value = true
-    await api.put(`/roles/${roleId}`, role.value)
-    router.push({ name: 'Roles' })
+    await api.put(`/users/${userId}`, user.value)
+    router.push({ name: 'Users' })
   } catch (error) {
-    console.error('Error updating role:', error.response?.data || error.message)
+    console.error('Failed to update user:', error.response?.data || error.message)
   } finally {
     isSubmitting.value = false
   }
 }
 
-onMounted(fetchRole)
+onMounted(() => {
+  fetchUser()
+})
 </script>

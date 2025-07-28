@@ -1,15 +1,15 @@
 <template>
   <div class="flex-1 flex flex-col max-w-7xl w-full mx-auto overflow-hidden">
-    <AdminBar title="View Role">
-      <router-link :to="{ name: 'Roles' }" class="text-sm text-blue-600 hover:underline">
-        Roles
+    <AdminBar title="View User">
+      <router-link :to="{ name: 'Users' }" class="text-sm text-blue-600 hover:underline">
+        Users
       </router-link>
       <span class="mx-2 text-sm text-gray-500">/</span>
       <span class="text-sm text-gray-700">View</span>
     </AdminBar>
 
     <div class="px-4 pt-4 pb-2">
-      <h1 class="text-xl font-bold text-gray-800">Role Details</h1>
+      <h1 class="text-xl font-bold text-gray-800">User Details</h1>
     </div>
 
     <main class="px-4 pb-6">
@@ -18,62 +18,58 @@
       </div>
 
       <div v-else-if="error" class="bg-red-100 text-red-700 p-6 rounded-lg">
-        Error loading role: {{ error }}
+        Error loading user: {{ error }}
       </div>
 
       <div v-else class="bg-white shadow-lg rounded-2xl p-4 sm:p-8 space-y-8">
+        <!-- User Basic Info -->
         <section>
           <h2 class="text-sm font-semibold text-gray-600 mb-1 uppercase tracking-wide">Name</h2>
-          <p class="text-lg font-semibold text-gray-900">{{ role.role.role }}</p>
+          <p class="text-lg font-semibold text-gray-900">{{ user.firstname }} {{ user.lastname }}</p>
         </section>
 
         <section>
-          <h2 class="text-sm font-semibold text-gray-600 mb-1 uppercase tracking-wide">Description</h2>
-          <p class="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">
-            {{ role.role.description }}
-          </p>
+          <h2 class="text-sm font-semibold text-gray-600 mb-1 uppercase tracking-wide">Email</h2>
+          <p class="text-sm text-gray-800 leading-relaxed">{{ user.email }}</p>
         </section>
 
         <section>
-          <h2 class="text-sm font-semibold text-gray-600 mb-2 uppercase tracking-wide">Permissions</h2>
-          <div class="overflow-x-auto rounded-lg shadow">
+          <h2 class="text-sm font-semibold text-gray-600 mb-2 uppercase tracking-wide">Phone</h2>
+          <p class="text-sm text-gray-800 leading-relaxed">{{ user.phone }}</p>
+        </section>
+
+        <!-- Roles -->
+        <section>
+          <h2 class="text-sm font-semibold text-gray-600 mb-2 uppercase tracking-wide">Roles</h2>
+
+          <div v-if="loadingRoles" class="py-4 flex justify-center">
+            <DataLoadingSpinner />
+          </div>
+
+          <div v-else class="overflow-x-auto rounded-lg shadow">
             <table class="w-full table-auto text-sm text-gray-800">
               <thead class="bg-gray-100 uppercase text-xs text-gray-800 text-left">
                 <tr>
-                  <th class="px-4 py-3 text-center sm:text-left">Assign</th>
-                  <th class="px-4 py-3 text-center sm:text-left">Remove</th>
-                  <th class="px-6 py-3">Permission</th>
+                  <th class="px-4 py-3 text-center">Assign</th>
+                  <th class="px-6 py-3">Role Name</th>
+                  <th class="px-6 py-3">Description</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-if="isLoading">
-                  <td colspan="3" class="py-8">
-                    <div class="flex justify-center items-center">
-                      <DataLoadingSpinner />
-                    </div>
-                  </td>
-                </tr>
-                <tr v-for="perm in allPermissions" :key="perm.id" class="border-b last:border-b-0">
-                  <td class="px-4 py-3 text-center sm:text-left">
+                <tr v-for="role in allRoles" :key="role.id" class="border-b last:border-b-0">
+                  <td class="px-4 py-3 text-center">
                     <input
                       type="checkbox"
-                      :disabled="loadingAssignRemove || getAssignedPermission(perm)"
-                      :checked="!!getAssignedPermission(perm)"
-                      @change="onAssignCheckboxChange(perm, $event.target.checked)"
+                      :disabled="loadingAssignRemove"
+                      :checked="hasRole(role)"
+                      @change="onRoleCheckboxChange(role, $event.target.checked)"
                     />
                   </td>
-                  <td class="px-4 py-3 text-center sm:text-left">
-                    <input
-                      type="checkbox"
-                      :disabled="loadingAssignRemove || !getAssignedPermission(perm)"
-                      :checked="false"
-                      @change="onRemoveCheckboxChange(perm)"
-                    />
-                  </td>
-                  <td class="px-6 py-3 break-words">{{ perm.permission }}</td>
+                  <td class="px-6 py-3 break-words">{{ role.role }}</td>
+                  <td class="px-6 py-3 break-words">{{ role.description }}</td>
                 </tr>
-                <tr v-if="allPermissions.length === 0">
-                  <td colspan="3" class="text-center py-8 text-gray-500">No permissions found.</td>
+                <tr v-if="allRoles.length === 0">
+                  <td colspan="3" class="text-center py-8 text-gray-500">No roles found.</td>
                 </tr>
               </tbody>
             </table>
@@ -81,10 +77,16 @@
         </section>
 
         <div class="flex space-x-4 pt-4">
-          <button @click="goBack" class="bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-6 rounded-xl transition">
+          <button
+            @click="goBack"
+            class="bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-6 rounded-xl transition"
+          >
             Back
           </button>
-          <button @click="editRole" class="bg-[#0095B6] hover:bg-[#007B97] text-white py-2 px-6 rounded-xl transition">
+          <button
+            @click="editUser"
+            class="bg-[#0095B6] hover:bg-[#007B97] text-white py-2 px-6 rounded-xl transition"
+          >
             Edit
           </button>
         </div>
@@ -94,7 +96,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AdminBar from '@/components/common/AdminBar.vue'
 import DataLoadingSpinner from '@/components/common/DataLoadingSpinner.vue'
@@ -103,99 +105,79 @@ import api from '@/plugins/axios'
 const route = useRoute()
 const router = useRouter()
 
-const roleId = route.params.id
-const role = ref(null)
+const userId = route.params.id
+const user = ref(null)
 const loading = ref(true)
 const error = ref(null)
 
-const allPermissions = ref([])
-const isLoading = ref(false)
+const allRoles = ref([])
+const loadingRoles = ref(true)
 const loadingAssignRemove = ref(false)
 
-const currentPage = ref(1)
-const perPage = ref(1000)
-const totalPages = ref(1)
-
-const skip = computed(() => (currentPage.value - 1) * perPage.value)
-
-const fetchRole = async () => {
+const fetchUser = async () => {
   loading.value = true
   error.value = null
   try {
-    const res = await api.get(`/roles/${roleId}`)
-    role.value = res.data
+    const res = await api.get(`/users/${userId}`)
+    // Expect user data to be inside res.data.user or just res.data
+    user.value = res.data.user || res.data
   } catch (err) {
-    error.value = err.response?.data?.detail || err.message || 'Failed to fetch role'
+    error.value = err.response?.data?.detail || err.message || 'Failed to fetch user'
   } finally {
     loading.value = false
   }
 }
 
-const fetchAllPermissions = async () => {
-  isLoading.value = true
+const fetchAllRoles = async () => {
+  loadingRoles.value = true
   try {
-    const res = await api.get('/permissions/', {
-      params: {
-        skip: skip.value,
-        limit: perPage.value
-      }
-    })
-    allPermissions.value = res.data.data || res.data || []
-    totalPages.value = res.data.pages || 1
+    const res = await api.get('/roles/', { params: { limit: 1000 } })
+    allRoles.value = res.data.data || res.data || []
   } catch (err) {
-    console.error('Failed to fetch permissions', err)
+    console.error('Failed to fetch roles', err)
   } finally {
-    isLoading.value = false
+    loadingRoles.value = false
   }
 }
 
-// Returns assigned permission object or undefined
-const getAssignedPermission = (perm) => {
-  return role.value?.permissions?.find(
-    (p) => p.permission === perm.permission || p.permission?.id === perm.id
-  )
+const hasRole = (role) => {
+  if (!user.value?.roles) return false
+  return user.value.roles.some((r) => r.id === role.id)
 }
 
-const onAssignCheckboxChange = async (perm, checked) => {
-  if (loadingAssignRemove.value || !checked) return
+const onRoleCheckboxChange = async (role, checked) => {
+  if (loadingAssignRemove.value) return
   loadingAssignRemove.value = true
   try {
-    await api.post('/roles/permissions/', {
-      role_id: parseInt(roleId),
-      permission_id: perm.id
-    })
-    await fetchRole()
+    if (checked) {
+      // Assign role
+      await api.post('/users/roles/', {
+        user_id: userId,
+        role_id: role.id,
+      })
+    } else {
+      // Remove role - adjust to your API needs
+      await api.delete('/users/roles/', {
+        data: {
+          user_id: userId,
+          role_id: role.id,
+        },
+      })
+    }
+    // Refresh user data (to update roles)
+    await fetchUser()
   } catch (err) {
-    alert(err.response?.data?.detail || 'Failed to assign permission')
+    alert(err.response?.data?.detail || 'Failed to update roles')
   } finally {
     loadingAssignRemove.value = false
   }
 }
 
-const onRemoveCheckboxChange = async (perm) => {
-  const assigned = getAssignedPermission(perm)
-  if (!assigned) return
-  loadingAssignRemove.value = true
-  try {
-    await api.delete(`/roles/permissions/${assigned.id}`)
-    await fetchRole()
-  } catch (err) {
-    alert(err.response?.data?.detail || 'Failed to remove permission')
-  } finally {
-    loadingAssignRemove.value = false
-  }
-}
-
-const goBack = () => {
-  router.back()
-}
-
-const editRole = () => {
-  router.push({ name: 'EditRole', params: { id: roleId } })
-}
+const goBack = () => router.back()
+const editUser = () => router.push({ name: 'EditUser', params: { id: userId } })
 
 onMounted(() => {
-  fetchRole()
-  fetchAllPermissions()
+  fetchUser()
+  fetchAllRoles()
 })
 </script>

@@ -3,7 +3,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from routers import (
-    auth, users, roles, permissions, countries, org_units, events
+    auth,
+    users,
+    roles,
+    permissions,
+    countries,
+    org_units,
+    events,
+    dashboard,
 )
 
 app = FastAPI(
@@ -40,6 +47,7 @@ app.add_middleware(
 
 # Routers
 app.include_router(auth.router, tags=["Auth"], prefix="/auth")
+app.include_router(dashboard.router, tags=["Dashboard"], prefix="/dashboard")
 app.include_router(users.router, tags=["Users"], prefix="/users")
 app.include_router(roles.router, tags=["Roles"], prefix="/roles")
 app.include_router(permissions.router, tags=["Permissions"], prefix="/permissions")
