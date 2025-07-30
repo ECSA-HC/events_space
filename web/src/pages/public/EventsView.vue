@@ -62,17 +62,39 @@
         v-for="event in paginatedEvents"
         :key="event.id"
         :to="{ name: 'Event', params: { id: event.id } }"
-        class="bg-white rounded-xl shadow-md p-5 hover:shadow-lg transition cursor-pointer"
+        class="bg-gradient-to-br from-white to-blue-50 rounded-3xl shadow-md p-6 hover:shadow-xl hover:scale-[1.02] transition-transform cursor-pointer flex flex-col"
       >
-        <h3 class="text-lg font-semibold text-gray-800">{{ event.event }}</h3>
-        <p class="text-sm text-gray-500">Organized by: {{ event.org_unit.name }}</p>
-        <p class="text-sm text-gray-600 mt-1">
-          <strong>Date:</strong> {{ formatDate(event.start_date) }}
+        <h3 class="text-xl font-extrabold text-bondi-blue mb-2 truncate" :title="event.event">{{ event.event }}</h3>
+
+        <p class="flex items-center text-gray-600 text-sm mb-1">
+          <svg class="w-4 h-4 mr-1 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <path d="M3 7v4a4 4 0 004 4h8a4 4 0 004-4V7" />
+            <path d="M7 10l5 5 5-5" />
+          </svg>
+          Organized by: <span class="ml-1 font-medium">{{ event.org_unit.name }}</span>
         </p>
-        <p class="text-sm text-gray-600">
-          <strong>Location:</strong> {{ event.location }}
+
+        <p class="flex items-center text-gray-600 text-sm mb-1">
+          <svg class="w-4 h-4 mr-1 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 6v6l4 2" />
+          </svg>
+          <strong>Date:</strong> <span class="ml-1">{{ formatDate(event.start_date) }}</span>
         </p>
-        <p class="text-sm text-gray-700 mt-2">{{ event.theme }}</p>
+
+        <p class="flex items-center text-gray-600 text-sm mb-2">
+          <svg class="w-4 h-4 mr-1 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <path d="M12 21l-8-9 8-9 8 9-8 9z" />
+          </svg>
+          <strong>Location:</strong> <span class="ml-1">{{ event.location }}</span>
+        </p>
+
+        <p
+          class="text-gray-700 text-sm mt-auto line-clamp-3"
+          :title="event.theme"
+        >
+          {{ event.theme || 'No theme provided' }}
+        </p>
       </router-link>
     </div>
 
@@ -183,10 +205,6 @@ export default {
       return new Date(dateStr).toLocaleDateString(undefined, options);
     };
 
-    const onEventClick = (event) => {
-      alert(`Clicked event: ${event.event}`);
-    };
-
     onMounted(() => {
       fetchEvents();
     });
@@ -205,12 +223,17 @@ export default {
       nextPage,
       prevPage,
       formatDate,
-      onEventClick,
     };
   },
 };
 </script>
 
 <style scoped>
-/* Add additional styles if needed */
+/* Add line-clamp styles if not using Tailwind plugin */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 </style>

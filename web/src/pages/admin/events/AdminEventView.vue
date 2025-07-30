@@ -207,10 +207,6 @@
   @close="showBadge = false"
 />
 
-
-
-
-
       <!-- Upload Document Modal -->
       <UploadDocumentModal
         v-if="showUploadModal"

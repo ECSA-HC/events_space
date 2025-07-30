@@ -1,7 +1,6 @@
 import math, os
 import uuid
 import shutil
-import io
 from fastapi.responses import StreamingResponse
 from openpyxl import Workbook
 from io import BytesIO
@@ -12,29 +11,19 @@ from fastapi import status, HTTPException, File, Form, UploadFile
 from typing import Annotated
 from core.database import get_db
 from sqlalchemy.orm import Session, joinedload
-import utils.mailer_util as mailer_util
-from datetime import datetime, timedelta
+from datetime import datetime
 from dependencies.auth_dependency import Auth
 from dependencies.dependency import Dependency
 from dependencies.auth_dependency import get_current_user
 from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from models.models import Event, User, Registration, Document, Link, Payment
 from schemas.events_space import EventSchema, RegistrationSchema, LinkSchema
-
 from PIL import Image
-
-
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 import qrcode
-
-
 from fastapi.responses import StreamingResponse
-
-from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
-
-
 import unicodedata
 import re
 import urllib.parse
@@ -51,6 +40,9 @@ def get_dependency(db: Session = Depends(get_db)) -> Dependency:
 
 def get_auth_dependency(db: Session = Depends(get_db)) -> Auth:
     return Auth(db)
+
+
+CLIENT_ORIGIN = os.getenv("CLIENT_ORIGIN", "unknown_origin")
 
 
 EVENT_DOCUMENT_DIR = "uploads/event/documents"
@@ -903,7 +895,7 @@ async def download_participant_badges_pdf(
                 "participation_role": PARTICIPATION_ROLE_MAP.get(role_key, role_key),
                 "event_name": event.event,
                 "location": event.location or "",
-                "paid": reg.paid,  # or the correct attribute for paid status
+                "paid": reg.paid,
             }
         )
 
@@ -915,18 +907,44 @@ async def download_participant_badges_pdf(
         raise HTTPException(status_code=404, detail="No participants found")
 
     buffer = BytesIO()
-    width, height = (100 * mm, 140 * mm)  # Increased badge size
+    width, height = (100 * mm, 140 * mm)  # Badge size
     c = canvas.Canvas(buffer, pagesize=(width, height))
 
     logo_left = convert_png_to_rgb("assets/logo_left.png")
     logo_right = convert_png_to_rgb("assets/logo_right.png")
 
     for p in participants:
+        # White background
         c.setFillColorRGB(1, 1, 1)
         c.rect(0, 0, width, height, fill=True, stroke=False)
+
+        # 🔲 Add crop marks on corners
+        mark_len = 5 * mm
+        line_offset = 0.5 * mm
+        c.setLineWidth(0.3)
+        c.setStrokeColorRGB(0.5, 0.5, 0.5)  # Light gray
+
+        # Top-left
+        c.line(0, height - line_offset, mark_len, height - line_offset)
+        c.line(line_offset, height, line_offset, height - mark_len)
+
+        # Top-right
+        c.line(width - mark_len, height - line_offset, width, height - line_offset)
+        c.line(width - line_offset, height, width - line_offset, height - mark_len)
+
+        # Bottom-left
+        c.line(0, line_offset, mark_len, line_offset)
+        c.line(line_offset, 0, line_offset, mark_len)
+
+        # Bottom-right
+        c.line(width - mark_len, line_offset, width, line_offset)
+        c.line(width - line_offset, 0, width - line_offset, mark_len)
+
+        # Reset stroke to black
+        c.setStrokeColorRGB(0, 0, 0)
         c.setFillColorRGB(0, 0, 0)
 
-        # Logos (increased size)
+        # Logos
         logo_size = 25 * mm
         c.drawImage(
             logo_left,
@@ -945,7 +963,7 @@ async def download_participant_badges_pdf(
             preserveAspectRatio=True,
         )
 
-        # Text section (increased font sizes and spacing)
+        # Text content
         y = height - 45 * mm
         c.setFont("Helvetica-Bold", 16)
         full_name = (
@@ -981,20 +999,18 @@ async def download_participant_badges_pdf(
 
         if p["location"]:
             y -= 8 * mm
-            c.setFont("Helvetica-Oblique", 10)  # italic font
-            location_text = f"({p['location']})"  # add brackets
-            c.drawCentredString(width / 2, y, location_text)
+            c.setFont("Helvetica-Oblique", 10)
+            c.drawCentredString(width / 2, y, f"({p['location']})")
 
         if p["event_name"]:
             y -= 8 * mm
-            event_name_clean = normalize_event_name(p["event_name"])
             c.setFont("Helvetica-Bold", 10)
-            c.drawCentredString(width / 2, y, event_name_clean)
+            c.drawCentredString(width / 2, y, normalize_event_name(p["event_name"]))
 
-        # QR Code (increased to 30 mm), shifted down to avoid event name overlap
+        # QR code
         qr_size = 30 * mm
-        qr_y_position = 3 * mm  # Lowered from 10 mm to 3 mm
-        qr_data = f"{p['registration_id']} - {full_name}"
+        qr_y_position = 3 * mm
+        qr_data = f"{CLIENT_ORIGIN}/registration/{p['registration_id']}"
         qr = qrcode.make(qr_data)
         qr_buffer = BytesIO()
         qr.save(qr_buffer, format="PNG")

@@ -8,12 +8,21 @@
           {{ formatDate(event?.start_date) }} – {{ formatDate(event?.end_date) }}
           &middot; {{ event?.location }}
         </p>
+
         <router-link
+          v-if="isRegistrationOpen"
           :to="{ name: 'Register', params: { id: event?.id } }"
           class="inline-block bg-white text-bondi-blue font-semibold px-6 py-2 rounded-full shadow hover:shadow-md hover:bg-gray-100 transition"
         >
           Register Now
         </router-link>
+        <button
+          v-else
+          @click="showClosedMessage"
+          class="inline-block bg-gray-300 text-gray-500 font-semibold px-6 py-2 rounded-full shadow cursor-not-allowed"
+        >
+          Register Now
+        </button>
       </div>
     </section>
 
@@ -26,10 +35,9 @@
         {{ error }}
       </div>
       <div v-else class="space-y-8">
-        <!-- Combined Event Details -->
+        <!-- Event Details -->
         <section class="bg-white rounded-lg shadow-sm p-6">
           <h2 class="text-2xl font-semibold text-bondi-blue mb-6">Event Details</h2>
-
           <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6 text-gray-700">
             <div>
               <dt class="font-medium mb-1">Theme</dt>
@@ -61,15 +69,8 @@
                 :key="file.id"
                 class="flex items-center gap-3 text-bondi-blue hover:underline cursor-pointer"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="w-5 h-5 flex-shrink-0"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                 </svg>
                 <a :href="`${baseUrl}/${file.path}`" target="_blank" class="text-base font-medium">
                   {{ file.name }}
@@ -79,9 +80,7 @@
           </div>
           <div v-else-if="!isAuthenticated" class="text-sm text-gray-600 italic">
             Please
-            <router-link to="/login" class="text-bondi-blue underline">
-              log in
-            </router-link>
+            <router-link to="/login" class="text-bondi-blue underline">log in</router-link>
             to view downloads.
           </div>
         </section>
@@ -92,11 +91,7 @@
           <div v-if="isAuthenticated && links.length">
             <ul class="space-y-3">
               <li v-for="link in links" :key="link.id">
-                <a
-                  :href="link.link"
-                  target="_blank"
-                  class="text-bondi-blue text-base font-medium hover:underline"
-                >
+                <a :href="link.link" target="_blank" class="text-bondi-blue text-base font-medium hover:underline">
                   {{ link.name }}
                 </a>
               </li>
@@ -104,9 +99,7 @@
           </div>
           <div v-else-if="!isAuthenticated" class="text-sm text-gray-600 italic">
             Please
-            <router-link to="/login" class="text-bondi-blue underline">
-              log in
-            </router-link>
+            <router-link to="/login" class="text-bondi-blue underline">log in</router-link>
             to view useful links.
           </div>
         </section>
@@ -120,7 +113,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/plugins/axios'
 import DataLoadingSpinner from '@/components/common/DataLoadingSpinner.vue'
-import { useAuthStore } from '@/stores/auth' // Adjust path if needed
+import { useAuthStore } from '@/stores/auth'
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL
 const route = useRoute()
@@ -150,14 +143,26 @@ async function loadEventData() {
   }
 }
 
-onMounted(() => {
-  loadEventData()
+const isRegistrationOpen = computed(() => {
+  if (!event.value?.start_date) return false
+  const today = new Date()
+  const eventStart = new Date(event.value.start_date)
+  const diffDays = (eventStart - today) / (1000 * 60 * 60 * 24)
+  return diffDays >= 7
 })
+
+function showClosedMessage() {
+  alert('Registration is closed. It’s less than 7 days to the event.')
+}
 
 function formatDate(dateStr) {
   const options = { year: 'numeric', month: 'long', day: 'numeric' }
   return new Date(dateStr).toLocaleDateString(undefined, options)
 }
+
+onMounted(() => {
+  loadEventData()
+})
 </script>
 
 <style scoped>

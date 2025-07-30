@@ -5,7 +5,7 @@ import {
   UserIcon,
   CalendarDaysIcon,
   ClockIcon,
-  CheckCircleIcon // updated icon
+  CheckCircleIcon
 } from '@heroicons/vue/24/outline'
 import api from '@/plugins/axios'
 
@@ -40,7 +40,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex-1 flex flex-col">
+  <div class="flex-1 flex flex-col max-w-7xl w-full mx-auto overflow-hidden">
     <AdminBar title="Dashboard">
       <a href="#" class="text-sm text-blue-600 hover:underline">Dashboard</a>
     </AdminBar>
@@ -55,7 +55,6 @@ onMounted(() => {
       <div v-else>
         <!-- Summary Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <!-- Total Users -->
           <div class="bg-white rounded-2xl shadow p-5 flex items-center gap-5">
             <div class="bg-blue-100 text-blue-600 rounded-full p-3">
               <UserIcon class="h-7 w-7" />
@@ -66,7 +65,6 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- Upcoming Events -->
           <div class="bg-white rounded-2xl shadow p-5 flex items-center gap-5">
             <div class="bg-green-100 text-green-600 rounded-full p-3">
               <CalendarDaysIcon class="h-7 w-7" />
@@ -77,7 +75,6 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- Completed Events -->
           <div class="bg-white rounded-2xl shadow p-5 flex items-center gap-5">
             <div class="bg-yellow-100 text-yellow-600 rounded-full p-3">
               <CheckCircleIcon class="h-7 w-7" />
@@ -88,7 +85,6 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- System Uptime -->
           <div class="bg-white rounded-2xl shadow p-5 flex items-center gap-5">
             <div class="bg-indigo-100 text-indigo-600 rounded-full p-3">
               <ClockIcon class="h-7 w-7" />
@@ -100,50 +96,59 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Recent Events Table -->
-        <div class="bg-white shadow rounded-xl p-6 mt-8">
-          <h2 class="text-xl font-semibold mb-5">Recent Events</h2>
-          <table class="w-full text-left text-sm">
-            <thead class="border-b border-gray-300">
-              <tr>
-                <th class="py-3 px-4">Event</th>
-                <th class="py-3 px-4">Start Date</th>
-                <th class="py-3 px-4">End Date</th>
-                <th class="py-3 px-4">Participants</th>
-                <th class="py-3 px-4">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="event in recentEvents"
-                :key="event.id"
-                class="border-b border-gray-200 hover:bg-gray-50"
-              >
-                <td class="py-3 px-4 font-medium">{{ event.name }}</td>
-                <td class="py-3 px-4">{{ new Date(event.start_date).toLocaleDateString() }}</td>
-                <td class="py-3 px-4">{{ new Date(event.end_date).toLocaleDateString() }}</td>
-                <td class="py-3 px-4">{{ event.participants }}</td>
-                <td class="py-3 px-4">
-                  <span
-                    :class="[ 
-                      'px-3 py-1 rounded-full text-xs font-semibold',
-                      event.status === 'upcoming'
-                        ? 'bg-blue-100 text-blue-600'
-                        : 'bg-green-100 text-green-600'
-                    ]"
-                  >
-                    {{ event.status }}
-                  </span>
-                </td>
-              </tr>
-              <tr v-if="recentEvents.length === 0">
-                <td colspan="5" class="py-4 text-center text-gray-500 italic">
-                  No recent events found.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+<!-- Recent Events Table -->
+<div class="bg-white shadow rounded-xl overflow-hidden mt-8">
+  <h2 class="text-xl font-semibold px-6 pt-6">Recent Events</h2>
+  <div class="w-full overflow-x-auto">
+    <table class="w-full table-auto text-sm text-gray-800">
+      <thead class="bg-gray-100 text-left uppercase text-xs text-gray-800 hidden md:table-header-group">
+        <tr>
+          <th class="px-6 py-4">Event</th>
+          <th class="px-6 py-4">Start Date</th>
+          <th class="px-6 py-4">End Date</th>
+          <th class="px-6 py-4">Participants</th>
+          <th class="px-6 py-4">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-if="recentEvents.length === 0">
+          <td colspan="5" class="text-center px-6 py-6 text-gray-400 italic">No recent events found.</td>
+        </tr>
+        <tr
+          v-for="event in recentEvents"
+          :key="event.id"
+          class="block md:table-row border-t md:border-0 md:hover:bg-gray-50 even:bg-gray-50 odd:bg-white"
+        >
+          <td class="px-6 py-4 block md:table-cell">
+            <div class="font-medium">{{ event.name }}</div>
+          </td>
+          <td class="px-6 py-4 block md:table-cell">
+            {{ new Date(event.start_date).toLocaleDateString() }}
+          </td>
+          <td class="px-6 py-4 block md:table-cell">
+            {{ new Date(event.end_date).toLocaleDateString() }}
+          </td>
+          <td class="px-6 py-4 block md:table-cell">
+            {{ event.participants }}
+          </td>
+          <td class="px-6 py-4 block md:table-cell">
+            <span
+              :class="[
+                'px-3 py-1 rounded-full text-xs font-semibold',
+                event.status === 'upcoming'
+                  ? 'bg-blue-100 text-blue-600'
+                  : 'bg-green-100 text-green-600'
+              ]"
+            >
+              {{ event.status }}
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
       </div>
     </main>
   </div>

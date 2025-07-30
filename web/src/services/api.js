@@ -1,8 +1,7 @@
-// src/plugins/axios.js
 import axios from "axios";
 import { useAuthStore } from "@/stores/auth";
 
-axios.defaults.baseURL = "http://localhost:8000";
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL;
 
 // Axios interceptor for handling expired tokens
 axios.interceptors.response.use(

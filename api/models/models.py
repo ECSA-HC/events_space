@@ -69,7 +69,7 @@ class ParticipationRole(PyEnum):
     moderator = "moderator"
     participant = "participant"
     student = "student"
-    exibitor = "exibitor"
+    exhibitor = "exhibitor"
     world = "world"
     other_africa = "other_africa"
     member_state = "member_state"
@@ -505,6 +505,7 @@ class Registration(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
+    event_attendance = relationship("EventAttendance", back_populates="registration")
 
     __table_args__ = (
         UniqueConstraint("user_id", "event_id", name="unique_user_event_registration"),
@@ -608,6 +609,38 @@ class Link(BaseWithSoftDelete):
 
     def __repr__(self):
         return f"<Link link={self.link}, name={self.name}>"
+
+
+class EventAttendance(Base):
+    __tablename__ = "event_attendance"
+
+    id = Column(Integer, primary_key=True, index=True)
+    registration_id = Column(Integer, ForeignKey("registration.id"), nullable=False)
+
+    attendance_date = Column(
+        TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
+    )
+    created_at = Column(
+        TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+    deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)
+
+    registration = relationship("Registration", back_populates="event_attendance")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "registration_id", "attendance_date", name="unique_event_attendance"
+        ),
+    )
+
+    def __repr__(self):
+        return f"<EventAttendance registration_id={self.registration_id}>"
 
 
 # class Document(Base):

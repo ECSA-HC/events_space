@@ -33,10 +33,25 @@
       <div class="text-sm text-gray-600">
         Organised by <span class="text-bondi-blue font-bold">{{ featuredEvent.org_unit.name }}</span>
       </div>
-<div></div>
-      <router-link :to="{ name: 'Register', params: { id: featuredEvent.id } }" class="mt-4 bg-bondi-blue text-white px-6 py-3 rounded-full text-sm sm:text-base font-normal hover:bg-bondi-blue/90 transition">
-        Register Now
-      </router-link>
+
+      <!-- Register button -->
+      <div>
+        <router-link
+          v-if="isRegistrationOpen"
+          :to="{ name: 'Register', params: { id: featuredEvent.id } }"
+          class="mt-4 px-6 py-3 rounded-full text-sm sm:text-base font-normal transition bg-bondi-blue text-white hover:bg-bondi-blue/90"
+        >
+          Register Now
+        </router-link>
+
+        <button
+          v-else
+          @click="showClosedMessage"
+          class="mt-4 px-6 py-3 rounded-full text-sm sm:text-base font-normal bg-gray-300 text-gray-500 cursor-not-allowed"
+        >
+          Register Now
+        </button>
+      </div>
     </div>
 
     <!-- All Events -->
@@ -160,6 +175,18 @@ export default {
       return new Date(dateStr).toLocaleDateString(undefined, options)
     }
 
+    const isRegistrationOpen = computed(() => {
+      if (!featuredEvent.value?.start_date) return false
+      const now = new Date()
+      const startDate = new Date(featuredEvent.value.start_date)
+      const diffInDays = (startDate - now) / (1000 * 60 * 60 * 24)
+      return diffInDays >= 7
+    })
+
+    const showClosedMessage = () => {
+      alert('Registration is closed. You can no longer register for this event.')
+    }
+
     onMounted(fetchEvents)
 
     return {
@@ -172,6 +199,8 @@ export default {
       totalPages,
       goToPage,
       formatDate,
+      isRegistrationOpen,
+      showClosedMessage,
     }
   },
 }

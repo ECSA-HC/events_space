@@ -273,8 +273,12 @@ async def delete_user(
 ):
     auth_dependency.secure_access("DELETE_USER", current_user["user_id"])
 
-    if not (user := get_object(user_id, db, User)):
+    user = get_object(user_id, db, User)
+    if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # Explicitly delete related user_role(s)
+    db.query(UserRole).filter(UserRole.user_id == user_id).delete()
 
     db.delete(user)
     db.commit()

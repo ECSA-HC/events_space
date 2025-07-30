@@ -16,6 +16,8 @@ import ResetPasswordView from "@/pages/public/ResetPasswordView.vue";
 import RegisterView from "@/pages/public/RegisterView.vue";
 import RegisterAccountView from "@/pages/public/RegisterAccountView.vue";
 import PaymentView from "@/pages/public/PaymentView.vue";
+import EventAttendanceView from "@/pages/public/EventAttendanceView.vue";
+import RegistrationView from "@/pages/public/RegistrationView.vue";
 
 // Admin Pages
 import DashboardView from "@/pages/admin/DashboardView.vue";
@@ -74,6 +76,18 @@ const routes = [
         path: "/payment/:event_id/:registration_id",
         name: "EventPayment",
         component: PaymentView,
+      },
+
+      {
+        path: "event-attendance/:id",
+        name: "EventAttendance",
+        component: EventAttendanceView,
+      },
+
+      {
+        path: "registration/:id",
+        name: "Registration",
+        component: RegistrationView,
       },
     ],
   },

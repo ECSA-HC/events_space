@@ -2,16 +2,56 @@
   <div class="space-y-8 flex-1">
     <h1 class="text-2xl font-semibold text-black">My Profile</h1>
 
-    <!-- Profile Picture -->
-    <div class="bg-white rounded-2xl shadow p-6 flex flex-col md:flex-row items-center gap-6">      
-      <img
-        :src="profilePicture || defaultAvatar"
-        alt="Profile Picture"
-        class="w-32 h-32 rounded-full object-cover border border-gray-300"
-      />
-      <div class="space-y-2">
+    <!-- Profile Picture Upload -->
+    <div class="bg-white rounded-2xl shadow p-6 flex flex-col md:flex-row items-center gap-6">
+      <!-- Preview & Dropzone -->
+      <div
+        class="w-32 h-32 rounded-full border border-gray-300 overflow-hidden relative cursor-pointer
+               flex items-center justify-center bg-gray-50 hover:bg-gray-100 transition"
+        @click="triggerFileSelect"
+        @dragover.prevent="dragActive = true"
+        @dragleave.prevent="dragActive = false"
+        @drop.prevent="handleDrop"
+        :class="{ 'border-blue-500 bg-blue-50': dragActive }"
+      >
+        <img
+          v-if="profilePicture"
+          :src="profilePicture"
+          alt="Profile Picture"
+          class="w-full h-full object-cover"
+        />
+        <div v-else class="text-gray-400 text-center px-2 select-none">
+          <svg
+            class="mx-auto mb-1 w-8 h-8 text-gray-300"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 5v14m7-7H5" />
+          </svg>
+          <span class="text-xs">Click or drag & drop to upload</span>
+        </div>
+        <input
+          ref="fileInput"
+          type="file"
+          accept="image/*"
+          class="hidden"
+          @change="onFileChange"
+        />
+      </div>
+
+      <div class="space-y-2 max-w-xs">
         <p class="text-sm text-gray-700">Add or update your profile picture</p>
-        <input type="file" @change="onFileChange" class="text-sm" />
+        <button
+          type="button"
+          @click="triggerFileSelect"
+          class="px-4 py-2 bg-bondi-blue text-white rounded-lg hover:bg-indigo-700 transition"
+        >
+          Select File
+        </button>
       </div>
     </div>
 
@@ -58,8 +98,8 @@
           <label class="block text-sm font-medium mb-1">Last Name</label>
           <input v-model="lastName" type="text" class="w-full input" required />
         </div>
-        
-        <!-- Lastname -->
+
+        <!-- Gender -->
         <div>
           <label class="block text-sm font-medium mb-1">Gender</label>
           <select v-model="gender" required class="w-full input">
@@ -82,12 +122,12 @@
           <input v-model="phone" type="tel" class="w-full input" />
         </div>
 
-        <!-- Position -->
+        <!-- Profession -->
         <div>
           <label class="block text-sm font-medium mb-1">Profession</label>
           <input v-model="profession" type="text" class="w-full input" />
         </div>   
-        
+
         <!-- Position -->
         <div>
           <label class="block text-sm font-medium mb-1">Position</label>
@@ -99,8 +139,6 @@
           <label class="block text-sm font-medium mb-1">Organisation</label>
           <input v-model="organisation" type="text" class="w-full input" />
         </div>
-
-
 
         <!-- Country -->
         <div>
@@ -135,6 +173,9 @@ const auth_user = auth.user
 
 const countries = ref([])
 const profilePicture = ref(null)
+const profileFile = ref(null)
+const dragActive = ref(false)
+const fileInput = ref(null)
 const defaultAvatar = 'https://via.placeholder.com/150?text=Avatar'
 
 // Form data
@@ -157,19 +198,33 @@ const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
 const successMessage = ref('')
 const errorMessage = ref('')
 
-// File upload
-const profileFile = ref(null)
+// Trigger hidden input click
+function triggerFileSelect() {
+  fileInput.value?.click()
+}
 
+// Handle file selection
 const onFileChange = (event) => {
   const file = event.target.files[0]
-  if (file) {
-    profileFile.value = file
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      profilePicture.value = e.target.result
-    }
-    reader.readAsDataURL(file)
+  processFile(file)
+}
+
+// Handle drag and drop file
+function handleDrop(event) {
+  dragActive.value = false
+  const file = event.dataTransfer.files[0]
+  processFile(file)
+}
+
+// Process file and show preview
+function processFile(file) {
+  if (!file) return
+  profileFile.value = file
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    profilePicture.value = e.target.result
   }
+  reader.readAsDataURL(file)
 }
 
 const fetchUser = async () => {

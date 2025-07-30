@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, field_validator, model_validator, HttpUrl
-from datetime import date
+from datetime import date, datetime
 
 import re
 
@@ -134,3 +134,19 @@ class LinkSchema(BaseModel):
     event_id: int
     name: str
     link: HttpUrl
+
+
+class AttendanceBase(BaseModel):
+    registration_id: int
+
+
+class AttendanceCreate(AttendanceBase):
+    pass
+
+
+class AttendanceRead(AttendanceBase):
+    id: int
+    attendance_date: datetime
+
+    class Config:
+        orm_mode = True

@@ -37,7 +37,7 @@
           :key="event.id"
           class="bg-white p-4 rounded-xl shadow hover:shadow-md transition"
         >
-          <h4 class="text-md font-semibold text-gray-900 mb-1">{{ event.event }}</h4>
+          <router-link :to="{ name: 'MyEvent', params: { id: event.id } }" class="text-md font-semibold text-gray-900 mb-1">{{ event.event }}</router-link>
           <p class="text-sm text-gray-600 mb-2">
             From: {{ formatDate(event.start_date) }} <br />
             To: {{ formatDate(event.end_date) }}

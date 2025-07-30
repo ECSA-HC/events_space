@@ -11,6 +11,8 @@ from routers import (
     org_units,
     events,
     dashboard,
+    event_attendance,
+    registrations,
 )
 
 app = FastAPI(
@@ -33,7 +35,7 @@ app = FastAPI(
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 origins = [
-    "https://events.ecsaconm.org",
+    "https://api.ecsahc.com",
     "http://localhost:8080",
 ]
 
@@ -54,3 +56,9 @@ app.include_router(permissions.router, tags=["Permissions"], prefix="/permission
 app.include_router(countries.router, tags=["Countries"], prefix="/countries")
 app.include_router(org_units.router, tags=["Org units"], prefix="/org_units")
 app.include_router(events.router, tags=["Events"], prefix="/events")
+app.include_router(
+    event_attendance.router, tags=["Event attendance"], prefix="/event_attendance"
+)
+app.include_router(
+    registrations.router, tags=["Registrations"], prefix="/registrations"
+)

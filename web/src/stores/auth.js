@@ -1,6 +1,7 @@
-// src/stores/auth.js
 import { defineStore } from "pinia";
 import axios from "axios";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export const useAuthStore = defineStore("auth", {
   state: () => ({
@@ -49,7 +50,7 @@ export const useAuthStore = defineStore("auth", {
 
     async refreshToken() {
       try {
-        const res = await axios.post("http://localhost:8000/auth/refresh"); // your refresh endpoint
+        const res = await axios.post(`${API_BASE_URL}/auth/refresh`);
         this.token = res.data.access_token;
         axios.defaults.headers.common["Authorization"] = `Bearer ${this.token}`;
         localStorage.setItem("token", this.token);
