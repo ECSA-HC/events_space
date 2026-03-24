@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "events-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5174,
+      "autoPort": true,
+      "cwd": "/Applications/XAMPP/xamppfiles/htdocs/events_space/web"
+    }
+  ]
+}
