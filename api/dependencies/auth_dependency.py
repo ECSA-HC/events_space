@@ -1,7 +1,7 @@
 import os
 import string
 import secrets
-from typing import Annotated
+from typing import Annotated, Optional
 from starlette import status
 from dotenv import load_dotenv
 from jose import jwt, JWTError
@@ -15,6 +15,8 @@ from models.models import User, Role, User, RolePermission, UserRole, Permission
 
 load_dotenv()
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl="auth/login")
+# Optional bearer — returns None instead of 401 when no token is provided
+oauth2_bearer_optional = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
 
 
 class Auth:
@@ -91,3 +93,22 @@ def get_current_user(token: Annotated[str, Depends(oauth2_bearer)]):
         return {'username': username, "user_id": user_id}
     except JWTError as error:
         raise credentials_exception from error
+
+
+def get_optional_current_user(token: Optional[str] = Depends(oauth2_bearer_optional)):
+    """Returns the current user dict if a valid JWT is present, otherwise None."""
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(
+            token,
+            os.getenv("SECRET_KEY", ""),
+            algorithms=os.getenv("ALGORITHM", ""),
+        )
+        username: str = str(payload.get("sub"))
+        user_id: int = int(payload.get("id", 0))
+        if not username or not user_id:
+            return None
+        return {"username": username, "user_id": user_id}
+    except JWTError:
+        return None

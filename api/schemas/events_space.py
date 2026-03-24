@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr, field_validator, model_validator, HttpUrl
 from datetime import date, datetime
+from typing import Optional
 
 import re
 
@@ -77,6 +78,9 @@ class OrgUnitSchema(BaseModel):
     name: str
     type: str
     description: str
+    primary_color: Optional[str] = '#0095B6'
+    secondary_color: Optional[str] = '#F7941D'
+    logo: Optional[str] = None
 
 
 class EventSchema(BaseModel):
@@ -84,16 +88,44 @@ class EventSchema(BaseModel):
     country_id: int
     event: str
     theme: str
-    description: str
+    description: Optional[str] = None
     start_date: date
     end_date: date
     location: str
+    banner_image: Optional[str] = None
+    organizers: Optional[str] = None
+    participation_info: Optional[str] = None
+    logistics_info: Optional[str] = None
+    sponsors_info: Optional[str] = None
 
     @field_validator("start_date", "end_date")
     def check_dates_not_in_past(cls, v: date):
         if v < date.today():
             raise ValueError("Date must be today or in the future")
         return v
+
+    @model_validator(mode="after")
+    def check_date_order(self):
+        if self.end_date < self.start_date:
+            raise ValueError("end_date must be after or equal to start_date")
+        return self
+
+
+class EventUpdateSchema(BaseModel):
+    """Schema for updating events — no past-date restriction so existing events can be edited."""
+    org_unit_id: int
+    country_id: int
+    event: str
+    theme: str
+    description: Optional[str] = None
+    start_date: date
+    end_date: date
+    location: str
+    banner_image: Optional[str] = None
+    organizers: Optional[str] = None
+    participation_info: Optional[str] = None
+    logistics_info: Optional[str] = None
+    sponsors_info: Optional[str] = None
 
     @model_validator(mode="after")
     def check_date_order(self):

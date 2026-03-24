@@ -14,10 +14,11 @@ from sqlalchemy.orm import Session, joinedload
 from datetime import datetime
 from dependencies.auth_dependency import Auth
 from dependencies.dependency import Dependency
-from dependencies.auth_dependency import get_current_user
+from dependencies.auth_dependency import get_current_user, get_optional_current_user
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from models.models import Event, User, Registration, Document, Link, Payment
-from schemas.events_space import EventSchema, RegistrationSchema, LinkSchema
+from schemas.events_space import EventSchema, EventUpdateSchema, RegistrationSchema, LinkSchema
 from PIL import Image
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
@@ -48,6 +49,14 @@ CLIENT_ORIGIN = os.getenv("CLIENT_ORIGIN", "unknown_origin")
 EVENT_DOCUMENT_DIR = "uploads/event/documents"
 if not os.path.exists(EVENT_DOCUMENT_DIR):
     os.makedirs(EVENT_DOCUMENT_DIR)
+
+EVENT_BANNER_DIR = "uploads/event/banners"
+if not os.path.exists(EVENT_BANNER_DIR):
+    os.makedirs(EVENT_BANNER_DIR)
+
+ORG_UNIT_LOGO_DIR = "uploads/org_unit/logos"
+if not os.path.exists(ORG_UNIT_LOGO_DIR):
+    os.makedirs(ORG_UNIT_LOGO_DIR)
 
 
 def get_object(id: int, db: Session, model):
@@ -126,7 +135,32 @@ async def get_events(
     events = events_query.offset(skip).limit(limit).all()
 
     pages = math.ceil(total_count / limit)
-    return {"pages": pages, "data": events}
+    return {
+        "pages": pages,
+        "data": [
+            {
+                "id": e.id,
+                "event": e.event,
+                "theme": e.theme,
+                "description": e.description,
+                "start_date": e.start_date,
+                "end_date": e.end_date,
+                "location": e.location,
+                "banner_image": e.banner_image,
+                "organizers": e.organizers,
+                "org_unit_id": e.org_unit_id,
+                "org_unit": {
+                    "id": e.org_unit.id,
+                    "name": e.org_unit.name,
+                    "primary_color": e.org_unit.primary_color or "#0095B6",
+                    "secondary_color": e.org_unit.secondary_color or "#F7941D",
+                    "logo": e.org_unit.logo,
+                } if e.org_unit else None,
+                "country_id": e.country_id,
+            }
+            for e in events
+        ],
+    }
 
 
 @router.post("/")
@@ -159,11 +193,17 @@ async def add_event(
         location=event_schema.location,
         start_date=event_schema.start_date,
         end_date=event_schema.end_date,
+        banner_image=event_schema.banner_image,
+        organizers=event_schema.organizers,
+        participation_info=event_schema.participation_info,
+        logistics_info=event_schema.logistics_info,
+        sponsors_info=event_schema.sponsors_info,
     )
 
     db.add(create_event_model)
     db.commit()
-    return event_schema
+    db.refresh(create_event_model)
+    return {"id": create_event_model.id}
 
 
 @router.get("/{event_id}")
@@ -172,6 +212,7 @@ async def get_event(
     event_id: int,
     db: Session = Depends(get_db),
     dependency: Dependency = Depends(get_dependency),
+    current_user: Optional[dict] = Depends(get_optional_current_user),
 ):
     client_ip = dependency.request_ip(request)
 
@@ -188,6 +229,37 @@ async def get_event(
         documents = event.documents or []
         links = event.links or []
 
+        # ── Determine the current user's access level ─────────────────────────
+        # "none"   → not logged in
+        # "unpaid" → logged in but no paid registration for this event
+        # "paid"   → has a paid registration OR has admin/secretariat permission
+        user_access = "none"
+        if current_user:
+            uid = current_user["user_id"]
+            # Check for admin permission (ADMIN_DASHBOARD) → always full access
+            from models.models import UserRole, RolePermission, Permission as Perm
+            is_admin = db.query(UserRole).join(
+                RolePermission, UserRole.role_id == RolePermission.role_id
+            ).join(
+                Perm, RolePermission.permission_id == Perm.id
+            ).filter(
+                UserRole.user_id == uid,
+                Perm.permission_code == "ADMIN_DASHBOARD",
+            ).first()
+
+            if is_admin:
+                user_access = "paid"
+            else:
+                reg = db.query(Registration).filter(
+                    Registration.user_id == uid,
+                    Registration.event_id == event_id,
+                    Registration.deleted_at == None,
+                ).first()
+                if reg and reg.paid:
+                    user_access = "paid"
+                else:
+                    user_access = "unpaid"
+
         return {
             "event": {
                 "id": event.id,
@@ -196,6 +268,9 @@ async def get_event(
                 "country": event.country.country if event.country else None,
                 "org_unit_id": event.org_unit_id,
                 "org_unit": event.org_unit.name if event.org_unit else None,
+                "org_unit_primary_color": event.org_unit.primary_color if event.org_unit else "#0095B6",
+                "org_unit_secondary_color": event.org_unit.secondary_color if event.org_unit else "#F7941D",
+                "org_unit_logo": event.org_unit.logo if event.org_unit else None,
                 "user_id": event.user_id,
                 "firstname": event.user.firstname if event.user else None,
                 "lastname": event.user.lastname if event.user else None,
@@ -204,9 +279,15 @@ async def get_event(
                 "description": event.description,
                 "start_date": event.start_date,
                 "end_date": event.end_date,
+                "banner_image": event.banner_image,
+                "organizers": event.organizers,
+                "participation_info": event.participation_info,
+                "logistics_info": event.logistics_info,
+                "sponsors_info": event.sponsors_info,
                 "participation_role": (
                     registrations[0].participation_role if registrations else None
                 ),
+                "user_access": user_access,
             },
             "participants": [
                 {
@@ -236,6 +317,7 @@ async def get_event(
                         else None
                     ),
                     "paid": getattr(r, "paid", None),
+                    "payment_proof": getattr(r, "payment_proof", None),
                     "registered_at": r.registered_at,
                 }
                 for r in registrations
@@ -270,7 +352,7 @@ async def update_event(
     request: Request,
     event_id: int,
     current_user: user_dependency,
-    event_schema: EventSchema,
+    event_schema: EventUpdateSchema,
     db: Session = Depends(get_db),
     dependency: Dependency = Depends(get_dependency),
     auth_dependency: Auth = Depends(get_auth_dependency),
@@ -297,6 +379,12 @@ async def update_event(
     event_model.location = event_schema.location
     event_model.start_date = event_schema.start_date
     event_model.end_date = event_schema.end_date
+    event_model.organizers = event_schema.organizers
+    event_model.participation_info = event_schema.participation_info
+    event_model.logistics_info = event_schema.logistics_info
+    event_model.sponsors_info = event_schema.sponsors_info
+    if event_schema.banner_image is not None:
+        event_model.banner_image = event_schema.banner_image
 
     db.commit()
     db.refresh(event_model)
@@ -499,6 +587,117 @@ async def event_deregistration(
         ) from error
 
 
+PAYMENT_RECEIPT_DIR = "uploads/payment_receipts"
+if not os.path.exists(PAYMENT_RECEIPT_DIR):
+    os.makedirs(PAYMENT_RECEIPT_DIR)
+
+
+@router.delete("/deregister_participant/{registration_id}")
+async def admin_deregister_participant(
+    request: Request,
+    registration_id: int,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    dependency: Dependency = Depends(get_dependency),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    """Admin-only: deregister any participant by registration ID."""
+    auth_dependency.secure_access("ADMIN_DASHBOARD", current_user["user_id"])
+
+    registration = db.query(Registration).filter(Registration.id == registration_id).first()
+    if not registration:
+        raise HTTPException(status_code=404, detail="Registration not found")
+
+    try:
+        existing_payment = (
+            db.query(Payment).filter(Payment.registration_id == registration.id).first()
+        )
+        if existing_payment:
+            db.delete(existing_payment)
+            db.flush()
+
+        db.delete(registration)
+        db.commit()
+    except Exception as error:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to deregister participant",
+        ) from error
+
+    client_ip = dependency.request_ip(request)
+    dependency.log_activity(
+        current_user["user_id"],
+        "ADMIN_DEREGISTER",
+        current_user["username"],
+        client_ip,
+        f"Admin deregistered registration ID {registration_id}",
+    )
+    return {"detail": "Participant successfully deregistered"}
+
+
+@router.post("/upload_payment_proof/{event_id}")
+async def upload_payment_proof(
+    event_id: int,
+    current_user: user_dependency,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """User uploads proof of payment for their registration."""
+    registration = db.query(Registration).filter(
+        Registration.user_id == current_user["user_id"],
+        Registration.event_id == event_id,
+        Registration.deleted_at == None,
+    ).first()
+
+    if not registration:
+        raise HTTPException(status_code=404, detail="Registration not found")
+
+    try:
+        ext = os.path.splitext(file.filename)[1]
+        unique_name = f"proof_{registration.id}_{uuid.uuid4().hex[:8]}{ext}"
+        file_path = os.path.join(PAYMENT_RECEIPT_DIR, unique_name)
+        with open(file_path, "wb+") as f:
+            f.write(await file.read())
+
+        registration.payment_proof = file_path
+        db.commit()
+
+        return JSONResponse(content={"status": "success", "payment_proof": file_path})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/verify_payment/{registration_id}")
+async def verify_payment(
+    request: Request,
+    registration_id: int,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    dependency: Dependency = Depends(get_dependency),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    """Admin verifies a participant's payment, setting paid=True."""
+    auth_dependency.secure_access("ADMIN_DASHBOARD", current_user["user_id"])
+
+    registration = db.query(Registration).filter(Registration.id == registration_id).first()
+    if not registration:
+        raise HTTPException(status_code=404, detail="Registration not found")
+
+    registration.paid = True
+    db.commit()
+
+    client_ip = dependency.request_ip(request)
+    dependency.log_activity(
+        current_user["user_id"],
+        "VERIFY_PAYMENT",
+        current_user["username"],
+        client_ip,
+        f"Verified payment for registration ID {registration_id}",
+    )
+    return {"detail": "Payment verified successfully"}
+
+
 @router.post("/upload_document/")
 async def upload_document(
     user: user_dependency,
@@ -543,6 +742,31 @@ async def upload_document(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
+@router.post("/upload_banner/{event_id}")
+async def upload_banner(
+    event_id: int,
+    user: user_dependency,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    try:
+        ext = os.path.splitext(file.filename)[1]
+        unique_name = f"{event_id}_{uuid.uuid4().hex[:8]}{ext}"
+        file_path = os.path.join(EVENT_BANNER_DIR, unique_name)
+        with open(file_path, "wb+") as f:
+            f.write(await file.read())
+
+        event = db.query(Event).filter(Event.id == event_id).first()
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+        event.banner_image = file_path
+        db.commit()
+
+        return JSONResponse(content={"status": "success", "banner_image": file_path})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.delete("/delete_document/{document_id}")
@@ -847,6 +1071,129 @@ def list_events_with_user_registration(
     return result
 
 
+def hex_to_rgb(hex_color: str):
+    """Convert a hex color string like '#a02626' to a 0.0-1.0 RGB tuple."""
+    hex_color = hex_color.lstrip("#")
+    return tuple(int(hex_color[i: i + 2], 16) / 255.0 for i in (0, 2, 4))
+
+
+def _render_badge_page(c, p, logo_left, logo_right, primary_rgb, secondary_rgb):
+    """Draw a single badge page onto ReportLab canvas c."""
+    width, height = (100 * mm, 140 * mm)
+
+    # ── White background ─────────────────────────────────────────────────────
+    c.setFillColorRGB(1, 1, 1)
+    c.rect(0, 0, width, height, fill=True, stroke=False)
+
+    # ── Crop marks ───────────────────────────────────────────────────────────
+    mark_len = 5 * mm
+    line_offset = 0.5 * mm
+    c.setLineWidth(0.3)
+    c.setStrokeColorRGB(0.5, 0.5, 0.5)
+    c.line(0, height - line_offset, mark_len, height - line_offset)
+    c.line(line_offset, height, line_offset, height - mark_len)
+    c.line(width - mark_len, height - line_offset, width, height - line_offset)
+    c.line(width - line_offset, height, width - line_offset, height - mark_len)
+    c.line(0, line_offset, mark_len, line_offset)
+    c.line(line_offset, 0, line_offset, mark_len)
+    c.line(width - mark_len, line_offset, width, line_offset)
+    c.line(width - line_offset, 0, width - line_offset, mark_len)
+
+    # ── Colored top banner (primary_color) ───────────────────────────────────
+    banner_h = 38 * mm
+    c.setFillColorRGB(*primary_rgb)
+    c.setStrokeColorRGB(*primary_rgb)
+    c.rect(0, height - banner_h, width, banner_h, fill=True, stroke=False)
+
+    # Logos inside the banner
+    logo_size = 22 * mm
+    c.drawImage(
+        logo_left,
+        4 * mm,
+        height - logo_size - 4 * mm,
+        logo_size,
+        logo_size,
+        preserveAspectRatio=True,
+    )
+    c.drawImage(
+        logo_right,
+        width - logo_size - 4 * mm,
+        height - logo_size - 4 * mm,
+        logo_size,
+        logo_size,
+        preserveAspectRatio=True,
+    )
+
+    # Event name in white on the banner
+    event_name_y = height - banner_h + 5 * mm
+    c.setFillColorRGB(1, 1, 1)
+    c.setFont("Helvetica-Bold", 8)
+    c.drawCentredString(width / 2, event_name_y, normalize_event_name(p["event_name"]))
+
+    # ── Participant details ───────────────────────────────────────────────────
+    c.setFillColorRGB(0, 0, 0)
+    c.setStrokeColorRGB(0, 0, 0)
+
+    y = height - banner_h - 10 * mm
+    full_name = (
+        f"{p['title']} {p['firstname']} {p['middle_name']} {p['lastname']}".strip()
+    )
+    c.setFont("Helvetica-Bold", 14)
+    c.drawCentredString(width / 2, y, full_name)
+
+    if p["position"]:
+        y -= 8 * mm
+        c.setFont("Helvetica-Bold", 11)
+        c.drawCentredString(width / 2, y, p["position"])
+
+    if p["organisation"]:
+        y -= 7 * mm
+        c.setFont("Helvetica-Bold", 11)
+        c.drawCentredString(width / 2, y, p["organisation"])
+
+    if p["country"]:
+        y -= 7 * mm
+        c.setFont("Helvetica", 10)
+        c.drawCentredString(width / 2, y, p["country"])
+
+    # Participant ID
+    y -= 7 * mm
+    c.setFont("Helvetica", 9)
+    c.drawCentredString(width / 2, y, f"Participant ID: BPF{p['registration_id']}")
+
+    if p["location"]:
+        y -= 7 * mm
+        c.setFont("Helvetica-Oblique", 9)
+        c.drawCentredString(width / 2, y, f"📍 {p['location']}")
+
+    # ── Colored role strip (secondary_color) ─────────────────────────────────
+    role_strip_h = 9 * mm
+    role_strip_y = 33 * mm
+    c.setFillColorRGB(*secondary_rgb)
+    c.setStrokeColorRGB(*secondary_rgb)
+    c.rect(0, role_strip_y, width, role_strip_h, fill=True, stroke=False)
+    if p["participation_role"]:
+        c.setFillColorRGB(1, 1, 1)
+        c.setFont("Helvetica-Bold", 9)
+        c.drawCentredString(
+            width / 2, role_strip_y + 2.5 * mm, p["participation_role"].upper()
+        )
+
+    # ── QR code (links to attendance check-in) ───────────────────────────────
+    qr_size = 28 * mm
+    qr_y = 3.5 * mm
+    qr_data = (
+        f"{CLIENT_ORIGIN}/event-attendance/{p['event_id']}?reg={p['registration_id']}"
+    )
+    qr = qrcode.make(qr_data)
+    qr_buf = BytesIO()
+    qr.save(qr_buf, format="PNG")
+    qr_buf.seek(0)
+    c.drawImage(ImageReader(qr_buf), (width - qr_size) / 2, qr_y, qr_size, qr_size)
+
+    c.showPage()
+
+
 @router.get("/{event_id}/participants/badges")
 async def download_participant_badges_pdf(
     request: Request,
@@ -871,6 +1218,11 @@ async def download_participant_badges_pdf(
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
+    primary_color = (event.org_unit.primary_color or "#0095B6") if event.org_unit else "#0095B6"
+    secondary_color = (event.org_unit.secondary_color or "#F7941D") if event.org_unit else "#F7941D"
+    primary_rgb = hex_to_rgb(primary_color)
+    secondary_rgb = hex_to_rgb(secondary_color)
+
     participants = []
     for reg in event.registrations:
         user = reg.user
@@ -885,6 +1237,7 @@ async def download_participant_badges_pdf(
         participants.append(
             {
                 "registration_id": reg.id,
+                "event_id": event_id,
                 "title": profile.title if profile else "",
                 "firstname": user.firstname,
                 "middle_name": profile.middle_name if profile else "",
@@ -907,118 +1260,14 @@ async def download_participant_badges_pdf(
         raise HTTPException(status_code=404, detail="No participants found")
 
     buffer = BytesIO()
-    width, height = (100 * mm, 140 * mm)  # Badge size
+    width, height = (100 * mm, 140 * mm)
     c = canvas.Canvas(buffer, pagesize=(width, height))
 
     logo_left = convert_png_to_rgb("assets/logo_left.png")
     logo_right = convert_png_to_rgb("assets/logo_right.png")
 
     for p in participants:
-        # White background
-        c.setFillColorRGB(1, 1, 1)
-        c.rect(0, 0, width, height, fill=True, stroke=False)
-
-        # 🔲 Add crop marks on corners
-        mark_len = 5 * mm
-        line_offset = 0.5 * mm
-        c.setLineWidth(0.3)
-        c.setStrokeColorRGB(0.5, 0.5, 0.5)  # Light gray
-
-        # Top-left
-        c.line(0, height - line_offset, mark_len, height - line_offset)
-        c.line(line_offset, height, line_offset, height - mark_len)
-
-        # Top-right
-        c.line(width - mark_len, height - line_offset, width, height - line_offset)
-        c.line(width - line_offset, height, width - line_offset, height - mark_len)
-
-        # Bottom-left
-        c.line(0, line_offset, mark_len, line_offset)
-        c.line(line_offset, 0, line_offset, mark_len)
-
-        # Bottom-right
-        c.line(width - mark_len, line_offset, width, line_offset)
-        c.line(width - line_offset, 0, width - line_offset, mark_len)
-
-        # Reset stroke to black
-        c.setStrokeColorRGB(0, 0, 0)
-        c.setFillColorRGB(0, 0, 0)
-
-        # Logos
-        logo_size = 25 * mm
-        c.drawImage(
-            logo_left,
-            5 * mm,
-            height - logo_size - 5 * mm,
-            logo_size,
-            logo_size,
-            preserveAspectRatio=True,
-        )
-        c.drawImage(
-            logo_right,
-            width - logo_size - 5 * mm,
-            height - logo_size - 5 * mm,
-            logo_size,
-            logo_size,
-            preserveAspectRatio=True,
-        )
-
-        # Text content
-        y = height - 45 * mm
-        c.setFont("Helvetica-Bold", 16)
-        full_name = (
-            f"{p['title']} {p['firstname']} {p['middle_name']} {p['lastname']}".strip()
-        )
-        c.drawCentredString(width / 2, y, full_name)
-
-        if p["position"]:
-            y -= 9 * mm
-            c.setFont("Helvetica-Bold", 13)
-            c.drawCentredString(width / 2, y, p["position"])
-
-        if p["organisation"]:
-            y -= 8 * mm
-            c.setFont("Helvetica-Bold", 13)
-            c.drawCentredString(width / 2, y, p["organisation"])
-
-        if p["country"]:
-            y -= 8 * mm
-            c.setFont("Helvetica", 11)
-            c.drawCentredString(width / 2, y, p["country"])
-
-            # Participant ID
-            y -= 8 * mm
-            c.setFont("Helvetica", 11)
-            participant_id_line = f"Participant ID #: BPF{p['registration_id']}"
-            c.drawCentredString(width / 2, y, participant_id_line)
-
-        if p["participation_role"]:
-            y -= 8 * mm
-            c.setFont("Helvetica-Bold", 11)
-            c.drawCentredString(width / 2, y, p["participation_role"])
-
-        if p["location"]:
-            y -= 8 * mm
-            c.setFont("Helvetica-Oblique", 10)
-            c.drawCentredString(width / 2, y, f"({p['location']})")
-
-        if p["event_name"]:
-            y -= 8 * mm
-            c.setFont("Helvetica-Bold", 10)
-            c.drawCentredString(width / 2, y, normalize_event_name(p["event_name"]))
-
-        # QR code
-        qr_size = 30 * mm
-        qr_y_position = 3 * mm
-        qr_data = f"{CLIENT_ORIGIN}/registration/{p['registration_id']}"
-        qr = qrcode.make(qr_data)
-        qr_buffer = BytesIO()
-        qr.save(qr_buffer, format="PNG")
-        qr_buffer.seek(0)
-        qr_reader = ImageReader(qr_buffer)
-        c.drawImage(qr_reader, (width - qr_size) / 2, qr_y_position, qr_size, qr_size)
-
-        c.showPage()
+        _render_badge_page(c, p, logo_left, logo_right, primary_rgb, secondary_rgb)
 
     c.save()
     buffer.seek(0)
@@ -1034,3 +1283,121 @@ async def download_participant_badges_pdf(
             "Content-Disposition": f"attachment; filename={ascii_filename}; filename*=UTF-8''{utf8_filename}"
         },
     )
+
+
+@router.get("/{event_id}/my-badge")
+async def download_my_badge(
+    event_id: int,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+):
+    """Generate a badge PDF for the currently authenticated paid user."""
+    event = get_object(event_id, db, Event)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    reg = db.query(Registration).filter(
+        Registration.user_id == current_user["user_id"],
+        Registration.event_id == event_id,
+        Registration.deleted_at == None,
+    ).first()
+
+    if not reg:
+        raise HTTPException(status_code=404, detail="You are not registered for this event")
+    if not reg.paid:
+        raise HTTPException(status_code=403, detail="Badge is only available after payment is confirmed")
+
+    user = reg.user
+    profile = user.user_profile[0] if user.user_profile else None
+    country = profile.country.country if profile and profile.country else None
+    organisation = profile.organisation if profile else None
+    role_key = (
+        reg.participation_role.name
+        if hasattr(reg.participation_role, "name")
+        else str(reg.participation_role).lower()
+    )
+
+    primary_color = (event.org_unit.primary_color or "#0095B6") if event.org_unit else "#0095B6"
+    secondary_color = (event.org_unit.secondary_color or "#F7941D") if event.org_unit else "#F7941D"
+    primary_rgb = hex_to_rgb(primary_color)
+    secondary_rgb = hex_to_rgb(secondary_color)
+
+    p = {
+        "registration_id": reg.id,
+        "event_id": event_id,
+        "title": profile.title if profile else "",
+        "firstname": user.firstname,
+        "middle_name": profile.middle_name if profile else "",
+        "lastname": user.lastname,
+        "position": profile.position if profile else "",
+        "organisation": organisation,
+        "country": country,
+        "participation_role": PARTICIPATION_ROLE_MAP.get(role_key, role_key),
+        "event_name": event.event,
+        "location": event.location or "",
+        "paid": reg.paid,
+    }
+
+    buffer = BytesIO()
+    width, height = (100 * mm, 140 * mm)
+    c = canvas.Canvas(buffer, pagesize=(width, height))
+
+    logo_left = convert_png_to_rgb("assets/logo_left.png")
+    logo_right = convert_png_to_rgb("assets/logo_right.png")
+
+    _render_badge_page(c, p, logo_left, logo_right, primary_rgb, secondary_rgb)
+
+    c.save()
+    buffer.seek(0)
+
+    safe_name = sanitize_filename(f"{user.firstname}_{user.lastname}")
+    ascii_filename = f"badge_{safe_name}.pdf"
+    utf8_filename = urllib.parse.quote(ascii_filename)
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename={ascii_filename}; filename*=UTF-8''{utf8_filename}"
+        },
+    )
+
+
+@router.get("/{event_id}/attendance")
+async def get_event_attendance(
+    event_id: int,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    """Admin: get all attendance records for an event."""
+    auth_dependency.secure_access("VIEW_EVENT", current_user["user_id"])
+
+    from models.models import EventAttendance
+    records = (
+        db.query(EventAttendance)
+        .join(Registration, EventAttendance.registration_id == Registration.id)
+        .filter(Registration.event_id == event_id)
+        .order_by(EventAttendance.attendance_date.desc())
+        .all()
+    )
+
+    result = []
+    for a in records:
+        reg = a.registration
+        user = reg.user if reg else None
+        profile = user.user_profile[0] if user and user.user_profile else None
+        result.append({
+            "id": a.id,
+            "registration_id": a.registration_id,
+            "attendance_date": a.attendance_date,
+            "firstname": user.firstname if user else "",
+            "lastname": user.lastname if user else "",
+            "email": user.email if user else "",
+            "organisation": profile.organisation if profile else "",
+            "country": profile.country.country if profile and profile.country else "",
+            "participation_role": reg.participation_role.name if reg else "",
+            "paid": reg.paid if reg else False,
+        })
+
+    return {"total": len(result), "data": result}

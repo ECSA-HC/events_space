@@ -417,6 +417,9 @@ class OrgUnit(Base):
     name = Column(String(200), nullable=False)
     type = Column(Enum(OrgUnitType), nullable=False)
     description = Column(Text, nullable=True)
+    primary_color = Column(String(20), default='#0095B6')
+    secondary_color = Column(String(20), default='#F7941D')
+    logo = Column(Text, nullable=True)
     created_at = Column(
         TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
     )
@@ -453,6 +456,11 @@ class Event(Base):
     start_date = Column(TIMESTAMP(timezone=True), nullable=False)
     end_date = Column(TIMESTAMP(timezone=True), nullable=False)
     location = Column(String(200), nullable=True)
+    banner_image = Column(Text, nullable=True)
+    organizers = Column(Text, nullable=True)
+    participation_info = Column(Text, nullable=True)
+    logistics_info = Column(Text, nullable=True)
+    sponsors_info = Column(Text, nullable=True)
     created_at = Column(
         TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
     )
@@ -483,6 +491,7 @@ class Registration(Base):
     event_id = Column(Integer, ForeignKey("event.id"), nullable=False)
     participation_role = Column(Enum(ParticipationRole), nullable=False)
     paid = Column(Boolean, nullable=False, default=False)
+    payment_proof = Column(Text, nullable=True)
     registered_at = Column(
         TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
     )

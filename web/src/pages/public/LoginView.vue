@@ -90,7 +90,8 @@ const login = async () => {
       permissions: data.permissions,
     })
 
-    router.push({ name: 'MyDashboard' })
+    const isAdmin = data.permissions.some(p => p.permission_code === 'ADMIN_DASHBOARD')
+    router.push({ name: isAdmin ? 'AdminDashboard' : 'MyDashboard' })
   } catch (err) {
     if (err.response?.status === 401) {
       error.value = 'Invalid email or password.'

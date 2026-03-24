@@ -15,6 +15,8 @@ import PasswordResetLinkView from "@/pages/public/PasswordResetLinkView.vue";
 import ResetPasswordView from "@/pages/public/ResetPasswordView.vue";
 import RegisterView from "@/pages/public/RegisterView.vue";
 import RegisterAccountView from "@/pages/public/RegisterAccountView.vue";
+import ContactView from "@/pages/public/ContactView.vue";
+import AbstractSubmissionView from "@/pages/public/AbstractSubmissionView.vue";
 import PaymentView from "@/pages/public/PaymentView.vue";
 import EventAttendanceView from "@/pages/public/EventAttendanceView.vue";
 import RegistrationView from "@/pages/public/RegistrationView.vue";
@@ -66,6 +68,8 @@ const routes = [
         name: "ResetPasswordView",
         component: ResetPasswordView,
       },
+      { path: "contact", name: "Contact", component: ContactView },
+      { path: "abstract-submission", name: "AbstractSubmission", component: AbstractSubmissionView },
       { path: "register/:id", name: "Register", component: RegisterView },
       {
         path: "register-account",

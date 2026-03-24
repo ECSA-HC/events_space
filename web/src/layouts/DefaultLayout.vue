@@ -10,12 +10,15 @@
       </div>
     </main>
 
-    <!-- Footer -->
-    <Footer />
+    <!-- Footer — hidden on the Contact page -->
+    <Footer v-if="route.name !== 'Contact'" />
   </div>
 </template>
 
 <script setup>
+import { useRoute } from 'vue-router'
 import Header from '@/components/common/Header.vue'
 import Footer from '@/components/common/Footer.vue'
+
+const route = useRoute()
 </script>

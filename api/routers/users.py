@@ -10,7 +10,7 @@ from datetime import datetime
 from sqlalchemy import or_
 from typing import Annotated
 from core.database import get_db
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from dependencies.auth_dependency import Auth, get_current_user
 from models.models import User, UserPhoto, UserProfile, UserRole
 from dependencies.dependency import Dependency
@@ -78,13 +78,28 @@ async def get_users(
         User.email.ilike(f"%{search}%"),
     )
 
-    users_query = db.query(User).filter(search_filter)
+    users_query = db.query(User).filter(search_filter).options(
+        joinedload(User.user_roles).joinedload(UserRole.role)
+    )
 
     total_count = users_query.count()
     users = users_query.offset(skip).limit(limit).all()
 
     pages = math.ceil(total_count / limit)
-    return {"pages": pages, "data": users}
+    return {
+        "pages": pages,
+        "data": [
+            {
+                "id": u.id,
+                "firstname": u.firstname,
+                "lastname": u.lastname,
+                "email": u.email,
+                "phone": u.phone,
+                "role": u.user_roles[0].role.role if u.user_roles else "—",
+            }
+            for u in users
+        ],
+    }
 
 
 @router.post("/")

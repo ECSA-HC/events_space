@@ -10,7 +10,7 @@
         v-if="!minimized"
         class="font-title font-black text-xl text-bondi-blue bg-clip-text"
       >
-        Event Spaces
+        ECSA EVENTS
       </span>
     </router-link>
 
@@ -26,7 +26,7 @@
             <router-link
               :to="{ name: 'AdminDashboard' }"
               class="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-200 hover:text-gray-800 rounded-2xl transition-colors"
-              active-class="bg-gray-300 text-gray-900 rounded-2xl"
+              exact-active-class="bg-gray-300 text-gray-900 rounded-2xl"
             >
               <HomeIcon class="w-5 h-5" />
               <span v-if="!minimized" class="ml-3">Home</span>
@@ -45,7 +45,7 @@
             <router-link
               :to="{ name: 'AdminEvents' }"
               class="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-200 hover:text-gray-800 rounded-2xl transition-colors"
-              active-class="bg-gray-300 text-gray-900 rounded-2xl"
+              :class="isEventsActive ? 'bg-gray-300 text-gray-900 rounded-2xl' : ''"
             >
               <ClipboardDocumentListIcon class="w-5 h-5" />
               <span v-if="!minimized" class="ml-3">All Events</span>
@@ -64,7 +64,7 @@
             <router-link
               :to="{ name: 'Users' }"
               class="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-200 hover:text-gray-800 rounded-2xl transition-colors"
-              active-class="bg-gray-300 text-gray-900 rounded-2xl"
+              :class="isUsersActive ? 'bg-gray-300 text-gray-900 rounded-2xl' : ''"
             >
               <UsersIcon class="w-5 h-5" />
               <span v-if="!minimized" class="ml-3">User Management</span>
@@ -74,7 +74,7 @@
             <router-link
               :to="{ name: 'Roles' }"
               class="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-200 hover:text-gray-800 rounded-2xl transition-colors"
-              active-class="bg-gray-300 text-gray-900 rounded-2xl"
+              :class="isRolesActive ? 'bg-gray-300 text-gray-900 rounded-2xl' : ''"
             >
               <ShieldCheckIcon class="w-5 h-5" />
               <span v-if="!minimized" class="ml-3">Access Roles</span>
@@ -84,18 +84,17 @@
             <router-link
               :to="{ name: 'Clusters' }"
               class="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-200 hover:text-gray-800 rounded-2xl transition-colors"
-              active-class="bg-gray-300 text-gray-900 rounded-2xl"
+              :class="isClustersActive ? 'bg-gray-300 text-gray-900 rounded-2xl' : ''"
             >
               <BuildingOffice2Icon class="w-5 h-5" />
               <span v-if="!minimized" class="ml-3">Clusters</span>
             </router-link>
           </li>
         </ul>
-</div>
-        <div>
+      </div>
 
-       
-        <!-- My Account Section Title (Clickable) -->
+      <div>
+        <!-- My Account Section Title -->
         <h3 v-if="!minimized" class="text-xs font-semibold text-gray-400 lowercase tracking-wide mb-2 px-3 select-none">
           pop into Your Account
         </h3>
@@ -108,7 +107,6 @@
               class="flex items-center px-3 py-2 rounded-2xl transition-colors
                      bg-blue-100 border-2 border-blue-400 text-blue-700 font-semibold
                      hover:bg-blue-200 hover:border-blue-500 shadow-md"
-              active-class="bg-blue-300 text-blue-900 font-bold shadow-lg"
             >
               <UserCircleIcon class="w-5 h-5 text-blue-600" />
               <span v-if="!minimized" class="ml-3">My Account</span>
@@ -135,7 +133,6 @@
           </li>
         </ul>
       </div>
-       
     </div>
   </nav>
 </template>
@@ -153,7 +150,7 @@ import {
 
 import { computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 
 const props = defineProps({
   minimized: {
@@ -164,8 +161,29 @@ const props = defineProps({
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 
 const username = computed(() => auth.user?.firstname || 'User')
+
+// Keep "All Events" highlighted for list, view, add, and edit pages
+const isEventsActive = computed(() =>
+  ['AdminEvents', 'AdminEvent', 'AddEvent', 'EditEvent'].includes(String(route.name))
+)
+
+// Keep "User Management" highlighted for list, view, add, and edit pages
+const isUsersActive = computed(() =>
+  ['Users', 'User', 'AddUser', 'EditUser'].includes(String(route.name))
+)
+
+// Keep "Access Roles" highlighted for list, view, add, and edit pages
+const isRolesActive = computed(() =>
+  ['Roles', 'Role', 'AddRole', 'EditRole'].includes(String(route.name))
+)
+
+// Keep "Clusters" highlighted for list, view, add, and edit pages
+const isClustersActive = computed(() =>
+  ['Clusters', 'Cluster', 'AddCluster', 'EditCluster'].includes(String(route.name))
+)
 
 const logout = () => {
   auth.logout()

@@ -21,7 +21,7 @@
       <router-link
         :to="{ name: 'MyEvents' }"
         class="flex items-center gap-3 px-4 py-2 rounded-xl transition hover:bg-gray-100"
-        active-class="bg-gray-100 text-bondi-blue font-semibold"
+        :class="isEventsActive ? 'bg-gray-100 text-bondi-blue font-semibold' : ''"
       >
         <CalendarIcon class="w-5 h-5" />
         Events
@@ -73,10 +73,16 @@ import {
 } from 'lucide-vue-next'
 import { computed } from "vue";
 import { useAuthStore } from "@/stores/auth";
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 
 const auth = useAuthStore();
 const router = useRouter()
+const route = useRoute()
+
+// Keep "Events" highlighted for both the list and single-event views
+const isEventsActive = computed(() =>
+  ['MyEvents', 'MyEvent'].includes(String(route.name))
+)
 
 function logout() {
   auth.logout()

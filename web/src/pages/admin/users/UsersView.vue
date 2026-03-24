@@ -33,15 +33,17 @@
         <table class="w-full table-auto text-sm text-gray-800 rounded-lg overflow-hidden">
           <thead class="bg-gray-100 text-left uppercase text-xs text-gray-800 hidden md:table-header-group">
             <tr>
+              <th class="px-6 py-4 w-10">#</th>
               <th class="px-6 py-4">Name</th>
               <th class="px-6 py-4">Email/Username</th>
               <th class="px-6 py-4">Phone</th>
+              <th class="px-6 py-4">Role</th>
               <th class="px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="isLoading">
-              <td colspan="4" class="py-8">
+              <td colspan="6" class="py-8">
                 <div class="flex justify-center items-center">
                   <DataLoadingSpinner />
                 </div>
@@ -49,14 +51,18 @@
             </tr>
 
             <tr
-              v-for="user in filteredUsers"
+              v-for="(user, index) in filteredUsers"
               :key="user.id"
               class="block md:table-row border-t md:border-0 md:hover:bg-gray-50 even:bg-gray-50 odd:bg-white"
               v-else
             >
-              <td class="px-6 py-4 block md:table-cell">{{ user.firstname }} {{ user.lastname }}</td>
+              <td class="px-6 py-4 block md:table-cell text-gray-400 text-xs font-mono">{{ (currentPage - 1) * perPage + index + 1 }}</td>
+              <td class="px-6 py-4 block md:table-cell font-medium">{{ user.firstname }} {{ user.lastname }}</td>
               <td class="px-6 py-4 block md:table-cell">{{ user.email }}</td>
               <td class="px-6 py-4 block md:table-cell">{{ user.phone }}</td>
+              <td class="px-6 py-4 block md:table-cell">
+                <span class="inline-block px-2 py-0.5 text-xs bg-blue-50 text-blue-700 rounded-full border border-blue-200">{{ user.role }}</span>
+              </td>
               <td class="px-6 py-4 block md:table-cell text-left md:text-right">
                 <div class="flex items-center space-x-3 justify-start md:justify-end">
                   <router-link
@@ -87,7 +93,7 @@
             </tr>
 
             <tr v-if="!isLoading && filteredUsers.length === 0">
-              <td colspan="4" class="text-center px-6 py-4 text-gray-400">No users found.</td>
+              <td colspan="6" class="text-center px-6 py-4 text-gray-400">No users found.</td>
             </tr>
           </tbody>
         </table>

@@ -1,4 +1,6 @@
 import math
+import os
+import uuid
 from sqlalchemy import or_
 from starlette import status
 from typing import Annotated
@@ -9,7 +11,11 @@ from schemas.events_space import OrgUnitSchema
 from dependencies.auth_dependency import Auth
 from dependencies.dependency import Dependency
 from dependencies.auth_dependency import get_current_user
-from fastapi import APIRouter, HTTPException, Depends, Query, Request
+from fastapi import APIRouter, HTTPException, Depends, Query, Request, File, UploadFile
+from fastapi.responses import JSONResponse
+
+ORG_UNIT_LOGO_DIR = "uploads/org_unit/logos"
+os.makedirs(ORG_UNIT_LOGO_DIR, exist_ok=True)
 
 router = APIRouter()
 
@@ -92,6 +98,9 @@ async def add_org_unit(
         name=org_unit_schema.name,
         type=org_unit_schema.type,
         description=org_unit_schema.description,
+        primary_color=org_unit_schema.primary_color or '#0095B6',
+        secondary_color=org_unit_schema.secondary_color or '#F7941D',
+        logo=org_unit_schema.logo,
     )
 
     db.add(create_org_unit_model)
@@ -145,10 +154,34 @@ async def update_org_unit(
     org_unit_model.name = org_unit_schema.name
     org_unit_model.type = org_unit_schema.type
     org_unit_model.description = org_unit_schema.description
+    org_unit_model.primary_color = org_unit_schema.primary_color or '#0095B6'
+    org_unit_model.secondary_color = org_unit_schema.secondary_color or '#F7941D'
+    if org_unit_schema.logo is not None:
+        org_unit_model.logo = org_unit_schema.logo
 
     db.commit()
     db.refresh(org_unit_model)
     return org_unit_schema
+
+
+@router.post("/upload_logo/{org_unit_id}")
+async def upload_logo(
+    org_unit_id: int,
+    current_user: user_dependency,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    auth_dependency.secure_access("UPDATE_ORG_UNIT", current_user["user_id"])
+    org_unit = get_object(org_unit_id, db, OrgUnit)
+    ext = os.path.splitext(file.filename)[1]
+    unique_name = f"{org_unit_id}_{uuid.uuid4().hex[:8]}{ext}"
+    file_path = os.path.join(ORG_UNIT_LOGO_DIR, unique_name)
+    with open(file_path, "wb+") as f:
+        f.write(await file.read())
+    org_unit.logo = file_path
+    db.commit()
+    return JSONResponse(content={"status": "success", "logo": file_path})
 
 
 @router.delete("/{org_unit_id}")
