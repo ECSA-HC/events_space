@@ -27,7 +27,7 @@ class DashboardResponse(BaseModel):
     recent_events: List[EventSummary]
 
 
-@router.get("/", response_model=DashboardResponse)
+@router.get("", response_model=DashboardResponse)
 def get_dashboard(db: Session = Depends(get_db)):
     today = datetime.utcnow()
 

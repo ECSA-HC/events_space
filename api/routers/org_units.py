@@ -38,7 +38,7 @@ def get_object(id, db, model):
     return data
 
 
-@router.get("/")
+@router.get("")
 async def get_org_units(
     request: Request,
     current_user: user_dependency,
