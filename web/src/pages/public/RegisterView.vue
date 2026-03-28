@@ -77,7 +77,7 @@
         {{ registrationError }}
       </div>
 
-      <form @submit.prevent="handleRegister">
+      <form @submit.prevent>
 
         <!-- ── Step 0: Personal Details ──────────────────────────────────────── -->
         <transition name="slide-fade" mode="out-in">
@@ -273,7 +273,7 @@
 
         <!-- ── Step 3: Confirm & Submit ──────────────────────────────────────── -->
         <transition name="slide-fade" mode="out-in">
-        <div v-if="currentStep === 3" key="step3" class="space-y-5">
+        <div v-if="currentStep === 3 && !registrationDone" key="step3" class="space-y-5">
           <div class="bg-white rounded-2xl shadow-sm p-7">
             <div class="flex items-center gap-3 mb-5">
               <div class="h-9 w-9 rounded-xl flex items-center justify-center" style="background-color:#F7941D;">
@@ -331,26 +331,83 @@
                 </div>
               </div>
             </div>
+
+            <!-- Payment choice notice -->
+            <div class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              <p class="font-semibold mb-1">Payment required for full access</p>
+              <p class="text-xs leading-relaxed">
+                You can complete registration now and pay later, or proceed directly to payment.
+                Your login credentials will be emailed to you either way.
+                Access to event materials and sessions is available to paid participants only.
+              </p>
+            </div>
           </div>
 
-          <div class="flex justify-between">
+          <div class="flex flex-col sm:flex-row justify-between gap-3">
             <button type="button" @click="currentStep--" class="btn-secondary">
               <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
               Back
             </button>
-            <button type="submit" :disabled="isSubmitting"
-              class="flex items-center gap-2 px-8 py-3 rounded-full font-semibold text-white text-sm shadow-lg transition hover:opacity-90 disabled:opacity-60"
-              style="background-color:#0095B6;">
-              <svg v-if="isSubmitting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-              </svg>
-              <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-              </svg>
-              {{ isSubmitting ? 'Registering…' : 'Confirm & Register' }}
-            </button>
+            <div class="flex flex-col sm:flex-row gap-3">
+              <!-- Pay later -->
+              <button type="button" :disabled="isSubmitting" @click="handleRegister(false)"
+                class="flex items-center justify-center gap-2 px-6 py-3 rounded-full font-semibold text-sm border-2 border-[#0095B6] text-[#0095B6] transition hover:bg-blue-50 disabled:opacity-60">
+                <svg v-if="isSubmitting && !payNow" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                </svg>
+                <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                {{ isSubmitting && !payNow ? 'Registering…' : 'Register & Pay Later' }}
+              </button>
+              <!-- Pay now -->
+              <button type="button" :disabled="isSubmitting" @click="handleRegister(true)"
+                class="flex items-center justify-center gap-2 px-6 py-3 rounded-full font-semibold text-white text-sm shadow-lg transition hover:opacity-90 disabled:opacity-60"
+                style="background-color:#0095B6;">
+                <svg v-if="isSubmitting && payNow" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                </svg>
+                <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                </svg>
+                {{ isSubmitting && payNow ? 'Registering…' : 'Register & Make Payment' }}
+              </button>
+            </div>
           </div>
+        </div>
+        </transition>
+
+        <!-- ── Success screen (pay later) ────────────────────────────────────── -->
+        <transition name="slide-fade" mode="out-in">
+        <div v-if="registrationDone" key="success" class="bg-white rounded-2xl shadow-sm p-10 text-center space-y-5">
+          <div class="flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mx-auto">
+            <svg class="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+          </div>
+          <h2 class="text-2xl font-bold text-gray-800">Registration Successful!</h2>
+          <p class="text-gray-500 text-sm max-w-md mx-auto">
+            Your registration has been received. Login credentials have been sent to
+            <strong class="text-gray-700">{{ email }}</strong>.
+            Please check your inbox and log in to access your profile.
+          </p>
+          <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 text-left max-w-md mx-auto">
+            <p class="font-semibold mb-1">Payment reminder</p>
+            <p class="text-xs leading-relaxed">
+              Full access to event materials and sessions is available to paid participants only.
+              You can complete payment any time from your account dashboard.
+            </p>
+          </div>
+          <router-link to="/login"
+            class="inline-flex items-center gap-2 px-8 py-3 rounded-full font-semibold text-white text-sm shadow-lg transition hover:opacity-90 mt-2"
+            style="background-color:#0095B6;">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+            </svg>
+            Go to Login
+          </router-link>
         </div>
         </transition>
 
@@ -380,6 +437,8 @@ const currentStep = ref(0)
 const steps = ['Personal', 'Contact', 'Professional', 'Confirm']
 const registrationError = ref(null)
 const isSubmitting = ref(false)
+const registrationDone = ref(false)
+const payNow = ref(false)
 const loading = ref(true)
 const error = ref(null)
 
@@ -471,9 +530,10 @@ const formatDate = (dateStr) => {
   return new Date(dateStr).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
-const handleRegister = async () => {
+const handleRegister = async (proceedToPayment) => {
   try {
     isSubmitting.value = true
+    payNow.value = proceedToPayment
     registrationError.value = null
 
     const userPayload = { firstname: firstName.value, lastname: lastName.value, email: email.value, phone: phone.value, event_name: event.value?.event || null }
@@ -490,7 +550,11 @@ const handleRegister = async () => {
     await api.post(`/users/profile/${user_id.value}`, userProfilePayload)
     const eventRes = await api.post(`/events/registration/${user_id.value}`, eventPayload)
 
-    router.push({ name: 'EventPayment', params: { event_id: eventId, registration_id: eventRes.data.registration_id } })
+    if (proceedToPayment) {
+      router.push({ name: 'EventPayment', params: { event_id: eventId, registration_id: eventRes.data.registration_id } })
+    } else {
+      registrationDone.value = true
+    }
   } catch (err) {
     registrationError.value = err.response?.data?.detail || 'An error occurred while completing your registration.'
     currentStep.value = 0
