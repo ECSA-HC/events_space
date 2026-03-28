@@ -1051,8 +1051,8 @@ def list_events_with_user_registration(
                     "start_date": event.start_date,
                     "end_date": event.end_date,
                     "location": event.location,
-                    "country": event.country.country,
-                    "org_unit": event.org_unit.name,
+                    "country": event.country.country if event.country else None,
+                    "org_unit": event.org_unit.name if event.org_unit else None,
                 },
                 "registered": bool(registration),
                 "registration_details": (
