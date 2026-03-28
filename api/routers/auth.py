@@ -61,7 +61,7 @@ async def register(
     hashed_password = auth_dependencies.hash_password(password)
 
     mailer_util.new_account_email(
-        user_schema.email, user_schema.firstname, password, background_tasks
+        user_schema.email, user_schema.firstname, password, user_schema.event_name, background_tasks
     )
 
     create_user_model = User(

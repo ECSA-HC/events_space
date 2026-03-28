@@ -54,7 +54,7 @@ def send_email(recipient_email, subject, email_body):
             server.starttls()
             server.login(smtp_username, smtp_password)
             message = MIMEMultipart()
-            message["From"] = smtp_username
+            message["From"] = "COSECSA Events <admission@cosecsa.org>"
             message["To"] = recipient_email
             message["Subject"] = subject
             message.attach(MIMEText(email_body, "html"))
@@ -79,15 +79,16 @@ def send_email_backgroundable(
 
 
 def new_account_email(
-    recipient_email, firstname, password, background_tasks: BackgroundTasks = None
+    recipient_email, firstname, password, event_name=None, background_tasks: BackgroundTasks = None
 ):
-    subject = "Welcome to ECSA-HC Event Spaces"
+    subject = "Welcome to COSECSA Events Portal – Your Account Details"
     template = templates.get_template("acount_creation_template.html")
     email_body = template.render(
         subject=subject,
         username=recipient_email,
         password=password,
         firstname=firstname,
+        event_name=event_name,
         year=YEAR,
     )
     send_email_backgroundable(recipient_email, subject, email_body, background_tasks)

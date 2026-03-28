@@ -20,12 +20,17 @@
         background-color: #ffffff;
         padding: 40px;
         box-sizing: border-box;
-        border-top: 6px solid #0095b6; /* ECSA-HC Bondi Blue */
+        border-top: 6px solid #0095b6;
       }
       h1 {
         font-size: 24px;
         margin-bottom: 16px;
-        color: #003f5c; /* ECSA-HC deep navy */
+        color: #003f5c;
+      }
+      h2 {
+        font-size: 18px;
+        color: #003f5c;
+        margin-bottom: 8px;
       }
       p {
         font-size: 16px;
@@ -33,22 +38,42 @@
         margin-bottom: 16px;
         color: #444444;
       }
+      .credentials-box {
+        background-color: #f0f8ff;
+        border: 1px solid #b3d9e8;
+        border-radius: 8px;
+        padding: 20px 24px;
+        margin: 24px 0;
+      }
+      .credentials-box p {
+        margin: 6px 0;
+        font-size: 15px;
+      }
+      .payment-notice {
+        background-color: #fff8ed;
+        border-left: 4px solid #F7941D;
+        border-radius: 0 8px 8px 0;
+        padding: 16px 20px;
+        margin: 24px 0;
+      }
+      .payment-notice p {
+        margin: 0;
+        color: #7a4d00;
+        font-size: 15px;
+      }
       a.button {
         display: inline-block;
-        background-color: #0095b6; /* ECSA-HC blue */
+        background-color: #0095b6;
         color: #ffffff;
         text-decoration: none;
-        padding: 12px 24px;
+        padding: 12px 28px;
         border-radius: 8px;
         font-size: 16px;
         font-weight: 600;
         margin-top: 20px;
       }
-      a.button:hover {
-        background-color: #007a99;
-      }
       .footer {
-        font-size: 14px;
+        font-size: 13px;
         color: #888888;
         margin-top: 40px;
         border-top: 1px solid #eaeaea;
@@ -58,22 +83,42 @@
   </head>
   <body>
     <div class="email-container">
-      <h1>{{subject}}</h1>
+      <h1>Welcome to COSECSA Events Portal</h1>
       <p>Dear <strong>{{firstname}}</strong>,</p>
-      <p>Your ECSA-HC Event Spaces account has been successfully created. Below are your login details:</p>
-      <p><strong>Email:</strong> {{username}}</p>
-      <p><strong>Password:</strong> {{password}}</p>
-      <p>To access your account, please use the button below:</p>
-      <a href="https://dev.ecsa-hc.org/login" class="button">Log In to ECSA-HC Events Portal</a>
-      <p><strong>About ECSA-HC:</strong></p>
+
       <p>
-        The East, Central and Southern Africa Health Community (ECSA-HC) is a regional intergovernmental health organization that promotes and encourages efficiency and effectiveness in the delivery of health services. Your participation supports regional collaboration for stronger health systems.
+        Thank you for registering{% if event_name %} for <strong>{{ event_name }}</strong>{% endif %}.
+        We are delighted to have you join us and look forward to your participation.
       </p>
+
+      <p>Your account has been created. Below are your login credentials:</p>
+
+      <div class="credentials-box">
+        <h2>Your Login Details</h2>
+        <p><strong>Email:</strong> {{username}}</p>
+        <p><strong>Temporary Password:</strong> {{password}}</p>
+      </div>
+
       <p>
-        If you need assistance, feel free to contact our team at
-        <a href="mailto:support@ecsa-hc.org">support@ecsa-hc.org</a>.
+        Please log in and change your password at your earliest convenience to keep your account secure.
       </p>
-      <p>Warm regards,<br />ECSA-HC Secretariat</p>
+
+      <a href="https://events.ecsahc.org/login" class="button">Log In to COSECSA Events Portal</a>
+
+      <div class="payment-notice">
+        <p>
+          <strong>Payment Reminder:</strong> If you have not yet completed your event payment,
+          please do so to gain full access to the event{% if event_name %} — <em>{{ event_name }}</em>{% endif %}.
+          Unpaid registrations may have limited access to event resources and sessions.
+        </p>
+      </div>
+
+      <p>
+        If you need any assistance, please contact us at
+        <a href="mailto:admission@cosecsa.org">admission@cosecsa.org</a>.
+      </p>
+
+      <p>Warm regards,<br />COSECSA Events Team<br />ECSA-HC Secretariat</p>
       <div class="footer">&copy; {{year}} ECSA-HC. All rights reserved.</div>
     </div>
   </body>

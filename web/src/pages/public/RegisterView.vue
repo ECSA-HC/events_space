@@ -415,6 +415,8 @@ const participationOptions = [
   { value: 'exibitor', label: 'Sponsor / Exhibitor' },
 ]
 
+const countries = ref([])
+
 const countryName = computed(() => {
   const c = countries.value.find(c => c.id === country_id.value)
   return c ? c.country : '—'
@@ -474,7 +476,7 @@ const handleRegister = async () => {
     isSubmitting.value = true
     registrationError.value = null
 
-    const userPayload = { firstname: firstName.value, lastname: lastName.value, email: email.value, phone: phone.value }
+    const userPayload = { firstname: firstName.value, lastname: lastName.value, email: email.value, phone: phone.value, event_name: event.value?.event || null }
     const userProfilePayload = {
       title: title.value, middle_name: middleName.value, country_id: country_id.value,
       profession: profession.value, gender: gender.value, organisation: organisation.value, position: position.value,
@@ -497,8 +499,12 @@ const handleRegister = async () => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadEventData()
+  try {
+    const res = await api.get('/countries', { params: { limit: 300 } })
+    countries.value = res.data.data
+  } catch {}
 })
 </script>
 

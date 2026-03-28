@@ -308,7 +308,7 @@ async def get_event(
                     ),
                     "country": (
                         r.user.user_profile[0].country.country
-                        if r.user and r.user.user_profile
+                        if r.user and r.user.user_profile and r.user.user_profile[0].country
                         else None
                     ),
                     "participation_role": r.participation_role,
