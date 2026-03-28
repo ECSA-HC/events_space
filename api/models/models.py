@@ -314,6 +314,7 @@ class Country(BaseWithSoftDelete):
     id = Column(Integer, primary_key=True, index=True)
     country = Column(String(100), unique=True, index=True)
     short_code = Column(String(5), unique=True, index=True)
+    category = Column(String(20), nullable=False, server_default="non_african")
     created_at = Column(
         TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
     )

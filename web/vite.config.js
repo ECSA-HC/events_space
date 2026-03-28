@@ -11,7 +11,7 @@ export default defineConfig({
       // All /api/* requests are forwarded to the FastAPI backend.
       // This eliminates CORS entirely — the browser only ever talks to Vite.
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://localhost:8002',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },

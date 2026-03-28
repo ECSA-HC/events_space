@@ -143,10 +143,7 @@
         <!-- Country -->
         <div>
           <label class="block text-sm font-medium mb-1">Country</label>
-          <select v-model="country" class="w-full input" required>
-            <option value="" disabled>Select country</option>
-            <option v-for="c in countries" :key="c.id" :value="c.id">{{ c.country }}</option>
-          </select>
+          <CountrySelect v-model="country" />
         </div>
 
         <!-- Submit Button -->
@@ -167,11 +164,11 @@
 import { ref, onMounted } from 'vue'
 import api from '@/plugins/axios'
 import { useAuthStore } from '@/stores/auth'
+import CountrySelect from '@/components/common/CountrySelect.vue'
 
 const auth = useAuthStore()
 const auth_user = auth.user
 
-const countries = ref([])
 const profilePicture = ref(null)
 const profileFile = ref(null)
 const dragActive = ref(false)
@@ -255,15 +252,6 @@ const fetchUser = async () => {
   }
 }
 
-const fetchCountries = async () => {
-  try {
-    const res = await api.get('/countries')
-    countries.value = res.data.data
-  } catch (err) {
-    console.error('Failed to load countries:', err)
-  }
-}
-
 const updateProfile = async () => {
   successMessage.value = ''
   errorMessage.value = ''
@@ -310,7 +298,6 @@ const updateProfile = async () => {
 
 onMounted(() => {
   fetchUser()
-  fetchCountries()
 })
 </script>
 

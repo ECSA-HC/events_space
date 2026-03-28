@@ -187,17 +187,11 @@
 
           <div>
             <label class="field-label">Country <span class="text-red-400">*</span></label>
-            <div class="relative">
-              <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M5 8a5 5 0 1110 0c0 3-5 9-5 9S5 11 5 8zm5-2a2 2 0 100 4 2 2 0 000-4z" clip-rule="evenodd"/>
-              </svg>
-              <select v-model="country_id" class="field-input-icon"
-                :class="{ 'border-red-300 bg-red-50': touched.country_id && !country_id }"
-                @blur="touched.country_id = true">
-                <option disabled value="">Select country</option>
-                <option v-for="c in countries" :key="c.id" :value="c.id">{{ c.country }}</option>
-              </select>
-            </div>
+            <CountrySelect
+              v-model="country_id"
+              :error="touched.country_id && !country_id"
+              @blur="touched.country_id = true"
+            />
             <p v-if="touched.country_id && !country_id" class="field-error">Please select your country</p>
           </div>
 
@@ -376,6 +370,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/plugins/axios'
 import DataLoadingSpinner from '@/components/common/DataLoadingSpinner.vue'
+import CountrySelect from '@/components/common/CountrySelect.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -395,7 +390,6 @@ const touched = ref({
 })
 
 const event = ref(null)
-const countries = ref([])
 
 const user_id = ref('')
 const title = ref('')
@@ -470,15 +464,6 @@ const loadEventData = async () => {
   }
 }
 
-const fetchCountries = async () => {
-  try {
-    const res = await api.get('/countries/', { params: { skip: 0, limit: 100 } })
-    countries.value = res.data.data
-  } catch (err) {
-    console.error('Failed to fetch countries:', err)
-  }
-}
-
 const formatDate = (dateStr) => {
   if (!dateStr) return ''
   return new Date(dateStr).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
@@ -514,7 +499,6 @@ const handleRegister = async () => {
 
 onMounted(() => {
   loadEventData()
-  fetchCountries()
 })
 </script>
 
