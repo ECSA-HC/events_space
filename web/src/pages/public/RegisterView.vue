@@ -107,7 +107,7 @@
               <label class="field-label">Gender <span class="text-red-400">*</span></label>
               <select v-model="gender" class="field-input" :class="{ 'border-red-300 bg-red-50': touched.gender && !gender }" @blur="touched.gender = true">
                 <option value="" disabled>Select gender</option>
-                <option>Male</option><option>Female</option><option>Other</option>
+                <option>Male</option><option>Female</option>
               </select>
               <p v-if="touched.gender && !gender" class="field-error">Please select gender</p>
             </div>
