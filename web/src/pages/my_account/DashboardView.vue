@@ -76,6 +76,7 @@ import { ref, onMounted } from 'vue'
 import api from '@/plugins/axios'
 import { useAuthStore } from '@/stores/auth'
 import PayEventModal from '@/components/specific/PayEventModal.vue'
+import defaultAvatarImg from '@/assets/default-avatar.svg'
 
 const showPaymentModal = ref(false)
 const selectedEvent = ref(null) // ← this was missing!
@@ -94,7 +95,7 @@ const user = ref({
 
 const loading = ref(false)
 const error = ref(null)
-const defaultAvatar = 'https://via.placeholder.com/150?text=Avatar'
+const defaultAvatar = defaultAvatarImg
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
 
 const fetchUser = async () => {

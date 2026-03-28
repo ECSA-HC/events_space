@@ -120,6 +120,7 @@
 import { ref, watch } from 'vue'
 import html2pdf from 'html2pdf.js'
 import api from '@/plugins/axios'
+import defaultAvatarImg from '@/assets/default-avatar.svg'
 
 const props = defineProps({
   visible: Boolean,
@@ -159,7 +160,7 @@ watch(
         profile_picture:
           userRes.data.profile_picture?.profile_picture
             ? `${import.meta.env.VITE_API_BASE_URL}/${userRes.data.profile_picture.profile_picture}`
-            : 'https://via.placeholder.com/150?text=Avatar',
+            : defaultAvatarImg,
         title: profile.title || '',
         firstname: user.firstname,
         middlename: profile.middle_name || '',

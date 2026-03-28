@@ -15,24 +15,12 @@
         :class="{ 'border-blue-500 bg-blue-50': dragActive }"
       >
         <img
-          v-if="profilePicture"
-          :src="profilePicture"
+          :src="profilePicture || defaultAvatarImg"
           alt="Profile Picture"
           class="w-full h-full object-cover"
         />
-        <div v-else class="text-gray-400 text-center px-2 select-none">
-          <svg
-            class="mx-auto mb-1 w-8 h-8 text-gray-300"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            viewBox="0 0 24 24"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M12 5v14m7-7H5" />
-          </svg>
-          <span class="text-xs">Click or drag & drop to upload</span>
+        <div v-if="!profilePicture" class="absolute inset-0 flex items-end justify-center pb-2 bg-black bg-opacity-0 hover:bg-opacity-20 transition">
+          <span class="text-white text-xs font-medium opacity-0 hover:opacity-100 select-none">Change</span>
         </div>
         <input
           ref="fileInput"
@@ -164,6 +152,7 @@ import { ref, onMounted } from 'vue'
 import api from '@/plugins/axios'
 import { useAuthStore } from '@/stores/auth'
 import CountrySelect from '@/components/common/CountrySelect.vue'
+import defaultAvatarImg from '@/assets/default-avatar.svg'
 
 const auth = useAuthStore()
 const auth_user = auth.user
