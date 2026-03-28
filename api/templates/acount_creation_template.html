@@ -91,6 +91,7 @@
         We are delighted to have you join us and look forward to your participation.
       </p>
 
+      {% if password %}
       <p>Your account has been created. Below are your login credentials:</p>
 
       <div class="credentials-box">
@@ -102,6 +103,12 @@
       <p>
         Please log in and change your password at your earliest convenience to keep your account secure.
       </p>
+      {% else %}
+      <p>
+        You already have an account with us. Use your existing credentials to log in and complete your registration.
+        If you have forgotten your password, you can reset it from the login page.
+      </p>
+      {% endif %}
 
       <a href="https://events.ecsahc.org/login" class="button">Log In to ECSA Events Portal</a>
 

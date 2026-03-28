@@ -50,6 +50,14 @@ async def register(
     )
 
     if existing_user:
+        # Still send a reminder email with login link (no password resent for security)
+        mailer_util.new_account_email(
+            existing_user.email,
+            existing_user.firstname,
+            None,
+            user_schema.event_name,
+            background_tasks,
+        )
         return {
             "user_id": existing_user.id,
             "email": existing_user.email,

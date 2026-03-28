@@ -29,6 +29,9 @@ def verify_password(password: str, hashed_password: str):
 # --- CORE EMAIL SENDER ---
 
 
+logger = logging.getLogger(__name__)
+
+
 def send_email(recipient_email, subject, email_body):
     smtp_host = os.getenv("SMTP_HOST", "")
     smtp_port = os.getenv("SMTP_PORT", "")
@@ -36,18 +39,14 @@ def send_email(recipient_email, subject, email_body):
     smtp_password = os.getenv("SMTP_PASSWORD", "")
 
     if not smtp_host or not smtp_port:
-        raise HTTPException(
-            status_code=500,
-            detail="SMTP host and port must be set in environment variables.",
-        )
+        logger.error("SMTP host and port must be set in environment variables.")
+        return
 
     try:
         smtp_port = int(smtp_port)
     except ValueError:
-        raise HTTPException(
-            status_code=500,
-            detail="SMTP_PORT must be an integer.",
-        )
+        logger.error("SMTP_PORT must be an integer.")
+        return
 
     try:
         with smtplib.SMTP(smtp_host, smtp_port) as server:
@@ -59,10 +58,9 @@ def send_email(recipient_email, subject, email_body):
             message["Subject"] = subject
             message.attach(MIMEText(email_body, "html"))
             server.sendmail(smtp_username, recipient_email, message.as_string())
+            logger.info("Email sent successfully to %s", recipient_email)
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to send email. Error: {str(e)}"
-        )
+        logger.error("Failed to send email to %s: %s", recipient_email, str(e))
 
 
 # --- BACKGROUND TASK WRAPPER ---
