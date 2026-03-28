@@ -108,6 +108,7 @@ def normalize_event_name(name: str) -> str:
 
 
 @router.get("")
+@router.get("/")
 async def get_events(
     request: Request,
     db: Session = Depends(get_db),

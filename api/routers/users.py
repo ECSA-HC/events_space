@@ -52,6 +52,7 @@ def get_object(id, db, model):
 
 
 @router.get("")
+@router.get("/")
 async def get_users(
     request: Request,
     current_user: user_dependency,

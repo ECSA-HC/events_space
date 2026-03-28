@@ -10,6 +10,7 @@ router = APIRouter()
 
 
 @router.get("")
+@router.get("/")
 async def get_countries(
     db: Session = Depends(get_db),
     skip: int = Query(default=0, ge=0),
