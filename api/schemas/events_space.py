@@ -23,7 +23,7 @@ class UserSchema(BaseModel):
 class ProfileSchema(BaseModel):
     title: str
     middle_name: str
-    country_id: int
+    country_id: Optional[int] = None
     gender: str
     organisation: str
     position: str

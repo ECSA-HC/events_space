@@ -266,7 +266,7 @@ const updateProfile = async () => {
     const profilePayload = {
       title: title.value,
       middle_name: middleName.value,
-      country_id: country.value,
+      country_id: country.value || null,
       gender: gender.value,
       organisation: organisation.value,
       position: position.value,
@@ -274,7 +274,8 @@ const updateProfile = async () => {
     }
 
     await api.put(`/users/${user_id.value}`, userPayload)
-    await api.put(`/users/profile/${profile_id.value}`, profilePayload)
+    const profileRes = await api.post(`/users/profile/${user_id.value}`, profilePayload)
+    profile_id.value = profileRes.data?.profile_id || profile_id.value
 
     if (profileFile.value) {
       const formData = new FormData()
