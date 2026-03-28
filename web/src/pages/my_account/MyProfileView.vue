@@ -141,7 +141,7 @@
 
         <!-- Country -->
         <div>
-          <label class="block text-sm font-medium mb-1">Country</label>
+          <label class="block text-sm font-medium mb-1">Country <span class="text-red-500">*</span></label>
           <CountrySelect v-model="country" />
         </div>
 
@@ -255,6 +255,11 @@ const updateProfile = async () => {
   successMessage.value = ''
   errorMessage.value = ''
 
+  if (!country.value) {
+    errorMessage.value = 'Please select your country.'
+    return
+  }
+
   try {
     const userPayload = {
       firstname: firstName.value,
@@ -266,7 +271,7 @@ const updateProfile = async () => {
     const profilePayload = {
       title: title.value,
       middle_name: middleName.value,
-      country_id: country.value || null,
+      country_id: country.value,
       gender: gender.value,
       organisation: organisation.value,
       position: position.value,
