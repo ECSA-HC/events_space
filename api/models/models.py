@@ -479,6 +479,7 @@ class Event(Base):
     registrations = relationship("Registration", back_populates="events")
     documents = relationship("Document", back_populates="events")
     links = relationship("Link", back_populates="events")
+    abstracts = relationship("Abstract")
 
     def __repr__(self):
         return f"<Event id={self.id}, name={self.name}>"
@@ -651,6 +652,96 @@ class EventAttendance(Base):
 
     def __repr__(self):
         return f"<EventAttendance registration_id={self.registration_id}>"
+
+
+class AbstractStatus(PyEnum):
+    submitted = "submitted"
+    under_review = "under_review"
+    accepted = "accepted"
+    rejected = "rejected"
+    revision_required = "revision_required"
+
+class PresentationType(PyEnum):
+    oral = "oral"
+    poster = "poster"
+    either = "either"
+
+class ReviewRecommendation(PyEnum):
+    accept = "accept"
+    reject = "reject"
+    revision_required = "revision_required"
+
+class Abstract(BaseWithSoftDelete):
+    __tablename__ = "abstract"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(Integer, ForeignKey("event.id"), nullable=False)
+    submitted_by = Column(Integer, ForeignKey("user.id"), nullable=False)
+    title = Column(Text, nullable=False)
+    abstract_text = Column(Text, nullable=False)
+    keywords = Column(Text, nullable=True)
+    track = Column(String(200), nullable=True)
+    presentation_type = Column(Enum(PresentationType), nullable=False, server_default="either")
+    status = Column(Enum(AbstractStatus), nullable=False, server_default="submitted")
+    word_count = Column(Integer, nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    event = relationship("Event")
+    submitter = relationship("User", foreign_keys=[submitted_by])
+    authors = relationship("AbstractAuthor", back_populates="abstract", order_by="AbstractAuthor.author_order")
+    reviewer_assignments = relationship("AbstractReviewer", back_populates="abstract")
+
+    __table_args__ = (Index("ix_abstract", "event_id", "status", "deleted_at"),)
+
+class AbstractAuthor(Base):
+    __tablename__ = "abstract_author"
+
+    id = Column(Integer, primary_key=True, index=True)
+    abstract_id = Column(Integer, ForeignKey("abstract.id", ondelete="CASCADE"), nullable=False)
+    firstname = Column(String(100), nullable=False)
+    lastname = Column(String(100), nullable=False)
+    email = Column(String(200), nullable=True)
+    affiliation = Column(String(300), nullable=True)
+    country = Column(String(100), nullable=True)
+    is_presenting = Column(Boolean, default=False)
+    author_order = Column(Integer, nullable=False, default=0)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+
+    abstract = relationship("Abstract", back_populates="authors")
+
+class AbstractReviewer(Base):
+    __tablename__ = "abstract_reviewer"
+
+    id = Column(Integer, primary_key=True, index=True)
+    abstract_id = Column(Integer, ForeignKey("abstract.id", ondelete="CASCADE"), nullable=False)
+    reviewer_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    assigned_by = Column(Integer, ForeignKey("user.id"), nullable=False)
+    assigned_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    completed = Column(Boolean, default=False)
+
+    abstract = relationship("Abstract", back_populates="reviewer_assignments")
+    reviewer = relationship("User", foreign_keys=[reviewer_id])
+    assigner = relationship("User", foreign_keys=[assigned_by])
+    review = relationship("AbstractReview", back_populates="assignment", uselist=False)
+
+    __table_args__ = (UniqueConstraint("abstract_id", "reviewer_id", name="unique_abstract_reviewer"),)
+
+class AbstractReview(Base):
+    __tablename__ = "abstract_review"
+
+    id = Column(Integer, primary_key=True, index=True)
+    assignment_id = Column(Integer, ForeignKey("abstract_reviewer.id", ondelete="CASCADE"), nullable=False, unique=True)
+    relevance_score = Column(Integer, nullable=False)
+    methodology_score = Column(Integer, nullable=False)
+    originality_score = Column(Integer, nullable=False)
+    overall_score = Column(Integer, nullable=False)
+    recommendation = Column(Enum(ReviewRecommendation), nullable=False)
+    comments = Column(Text, nullable=False)
+    confidential_comments = Column(Text, nullable=True)
+    submitted_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+
+    assignment = relationship("AbstractReviewer", back_populates="review")
 
 
 # class Document(Base):

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, field_validator, model_validator, HttpUrl
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, List
 
 import re
 
@@ -183,3 +183,43 @@ class AttendanceRead(AttendanceBase):
 
     class Config:
         orm_mode = True
+
+
+class AbstractAuthorSchema(BaseModel):
+    firstname: str
+    lastname: str
+    email: Optional[str] = None
+    affiliation: Optional[str] = None
+    country: Optional[str] = None
+    is_presenting: bool = False
+    author_order: int = 0
+
+class AbstractSubmitSchema(BaseModel):
+    event_id: int
+    title: str
+    abstract_text: str
+    keywords: Optional[str] = None
+    track: Optional[str] = None
+    presentation_type: str = "either"
+    authors: List[AbstractAuthorSchema]
+
+class AbstractUpdateSchema(BaseModel):
+    title: Optional[str] = None
+    abstract_text: Optional[str] = None
+    keywords: Optional[str] = None
+    track: Optional[str] = None
+    presentation_type: Optional[str] = None
+    status: Optional[str] = None
+    authors: Optional[List[AbstractAuthorSchema]] = None
+
+class AssignReviewerSchema(BaseModel):
+    reviewer_id: int
+
+class AbstractReviewSchema(BaseModel):
+    relevance_score: int
+    methodology_score: int
+    originality_score: int
+    overall_score: int
+    recommendation: str
+    comments: str
+    confidential_comments: Optional[str] = None

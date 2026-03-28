@@ -51,6 +51,16 @@
               <span v-if="!minimized" class="ml-3">All Events</span>
             </router-link>
           </li>
+          <li class="mb-1">
+            <router-link
+              :to="{ name: 'AdminAbstracts' }"
+              class="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-200 hover:text-gray-800 rounded-2xl transition-colors"
+              :class="isAbstractsActive ? 'bg-gray-300 text-gray-900 rounded-2xl' : ''"
+            >
+              <DocumentTextIcon class="w-5 h-5" />
+              <span v-if="!minimized" class="ml-3">Abstracts</span>
+            </router-link>
+          </li>
         </ul>
       </div>
 
@@ -142,6 +152,7 @@ import {
   HomeIcon,
   UserCircleIcon,
   ClipboardDocumentListIcon,
+  DocumentTextIcon,
   UsersIcon,
   ShieldCheckIcon,
   BuildingOffice2Icon,
@@ -168,6 +179,11 @@ const username = computed(() => auth.user?.firstname || 'User')
 // Keep "All Events" highlighted for list, view, add, and edit pages
 const isEventsActive = computed(() =>
   ['AdminEvents', 'AdminEvent', 'AddEvent', 'EditEvent'].includes(String(route.name))
+)
+
+// Keep "Abstracts" highlighted for abstracts pages
+const isAbstractsActive = computed(() =>
+  ['AdminAbstracts', 'AdminAbstract'].includes(String(route.name))
 )
 
 // Keep "User Management" highlighted for list, view, add, and edit pages

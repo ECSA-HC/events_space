@@ -45,6 +45,10 @@ import MyAccountDashboardView from "@/pages/my_account/DashboardView.vue";
 import MyProfileView from "@/pages/my_account/MyProfileView.vue";
 import MyEventsView from "@/pages/my_account/MyEventsView.vue";
 import MyEventView from "@/pages/my_account/MyEventView.vue";
+import AbstractsView from "@/pages/admin/abstracts/AbstractsView.vue";
+import AbstractView from "@/pages/admin/abstracts/AbstractView.vue";
+import MyAbstractsView from "@/pages/my_account/MyAbstractsView.vue";
+import MyReviewsView from "@/pages/my_account/MyReviewsView.vue";
 
 // Error Pages
 import ForbiddenView from "@/pages/errors/ForbiddenView.vue";
@@ -122,6 +126,18 @@ const routes = [
         path: "my-event/:id",
         name: "MyEvent",
         component: MyEventView,
+        meta: { requiresAuth: true },
+      },
+      {
+        path: "my-abstracts",
+        name: "MyAbstracts",
+        component: MyAbstractsView,
+        meta: { requiresAuth: true },
+      },
+      {
+        path: "my-reviews",
+        name: "MyReviews",
+        component: MyReviewsView,
         meta: { requiresAuth: true },
       },
     ],
@@ -239,6 +255,8 @@ const routes = [
         component: SettingsView,
         meta: { requiresAuth: true },
       },
+      { path: "abstracts", name: "AdminAbstracts", component: AbstractsView, meta: { requiresAuth: true } },
+      { path: "abstracts/:id", name: "AdminAbstract", component: AbstractView, meta: { requiresAuth: true } },
     ],
   },
   {

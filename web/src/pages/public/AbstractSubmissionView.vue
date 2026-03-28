@@ -34,7 +34,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            <span>Deadline: <strong>15th June 2026</strong></span>
+            <span>Deadline: <strong>15<sup>th</sup> June 2026</strong></span>
           </div>
           <div class="inline-flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full text-sm">
             <svg class="w-4 h-4 text-orange-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -162,11 +162,11 @@
             <h3 class="font-bold text-gray-800">Abstract Deadline</h3>
           </div>
           <div class="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 mb-3 text-center">
-            <p class="text-2xl font-black" style="color: #F7941D;">15th June 2026</p>
+            <p class="text-2xl font-black" style="color: #F7941D;">15<sup>th</sup> June 2026</p>
             <p class="text-xs text-orange-600 mt-1">Strictly observed</p>
           </div>
           <p class="text-xs text-gray-600 leading-relaxed">
-            Abstract deadlines are strictly observed. Only abstracts received by the published deadline (15th June 2026) are guaranteed acceptance.
+            Abstract deadlines are strictly observed. Only abstracts received by the published deadline (15<sup>th</sup> June 2026) are guaranteed acceptance.
             Post-deadline abstracts will not be accepted.
           </p>
         </section>
@@ -204,7 +204,7 @@
             <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-            Notification by email before <span class="ml-1 underline">5th July 2026</span>
+            Notification by email before <span class="ml-1 underline">5<sup>th</sup> July 2026</span>
           </div>
         </section>
       </div>
@@ -289,39 +289,37 @@
           </div>
         </div>
 
+        <!-- Login prompt if not authenticated -->
+        <div v-if="!isAuthenticated" class="mb-6 bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 text-sm text-amber-800 flex items-start gap-3">
+          <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z"/>
+          </svg>
+          <div>
+            You must be logged in to submit an abstract.
+            <router-link :to="{ name: 'Login' }" class="ml-1 font-semibold underline hover:opacity-80" style="color: #0095B6;">Log in here →</router-link>
+          </div>
+        </div>
+
         <form @submit.prevent="submitAbstract" class="space-y-5">
-          <div class="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">First Name <span class="text-red-500">*</span></label>
-              <input v-model="form.first_name" type="text" required placeholder="Jane"
-                class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Last Name <span class="text-red-500">*</span></label>
-              <input v-model="form.last_name" type="text" required placeholder="Doe"
-                class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
-            </div>
+
+          <!-- Event selection -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Event <span class="text-red-500">*</span></label>
+            <select v-model="form.event_id" required
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]">
+              <option disabled :value="null">Select an event</option>
+              <option v-for="ev in events" :key="ev.id" :value="ev.id">{{ ev.event }}</option>
+            </select>
           </div>
 
-          <div class="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Email Address <span class="text-red-500">*</span></label>
-              <input v-model="form.email" type="email" required placeholder="jane@example.org"
-                class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Institution / Organisation <span class="text-red-500">*</span></label>
-              <input v-model="form.institution" type="text" required placeholder="Ministry of Health, Tanzania"
-                class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
-            </div>
-          </div>
-
+          <!-- Abstract Title -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Abstract Title <span class="text-red-500">*</span></label>
             <input v-model="form.title" type="text" required placeholder="Title of your abstract"
               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
           </div>
 
+          <!-- Scientific Track -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Scientific Track <span class="text-red-500">*</span></label>
             <select v-model="form.track" required
@@ -337,56 +335,99 @@
             </select>
           </div>
 
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              Abstract Body <span class="text-red-500">*</span>
-              <span class="ml-2 text-xs font-normal text-gray-400">(max 300 words)</span>
-            </label>
-            <textarea v-model="form.body" rows="7" required
-              placeholder="Write or paste your abstract here (maximum 300 words)..."
-              class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]"></textarea>
-            <p class="text-xs text-gray-400 mt-1 text-right">{{ wordCount }} / 300 words</p>
-          </div>
-
+          <!-- Presentation Preference -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Presentation Preference</label>
             <div class="flex gap-4 flex-wrap">
               <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                <input type="radio" v-model="form.preference" value="oral" class="accent-[#0095B6]" />
+                <input type="radio" v-model="form.presentation_type" value="oral" class="accent-[#0095B6]" />
                 Oral Presentation
               </label>
               <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                <input type="radio" v-model="form.preference" value="poster" class="accent-[#0095B6]" />
+                <input type="radio" v-model="form.presentation_type" value="poster" class="accent-[#0095B6]" />
                 ePoster Session
               </label>
               <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                <input type="radio" v-model="form.preference" value="either" class="accent-[#0095B6]" />
+                <input type="radio" v-model="form.presentation_type" value="either" class="accent-[#0095B6]" />
                 Either
               </label>
             </div>
           </div>
 
-          <!-- File upload -->
+          <!-- Abstract Body -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Upload Abstract Document <span class="text-gray-400">(optional)</span></label>
-            <div
-              class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-[#0095B6] hover:bg-blue-50/20 transition cursor-pointer"
-              @click="triggerFileInput"
-              @dragover.prevent
-              @drop.prevent="handleDrop"
-            >
-              <input ref="fileInput" type="file" accept=".pdf,.doc,.docx" class="hidden" @change="handleFileChange" />
-              <svg class="mx-auto h-10 w-10 text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                  d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <p class="text-sm text-gray-500">
-                <span class="font-semibold" style="color: #0095B6;">Click to upload</span> or drag and drop
-              </p>
-              <p class="text-xs text-gray-400 mt-1">PDF, DOC or DOCX — max 10 MB</p>
-              <p v-if="selectedFile" class="mt-3 text-sm font-medium text-gray-700">
-                Selected: {{ selectedFile.name }}
-              </p>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Abstract Body <span class="text-red-500">*</span>
+              <span class="ml-2 text-xs font-normal text-gray-400">(max 300 words)</span>
+            </label>
+            <textarea v-model="form.abstract_text" rows="7" required
+              placeholder="Write or paste your abstract here (maximum 300 words)..."
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]"></textarea>
+            <p :class="wordCount > 300 ? 'text-red-500' : 'text-gray-400'" class="text-xs mt-1 text-right">
+              {{ wordCount }} / 300 words
+              <span v-if="wordCount > 300" class="ml-1 font-semibold">— over limit!</span>
+            </p>
+          </div>
+
+          <!-- Keywords -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Keywords <span class="text-gray-400 text-xs">(optional, comma-separated)</span></label>
+            <input v-model="form.keywords" type="text" placeholder="e.g. health systems, UHC, digital health"
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+          </div>
+
+          <!-- Authors section -->
+          <div class="border border-gray-200 rounded-xl p-5 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold text-gray-800">Authors & Co-Authors <span class="text-red-500">*</span></h3>
+              <button type="button" @click="addAuthor"
+                class="text-sm text-white px-3 py-1.5 rounded-lg font-medium transition hover:opacity-90"
+                style="background-color: #0095B6;">
+                + Add Co-Author
+              </button>
+            </div>
+
+            <div v-for="(author, idx) in form.authors" :key="idx"
+              class="bg-gray-50 rounded-xl p-4 space-y-3 relative">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  {{ idx === 0 ? 'First Author (Presenting)' : `Co-Author ${idx}` }}
+                </span>
+                <button v-if="idx > 0" type="button" @click="removeAuthor(idx)"
+                  class="text-red-400 hover:text-red-600 text-xs font-medium">Remove</button>
+              </div>
+              <div class="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">First Name <span class="text-red-500">*</span></label>
+                  <input v-model="author.firstname" type="text" required placeholder="Jane"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Last Name <span class="text-red-500">*</span></label>
+                  <input v-model="author.lastname" type="text" required placeholder="Doe"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Email</label>
+                  <input v-model="author.email" type="email" placeholder="jane@example.org"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Institution / Affiliation</label>
+                  <input v-model="author.affiliation" type="text" placeholder="Ministry of Health"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Country</label>
+                  <input v-model="author.country" type="text" placeholder="Tanzania"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+                </div>
+                <div class="flex items-center gap-2 pt-4">
+                  <input type="checkbox" :id="`presenting-${idx}`" v-model="author.is_presenting"
+                    class="accent-[#0095B6] w-4 h-4 cursor-pointer" />
+                  <label :for="`presenting-${idx}`" class="text-sm text-gray-600 cursor-pointer">Presenting author</label>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -397,14 +438,21 @@
             </svg>
             <div>
               <p class="font-semibold">Abstract submitted successfully!</p>
-              <p class="text-green-600 mt-0.5">You will receive a confirmation email at <strong>{{ form.email }}</strong>. Notification of acceptance will be sent before 5th July 2026.</p>
+              <p class="text-green-600 mt-0.5">Notification of acceptance will be sent before 5<sup>th</sup> July 2026.</p>
             </div>
+          </div>
+
+          <div v-if="submitError" class="flex items-center gap-3 text-red-700 bg-red-50 border border-red-200 rounded-xl px-5 py-4 text-sm">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+            <p>{{ submitError }}</p>
           </div>
 
           <div class="flex items-center gap-4 flex-wrap">
             <button
               type="submit"
-              :disabled="submitting"
+              :disabled="submitting || !isAuthenticated || wordCount > 300"
               class="px-8 py-3 rounded-full font-semibold text-white text-sm transition hover:opacity-90 disabled:opacity-60 shadow-sm"
               style="background-color: #0095B6;"
             >
@@ -423,7 +471,23 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import api from '@/plugins/axios'
+import { useAuthStore } from '@/stores/auth'
+
+const auth = useAuthStore()
+const isAuthenticated = computed(() => auth.isAuthenticated)
+
+const events = ref([])
+
+onMounted(async () => {
+  try {
+    const res = await api.get('/events/?skip=0&limit=200')
+    events.value = res.data
+  } catch (e) {
+    // silently fail — events list won't be populated
+  }
+})
 
 const callForAbstractItems = [
   'Abstracts can only be submitted online via our website (abstract submission); submissions by email or any other means will not be considered.',
@@ -517,41 +581,62 @@ const submittingItems = [
 ]
 
 const form = ref({
-  first_name: '',
-  last_name: '',
-  email: '',
-  institution: '',
+  event_id: null,
   title: '',
   track: '',
-  body: '',
-  preference: 'either',
+  presentation_type: 'either',
+  abstract_text: '',
+  keywords: '',
+  authors: [
+    { firstname: '', lastname: '', email: '', affiliation: '', country: '', is_presenting: true }
+  ],
 })
 
-const fileInput = ref(null)
-const selectedFile = ref(null)
 const submitting = ref(false)
 const submitted = ref(false)
+const submitError = ref('')
 
 const wordCount = computed(() => {
-  const text = form.value.body.trim()
+  const text = form.value.abstract_text.trim()
   return text ? text.split(/\s+/).length : 0
 })
 
-const triggerFileInput = () => fileInput.value?.click()
-
-const handleFileChange = (e) => {
-  selectedFile.value = e.target.files[0] || null
+const addAuthor = () => {
+  form.value.authors.push({ firstname: '', lastname: '', email: '', affiliation: '', country: '', is_presenting: false })
 }
 
-const handleDrop = (e) => {
-  selectedFile.value = e.dataTransfer.files[0] || null
+const removeAuthor = (idx) => {
+  form.value.authors.splice(idx, 1)
 }
 
 const submitAbstract = async () => {
+  if (!isAuthenticated.value) return
   submitting.value = true
-  // Dummy submission — replace with real API call when endpoint is available
-  await new Promise(resolve => setTimeout(resolve, 1400))
-  submitted.value = true
-  submitting.value = false
+  submitError.value = ''
+  try {
+    await api.post('/abstracts/', {
+      event_id: form.value.event_id,
+      title: form.value.title,
+      abstract_text: form.value.abstract_text,
+      keywords: form.value.keywords || null,
+      track: form.value.track || null,
+      presentation_type: form.value.presentation_type,
+      authors: form.value.authors.map((a, i) => ({ ...a, author_order: i })),
+    })
+    submitted.value = true
+    form.value = {
+      event_id: null,
+      title: '',
+      track: '',
+      presentation_type: 'either',
+      abstract_text: '',
+      keywords: '',
+      authors: [{ firstname: '', lastname: '', email: '', affiliation: '', country: '', is_presenting: true }],
+    }
+  } catch (e) {
+    submitError.value = e.response?.data?.detail || 'Submission failed. Please try again.'
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
