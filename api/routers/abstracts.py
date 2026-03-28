@@ -1,9 +1,9 @@
-from datetime import datetime
+from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
-from dependencies.auth_dependency import Auth
+from dependencies.auth_dependency import Auth, get_current_user
 from models.models import Abstract, AbstractAuthor, AbstractReviewer, AbstractReview, User
 from schemas.events_space import (
     AbstractSubmitSchema, AbstractUpdateSchema,
@@ -12,10 +12,7 @@ from schemas.events_space import (
 
 router = APIRouter()
 
-def get_auth_dependency(db: Session = Depends(get_db)) -> Auth:
-    return Auth(db)
-
-user_dependency = Auth.get_current_user
+user_dependency = Annotated[dict, Depends(get_current_user)]
 
 
 def _serialize_abstract(a: Abstract):
