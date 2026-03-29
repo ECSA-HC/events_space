@@ -54,9 +54,14 @@ const abstracts = ref([])
 const loading = ref(true)
 
 onMounted(async () => {
-  const res = await api.get('/abstracts/my-submissions')
-  abstracts.value = res.data.map(a => ({ ...a, _expanded: false }))
-  loading.value = false
+  try {
+    const res = await api.get('/abstracts/my-submissions')
+    abstracts.value = res.data.map(a => ({ ...a, _expanded: false }))
+  } catch (e) {
+    console.error('Failed to load abstracts', e)
+  } finally {
+    loading.value = false
+  }
 })
 
 const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : '—'

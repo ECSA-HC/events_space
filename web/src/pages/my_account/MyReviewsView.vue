@@ -113,14 +113,19 @@ const scoreFields = [
 ]
 
 onMounted(async () => {
-  const res = await api.get('/abstracts/my-reviews')
-  assignments.value = res.data.map(a => ({
-    ...a,
-    _form: { relevance_score: 0, methodology_score: 0, originality_score: 0, overall_score: 0, recommendation: '', comments: '', confidential_comments: '' },
-    _error: '',
-    _success: '',
-  }))
-  loading.value = false
+  try {
+    const res = await api.get('/abstracts/my-reviews')
+    assignments.value = res.data.map(a => ({
+      ...a,
+      _form: { relevance_score: 0, methodology_score: 0, originality_score: 0, overall_score: 0, recommendation: '', comments: '', confidential_comments: '' },
+      _error: '',
+      _success: '',
+    }))
+  } catch (e) {
+    console.error('Failed to load reviews', e)
+  } finally {
+    loading.value = false
+  }
 })
 
 const submitReview = async (a) => {

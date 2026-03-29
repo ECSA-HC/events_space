@@ -33,7 +33,7 @@
         active-class="bg-gray-100 text-bondi-blue font-semibold"
       >
         <FileTextIcon class="w-5 h-5" />
-        My Abstracts
+        Abstracts
       </router-link>
 
       <router-link
@@ -42,7 +42,7 @@
         active-class="bg-gray-100 text-bondi-blue font-semibold"
       >
         <ClipboardListIcon class="w-5 h-5" />
-        My Reviews
+        Reviews
       </router-link>
 
       <router-link
