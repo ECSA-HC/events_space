@@ -1,7 +1,27 @@
 <template>
   <div class="space-y-6">
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-semibold text-black">Abstract Submissions</h1>
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <h1 class="text-2xl font-semibold text-black">Abstract Submissions</h1>
+        <p v-if="!loading" class="text-sm text-gray-400 mt-0.5">
+          {{ filtered.length }} {{ filtered.length === 1 ? 'abstract' : 'abstracts' }}
+          <span v-if="filtered.length !== abstracts.length"> (filtered from {{ abstracts.length }})</span>
+        </p>
+      </div>
+      <button @click="exportExcel" :disabled="exporting || loading || filtered.length === 0"
+        class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+        style="background-color: #0095B6;"
+        :title="`Export ${filtered.length} abstract(s) to Excel`">
+        <svg v-if="!exporting" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+        <svg v-else class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+        </svg>
+        {{ exporting ? 'Exporting…' : `Export ${filtered.length > 0 ? filtered.length + ' ' : ''}to Excel` }}
+      </button>
     </div>
 
     <!-- Filters -->
@@ -81,6 +101,7 @@ import api from '@/plugins/axios'
 const abstracts = ref([])
 const events = ref([])
 const loading = ref(true)
+const exporting = ref(false)
 const search = ref('')
 const filterEvent = ref('')
 const filterStatus = ref('')
@@ -88,14 +109,48 @@ const page = ref(1)
 const pageSize = 15
 
 onMounted(async () => {
-  const [absRes, evRes] = await Promise.all([
-    api.get('/abstracts/'),
-    api.get('/events/?skip=0&limit=200'),
-  ])
-  abstracts.value = absRes.data
-  events.value = evRes.data
-  loading.value = false
+  try {
+    const [absRes, evRes] = await Promise.all([
+      api.get('/abstracts/'),
+      api.get('/events/?skip=0&limit=200'),
+    ])
+    abstracts.value = absRes.data
+    events.value = evRes.data.data || []
+  } finally {
+    loading.value = false
+  }
 })
+
+const exportExcel = async () => {
+  exporting.value = true
+  try {
+    const params = new URLSearchParams()
+    if (filterEvent.value)  params.append('event_id', filterEvent.value)
+    if (filterStatus.value) params.append('status',   filterStatus.value)
+    if (search.value.trim()) params.append('search',  search.value.trim())
+
+    const res = await api.get(`/abstracts/export?${params.toString()}`, { responseType: 'blob' })
+
+    // Build a descriptive filename from active filters
+    const parts = ['abstracts']
+    if (filterStatus.value) parts.push(filterStatus.value.replace('_', '-'))
+    if (search.value.trim()) parts.push(search.value.trim().slice(0, 20).replace(/\s+/g, '-'))
+    parts.push(new Date().toISOString().slice(0, 10))
+
+    const url = URL.createObjectURL(new Blob([res.data], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${parts.join('_')}.xlsx`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    alert('Export failed. Please try again.')
+  } finally {
+    exporting.value = false
+  }
+}
 
 const filtered = computed(() => {
   let list = abstracts.value

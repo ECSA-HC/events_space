@@ -79,7 +79,7 @@ async def get_users(
         User.email.ilike(f"%{search}%"),
     )
 
-    users_query = db.query(User).filter(search_filter).options(
+    users_query = db.query(User).filter(User.deleted_at == None, search_filter).options(
         joinedload(User.user_roles).joinedload(UserRole.role)
     )
 
@@ -289,14 +289,18 @@ async def delete_user(
 ):
     auth_dependency.secure_access("DELETE_USER", current_user["user_id"])
 
-    user = get_object(user_id, db, User)
+    user = db.query(User).filter(User.id == user_id, User.deleted_at == None).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Explicitly delete related user_role(s)
-    db.query(UserRole).filter(UserRole.user_id == user_id).delete()
+    now = datetime.utcnow()
+    user.deleted_at = now
 
-    db.delete(user)
+    # Soft-delete the user profile too
+    profile = db.query(UserProfile).filter(UserProfile.user_id == user_id, UserProfile.deleted_at == None).first()
+    if profile:
+        profile.deleted_at = now
+
     db.commit()
     return {"detail": "User deleted successfully"}
 

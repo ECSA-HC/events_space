@@ -1,5 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import io
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.utils import get_column_letter
 
 from core.database import get_db
 from dependencies.auth_dependency import get_current_user
@@ -131,6 +136,199 @@ def list_abstracts(
         q = q.filter(Abstract.event_id == event_id)
     abstracts = q.order_by(Abstract.created_at.desc()).offset(skip).limit(limit).all()
     return [_serialize_abstract(a) for a in abstracts]
+
+
+@router.get("/export")
+def export_abstracts(
+    event_id: int = None,
+    status_filter: str = Query(None, alias="status"),
+    search: str = Query(None),
+    current_user: dict = Depends(user_dependency),
+    db: Session = Depends(get_db),
+):
+    from sqlalchemy import or_
+    q = db.query(Abstract).options(
+        joinedload(Abstract.authors),
+        joinedload(Abstract.submitter),
+        joinedload(Abstract.event),
+        joinedload(Abstract.reviewer_assignments).joinedload(AbstractReviewer.reviewer),
+        joinedload(Abstract.reviewer_assignments).joinedload(AbstractReviewer.review),
+    ).filter(Abstract.deleted_at == None)
+    if event_id:
+        q = q.filter(Abstract.event_id == event_id)
+    if status_filter:
+        q = q.filter(Abstract.status == status_filter)
+    if search:
+        term = f"%{search}%"
+        q = q.filter(or_(
+            Abstract.title.ilike(term),
+            Abstract.keywords.ilike(term),
+        ))
+    abstracts = q.order_by(Abstract.created_at.desc()).all()
+
+    wb = Workbook()
+
+    # ── Sheet 1: Abstracts ────────────────────────────────────────────────────
+    ws = wb.active
+    ws.title = "Abstracts"
+
+    header_fill = PatternFill("solid", start_color="0095B6")
+    alt_fill    = PatternFill("solid", start_color="E8F4F8")
+    header_font = Font(name="Arial", bold=True, color="FFFFFF", size=10)
+    body_font   = Font(name="Arial", size=10)
+    center      = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    left        = Alignment(horizontal="left",   vertical="center", wrap_text=True)
+
+    headers = [
+        "#", "Title", "Event", "Track", "Presentation Type", "Status",
+        "Word Count", "Keywords", "Submitter Name", "Submitter Email",
+        "First Author", "First Author Email", "First Author Affiliation",
+        "First Author Country", "All Authors", "Reviewers Assigned",
+        "Reviews Completed", "Avg Relevance", "Avg Methodology",
+        "Avg Originality", "Avg Overall", "Date Submitted",
+    ]
+
+    ws.row_dimensions[1].height = 22
+    for ci, h in enumerate(headers, 1):
+        cell = ws.cell(1, ci, h)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center
+
+    ws.freeze_panes = "A2"
+
+    for ri, a in enumerate(abstracts, 2):
+        ws.row_dimensions[ri].height = 16
+        use_fill = alt_fill if ri % 2 == 0 else PatternFill("solid", start_color="FFFFFF")
+
+        authors = sorted(a.authors, key=lambda x: x.author_order)
+        first   = authors[0] if authors else None
+        all_authors = "; ".join(
+            f"{au.firstname} {au.lastname}" + (f" ({au.affiliation})" if au.affiliation else "")
+            for au in authors
+        )
+
+        assignments = a.reviewer_assignments
+        reviews = [r.review for r in assignments if r.review]
+        avg = lambda field: round(sum(getattr(r, field) for r in reviews) / len(reviews), 1) if reviews else ""
+
+        row = [
+            a.id,
+            a.title,
+            a.event.event if a.event else "",
+            a.track or "",
+            a.presentation_type.value if a.presentation_type else "",
+            a.status.value.replace("_", " ").title() if a.status else "",
+            a.word_count or 0,
+            a.keywords or "",
+            f"{a.submitter.firstname} {a.submitter.lastname}" if a.submitter else "",
+            a.submitter.email if a.submitter else "",
+            f"{first.firstname} {first.lastname}" if first else "",
+            first.email or "" if first else "",
+            first.affiliation or "" if first else "",
+            first.country or "" if first else "",
+            all_authors,
+            len(assignments),
+            len(reviews),
+            avg("relevance_score"),
+            avg("methodology_score"),
+            avg("originality_score"),
+            avg("overall_score"),
+            a.created_at.strftime("%d %b %Y") if a.created_at else "",
+        ]
+
+        for ci, val in enumerate(row, 1):
+            cell = ws.cell(ri, ci, val)
+            cell.font = body_font
+            cell.fill = use_fill
+            cell.alignment = left
+
+    # Auto column widths
+    col_widths = [6, 40, 30, 20, 16, 16, 10, 30, 22, 28, 22, 28, 28, 16, 50, 10, 10, 12, 12, 12, 12, 14]
+    for ci, w in enumerate(col_widths, 1):
+        ws.column_dimensions[get_column_letter(ci)].width = w
+
+    # ── Sheet 2: Authors ──────────────────────────────────────────────────────
+    ws2 = wb.create_sheet("Authors")
+    ws2.sheet_properties.tabColor = "0095B6"
+    auth_headers = ["Abstract #", "Abstract Title", "Author Order", "First Name", "Last Name",
+                    "Email", "Affiliation", "Country", "Is Presenting"]
+    ws2.row_dimensions[1].height = 22
+    for ci, h in enumerate(auth_headers, 1):
+        cell = ws2.cell(1, ci, h)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center
+    ws2.freeze_panes = "A2"
+    ri2 = 2
+    for a in abstracts:
+        for au in sorted(a.authors, key=lambda x: x.author_order):
+            use_fill = alt_fill if ri2 % 2 == 0 else PatternFill("solid", start_color="FFFFFF")
+            row = [a.id, a.title, au.author_order + 1, au.firstname, au.lastname,
+                   au.email or "", au.affiliation or "", au.country or "",
+                   "Yes" if au.is_presenting else "No"]
+            for ci, val in enumerate(row, 1):
+                cell = ws2.cell(ri2, ci, val)
+                cell.font = body_font
+                cell.fill = use_fill
+                cell.alignment = left
+            ri2 += 1
+    for ci, w in enumerate([10, 40, 12, 16, 16, 28, 28, 16, 12], 1):
+        ws2.column_dimensions[get_column_letter(ci)].width = w
+
+    # ── Sheet 3: Reviews ──────────────────────────────────────────────────────
+    ws3 = wb.create_sheet("Reviews")
+    ws3.sheet_properties.tabColor = "0095B6"
+    rev_headers = ["Abstract #", "Abstract Title", "Reviewer Name", "Reviewer Email",
+                   "Completed", "Relevance", "Methodology", "Originality",
+                   "Overall", "Recommendation", "Comments", "Review Date"]
+    ws3.row_dimensions[1].height = 22
+    for ci, h in enumerate(rev_headers, 1):
+        cell = ws3.cell(1, ci, h)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center
+    ws3.freeze_panes = "A2"
+    ri3 = 2
+    for a in abstracts:
+        for ra in a.reviewer_assignments:
+            use_fill = alt_fill if ri3 % 2 == 0 else PatternFill("solid", start_color="FFFFFF")
+            rv = ra.review
+            row = [
+                a.id, a.title,
+                f"{ra.reviewer.firstname} {ra.reviewer.lastname}" if ra.reviewer else "",
+                ra.reviewer.email if ra.reviewer else "",
+                "Yes" if ra.completed else "No",
+                rv.relevance_score if rv else "",
+                rv.methodology_score if rv else "",
+                rv.originality_score if rv else "",
+                rv.overall_score if rv else "",
+                rv.recommendation.value.replace("_", " ").title() if rv else "",
+                rv.comments if rv else "",
+                rv.submitted_at.strftime("%d %b %Y") if rv and rv.submitted_at else "",
+            ]
+            for ci, val in enumerate(row, 1):
+                cell = ws3.cell(ri3, ci, val)
+                cell.font = body_font
+                cell.fill = use_fill
+                cell.alignment = left
+            ri3 += 1
+    for ci, w in enumerate([10, 40, 22, 28, 10, 10, 12, 12, 10, 18, 50, 12], 1):
+        ws3.column_dimensions[get_column_letter(ci)].width = w
+
+    # Style sheet tabs
+    ws.sheet_properties.tabColor = "0095B6"
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = "abstracts_export.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 @router.get("/my-submissions")

@@ -483,7 +483,7 @@ const events = ref([])
 onMounted(async () => {
   try {
     const res = await api.get('/events/?skip=0&limit=200')
-    events.value = res.data
+    events.value = res.data.data || []
   } catch (e) {
     // silently fail — events list won't be populated
   }
