@@ -109,5 +109,11 @@ function logout() {
   router.push({ name: 'Login' })
 }
 
-const canViewAdminDashboard = computed(() => auth.hasPermission("ADMIN_DASHBOARD"));
+const canViewAdminDashboard = computed(() =>
+  auth.hasPermission("ADMIN_DASHBOARD") ||
+  auth.hasPermission("VIEW_STATS") ||
+  auth.hasPermission("VIEW_ABSTRACTS") ||
+  auth.hasPermission("VIEW_REGISTRATIONS") ||
+  auth.hasPermission("MANAGE_REVIEWERS")
+);
 </script>
