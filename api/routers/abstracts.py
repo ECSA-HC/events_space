@@ -519,12 +519,15 @@ def update_status(
 def assign_reviewer(
     abstract_id: int,
     schema: AssignReviewerSchema,
+    background_tasks: BackgroundTasks,
     current_user: user_dependency,
     db: Session = Depends(get_db),
     auth_dependency: Auth = Depends(get_auth_dep),
 ):
     auth_dependency.secure_access("MANAGE_REVIEWERS", current_user["user_id"])
-    abstract = db.query(Abstract).filter(Abstract.id == abstract_id, Abstract.deleted_at == None).first()
+    abstract = db.query(Abstract).options(
+        joinedload(Abstract.event)
+    ).filter(Abstract.id == abstract_id, Abstract.deleted_at == None).first()
     if not abstract:
         raise HTTPException(status_code=404, detail="Abstract not found")
 
@@ -545,7 +548,22 @@ def assign_reviewer(
         assigned_by=current_user["user_id"],
     )
     db.add(assignment)
+
+    # Generate fresh credentials and email them with the abstract context
+    new_password = auth_dependency.generate_random_password()
+    reviewer.hashed_password = auth_dependency.hash_password(new_password)
     db.commit()
+
+    import utils.mailer_util as mailer_util
+    mailer_util.reviewer_assignment_email(
+        recipient_email=reviewer.email,
+        firstname=reviewer.firstname,
+        password=new_password,
+        abstract_title=abstract.title,
+        event_name=abstract.event.event if abstract.event else None,
+        background_tasks=background_tasks,
+    )
+
     return {"message": "Reviewer assigned", "reviewer_name": f"{reviewer.firstname} {reviewer.lastname}"}
 
 
@@ -624,10 +642,8 @@ def create_reviewer(
     db.commit()
     db.refresh(user)
 
-    import utils.mailer_util as mailer_util
-    mailer_util.new_account_email(
-        user.email, user.firstname, password, None, background_tasks
-    )
+    # Credentials are intentionally NOT sent here — they will be emailed
+    # automatically when the reviewer is first assigned to an abstract.
 
     return {
         "id": user.id,

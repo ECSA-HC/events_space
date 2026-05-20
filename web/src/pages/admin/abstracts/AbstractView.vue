@@ -228,7 +228,7 @@ const assignReviewer = async () => {
   assignMsg.value = ''; assignErr.value = ''
   try {
     await api.post(`/abstracts/${route.params.id}/assign-reviewer`, { reviewer_id: selectedReviewer.value.id })
-    assignMsg.value = 'Reviewer assigned!'
+    assignMsg.value = 'Reviewer assigned! Login credentials emailed.'
     selectedReviewer.value = null
     reviewerSearch.value = ''
     await fetchAbstract()

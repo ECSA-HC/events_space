@@ -300,7 +300,7 @@ const createReviewer = async () => {
   creatingReviewer.value = true
   try {
     const res = await api.post('/abstracts/reviewers/create', newReviewer.value)
-    newReviewerSuccess.value = `Account created for ${res.data.firstname} ${res.data.lastname}. Login credentials sent to ${res.data.email}.`
+    newReviewerSuccess.value = `Account created for ${res.data.firstname} ${res.data.lastname}. Credentials will be emailed when they are assigned to their first abstract.`
     await fetchReviewers()
     newReviewer.value = { firstname: '', lastname: '', email: '', phone: '' }
   } catch (e) {

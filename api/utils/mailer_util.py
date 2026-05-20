@@ -188,3 +188,25 @@ def organisation_approval_status_email(
         year=YEAR,
     )
     send_email_backgroundable(recipient_email, subject, email_body, background_tasks)
+
+
+def reviewer_assignment_email(
+    recipient_email,
+    firstname,
+    password,
+    abstract_title,
+    event_name=None,
+    background_tasks: BackgroundTasks = None,
+):
+    subject = "You Have Been Assigned an Abstract to Review – ECSA Events Portal"
+    template = templates.get_template("reviewer_assignment_template.html")
+    email_body = template.render(
+        subject=subject,
+        username=recipient_email,
+        firstname=firstname,
+        password=password,
+        abstract_title=abstract_title,
+        event_name=event_name,
+        year=YEAR,
+    )
+    send_email_backgroundable(recipient_email, subject, email_body, background_tasks)
