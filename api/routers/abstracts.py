@@ -1,6 +1,6 @@
 import io
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from openpyxl import Workbook
@@ -9,10 +9,12 @@ from openpyxl.utils import get_column_letter
 
 from core.database import get_db
 from dependencies.auth_dependency import Auth, get_current_user
-from models.models import Abstract, AbstractAuthor, AbstractReviewer, AbstractReview, User
+from models.models import Abstract, AbstractAuthor, AbstractReviewer, AbstractReview, User, UserRole, Role
+from datetime import datetime
 from schemas.events_space import (
     AbstractSubmitSchema, AbstractUpdateSchema,
-    AssignReviewerSchema, AbstractReviewSchema
+    AssignReviewerSchema, AbstractReviewSchema,
+    CreateReviewerSchema,
 )
 
 router = APIRouter()
@@ -565,6 +567,74 @@ def remove_reviewer(
     db.delete(assignment)
     db.commit()
     return {"message": "Reviewer removed"}
+
+
+@router.delete("/{abstract_id}")
+def delete_abstract(
+    abstract_id: int,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+):
+    auth_dependency.secure_access("MANAGE_REVIEWERS", current_user["user_id"])
+    abstract = db.query(Abstract).filter(Abstract.id == abstract_id, Abstract.deleted_at == None).first()
+    if not abstract:
+        raise HTTPException(status_code=404, detail="Abstract not found")
+    abstract.deleted_at = datetime.utcnow()
+    db.commit()
+    return {"message": "Abstract deleted"}
+
+
+@router.post("/reviewers/create", status_code=status.HTTP_201_CREATED)
+def create_reviewer(
+    schema: CreateReviewerSchema,
+    current_user: user_dependency,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+):
+    """Create a new user account designated as a reviewer and send them login credentials."""
+    auth_dependency.secure_access("MANAGE_REVIEWERS", current_user["user_id"])
+
+    if db.query(User).filter(User.email == schema.email).first():
+        raise HTTPException(status_code=400, detail="A user with this email already exists")
+
+    # Get or create the phone (phone optional for reviewers — use email as fallback stub)
+    phone = schema.phone or schema.email
+
+    password = auth_dependency.generate_random_password()
+    hashed = auth_dependency.hash_password(password)
+
+    user = User(
+        firstname=schema.firstname,
+        lastname=schema.lastname,
+        email=schema.email,
+        phone=phone,
+        hashed_password=hashed,
+        verified=True,
+    )
+    db.add(user)
+    db.flush()
+
+    # Assign "User" role so they can log in
+    user_role = db.query(Role).filter(Role.role == "User").first()
+    if user_role:
+        db.add(UserRole(user_id=user.id, role_id=user_role.id))
+
+    db.commit()
+    db.refresh(user)
+
+    import utils.mailer_util as mailer_util
+    mailer_util.new_account_email(
+        user.email, user.firstname, password, None, background_tasks
+    )
+
+    return {
+        "id": user.id,
+        "firstname": user.firstname,
+        "lastname": user.lastname,
+        "email": user.email,
+    }
 
 
 @router.post("/reviews/{assignment_id}", status_code=status.HTTP_201_CREATED)

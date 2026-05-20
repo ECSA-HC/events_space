@@ -223,3 +223,9 @@ class AbstractReviewSchema(BaseModel):
     recommendation: str
     comments: str
     confidential_comments: Optional[str] = None
+
+class CreateReviewerSchema(BaseModel):
+    firstname: str
+    lastname: str
+    email: str
+    phone: Optional[str] = None

@@ -9,6 +9,11 @@
       <span v-if="abstract" :class="statusClass(abstract.status)" class="px-3 py-1 rounded-full text-sm font-semibold capitalize flex-shrink-0">
         {{ abstract.status?.replace('_', ' ') }}
       </span>
+      <button v-if="abstract" @click="deleteAbstract"
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 transition flex-shrink-0">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        Delete
+      </button>
     </div>
 
     <div v-if="loading" class="text-gray-500 text-center py-10">Loading...</div>
@@ -165,10 +170,11 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import api from '@/plugins/axios'
 
 const route = useRoute()
+const router = useRouter()
 const abstract = ref(null)
 const loading = ref(true)
 const newStatus = ref('')
@@ -236,6 +242,16 @@ const removeReviewer = async (reviewerId) => {
   if (!confirm('Remove this reviewer?')) return
   await api.delete(`/abstracts/${route.params.id}/reviewers/${reviewerId}`)
   await fetchAbstract()
+}
+
+const deleteAbstract = async () => {
+  if (!confirm(`Delete "${abstract.value.title}"? This cannot be undone.`)) return
+  try {
+    await api.delete(`/abstracts/${route.params.id}`)
+    router.push({ name: 'AdminAbstracts' })
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Failed to delete abstract')
+  }
 }
 
 const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : '—'

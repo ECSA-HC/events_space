@@ -74,9 +74,10 @@
               </span>
             </td>
             <td class="px-4 py-3 text-gray-400 text-xs hidden lg:table-cell">{{ formatDate(abs.created_at) }}</td>
-            <td class="px-4 py-3 text-right">
+            <td class="px-4 py-3 text-right flex items-center justify-end gap-3">
               <router-link :to="{ name: 'AdminAbstract', params: { id: abs.id } }"
                 class="text-bondi-blue hover:underline text-xs font-medium">View</router-link>
+              <button @click="deleteAbstract(abs)" class="text-red-400 hover:text-red-600 text-xs font-medium">Delete</button>
             </td>
           </tr>
         </tbody>
@@ -149,6 +150,16 @@ const exportExcel = async () => {
     alert('Export failed. Please try again.')
   } finally {
     exporting.value = false
+  }
+}
+
+const deleteAbstract = async (abs) => {
+  if (!confirm(`Delete "${abs.title}"? This cannot be undone.`)) return
+  try {
+    await api.delete(`/abstracts/${abs.id}`)
+    abstracts.value = abstracts.value.filter(a => a.id !== abs.id)
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Failed to delete abstract')
   }
 }
 
