@@ -31,6 +31,16 @@ VALUES ('View Event', 'VIEW_EVENT', 'EVENTS_SPACE'),
   
 
 INSERT INTO permission (permission, permission_code, system_code)
-VALUES ('Organisation Unit Verification Approval', 'ORG_UNIT_VERIFICATION_APPROVAL', 'EVENTS_SPACE');           
+VALUES ('Organisation Unit Verification Approval', 'ORG_UNIT_VERIFICATION_APPROVAL', 'EVENTS_SPACE');
 
-          
+INSERT INTO permission (permission, permission_code, system_code)
+VALUES ('View Abstracts', 'VIEW_ABSTRACTS', 'EVENTS_SPACE'),
+       ('Export Abstracts', 'EXPORT_ABSTRACTS', 'EVENTS_SPACE'),
+       ('Manage Reviewers', 'MANAGE_REVIEWERS', 'EVENTS_SPACE');
+
+INSERT INTO permission (permission, permission_code, system_code)
+VALUES ('View Registrations', 'VIEW_REGISTRATIONS', 'EVENTS_SPACE'),
+       ('Export Registrations', 'EXPORT_REGISTRATIONS', 'EVENTS_SPACE');
+
+INSERT INTO permission (permission, permission_code, system_code)
+VALUES ('View Statistics', 'VIEW_STATS', 'EVENTS_SPACE');

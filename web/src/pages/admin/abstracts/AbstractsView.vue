@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-6">
+  <div class="flex-1 flex flex-col w-full max-w-7xl mx-auto p-6 space-y-6 overflow-x-hidden">
     <div class="flex items-center justify-between flex-wrap gap-3">
       <div>
         <h1 class="text-2xl font-semibold text-black">Abstract Submissions</h1>

@@ -1,4 +1,5 @@
 import io
+from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
@@ -7,7 +8,7 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 
 from core.database import get_db
-from dependencies.auth_dependency import get_current_user
+from dependencies.auth_dependency import Auth, get_current_user
 from models.models import Abstract, AbstractAuthor, AbstractReviewer, AbstractReview, User
 from schemas.events_space import (
     AbstractSubmitSchema, AbstractUpdateSchema,
@@ -16,7 +17,11 @@ from schemas.events_space import (
 
 router = APIRouter()
 
-user_dependency = get_current_user
+user_dependency = Annotated[dict, Depends(get_current_user)]
+
+
+def get_auth_dep(db: Session = Depends(get_db)) -> Auth:
+    return Auth(db)
 
 
 def _serialize_abstract(a: Abstract):
@@ -76,7 +81,7 @@ def _serialize_abstract(a: Abstract):
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def submit_abstract(
     schema: AbstractSubmitSchema,
-    current_user: dict = Depends(user_dependency),
+    current_user: user_dependency,
     db: Session = Depends(get_db),
 ):
     word_count = len(schema.abstract_text.split())
@@ -119,12 +124,14 @@ def submit_abstract(
 
 @router.get("/")
 def list_abstracts(
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
     event_id: int = None,
     skip: int = 0,
     limit: int = 100,
-    current_user: dict = Depends(user_dependency),
-    db: Session = Depends(get_db),
 ):
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
     q = db.query(Abstract).options(
         joinedload(Abstract.authors),
         joinedload(Abstract.submitter),
@@ -140,12 +147,14 @@ def list_abstracts(
 
 @router.get("/export")
 def export_abstracts(
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
     event_id: int = None,
     status_filter: str = Query(None, alias="status"),
     search: str = Query(None),
-    current_user: dict = Depends(user_dependency),
-    db: Session = Depends(get_db),
 ):
+    auth_dependency.secure_access("EXPORT_ABSTRACTS", current_user["user_id"])
     from sqlalchemy import or_
     q = db.query(Abstract).options(
         joinedload(Abstract.authors),
@@ -333,7 +342,7 @@ def export_abstracts(
 
 @router.get("/my-submissions")
 def my_submissions(
-    current_user: dict = Depends(user_dependency),
+    current_user: user_dependency,
     db: Session = Depends(get_db),
 ):
     abstracts = db.query(Abstract).options(
@@ -349,7 +358,7 @@ def my_submissions(
 
 @router.get("/my-reviews")
 def my_reviews(
-    current_user: dict = Depends(user_dependency),
+    current_user: user_dependency,
     db: Session = Depends(get_db),
 ):
     assignments = db.query(AbstractReviewer).options(
@@ -380,10 +389,55 @@ def my_reviews(
     ]
 
 
+@router.get("/reviewers")
+def list_reviewers(
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+    event_id: int = None,
+):
+    auth_dependency.secure_access("MANAGE_REVIEWERS", current_user["user_id"])
+    q = db.query(AbstractReviewer).options(
+        joinedload(AbstractReviewer.reviewer),
+        joinedload(AbstractReviewer.abstract).joinedload(Abstract.event),
+        joinedload(AbstractReviewer.review),
+    )
+    if event_id:
+        from sqlalchemy import join
+        q = q.join(Abstract, AbstractReviewer.abstract_id == Abstract.id).filter(Abstract.event_id == event_id)
+    assignments = q.all()
+
+    reviewers: dict = {}
+    for a in assignments:
+        rid = a.reviewer_id
+        if rid not in reviewers:
+            reviewers[rid] = {
+                "reviewer_id": rid,
+                "name": f"{a.reviewer.firstname} {a.reviewer.lastname}" if a.reviewer else "",
+                "email": a.reviewer.email if a.reviewer else "",
+                "total": 0,
+                "completed": 0,
+                "assignments": [],
+            }
+        reviewers[rid]["total"] += 1
+        if a.completed:
+            reviewers[rid]["completed"] += 1
+        reviewers[rid]["assignments"].append({
+            "assignment_id": a.id,
+            "abstract_id": a.abstract_id,
+            "abstract_title": a.abstract.title if a.abstract else "",
+            "event": a.abstract.event.event if a.abstract and a.abstract.event else "",
+            "event_id": a.abstract.event_id if a.abstract else None,
+            "assigned_at": a.assigned_at,
+            "completed": a.completed,
+        })
+    return list(reviewers.values())
+
+
 @router.get("/{abstract_id}")
 def get_abstract(
     abstract_id: int,
-    current_user: dict = Depends(user_dependency),
+    current_user: user_dependency,
     db: Session = Depends(get_db),
 ):
     abstract = db.query(Abstract).options(
@@ -402,7 +456,7 @@ def get_abstract(
 def update_abstract(
     abstract_id: int,
     schema: AbstractUpdateSchema,
-    current_user: dict = Depends(user_dependency),
+    current_user: user_dependency,
     db: Session = Depends(get_db),
 ):
     abstract = db.query(Abstract).filter(Abstract.id == abstract_id, Abstract.deleted_at == None).first()
@@ -448,7 +502,7 @@ def update_abstract(
 def update_status(
     abstract_id: int,
     payload: dict,
-    current_user: dict = Depends(user_dependency),
+    current_user: user_dependency,
     db: Session = Depends(get_db),
 ):
     abstract = db.query(Abstract).filter(Abstract.id == abstract_id, Abstract.deleted_at == None).first()
@@ -463,9 +517,11 @@ def update_status(
 def assign_reviewer(
     abstract_id: int,
     schema: AssignReviewerSchema,
-    current_user: dict = Depends(user_dependency),
+    current_user: user_dependency,
     db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
 ):
+    auth_dependency.secure_access("MANAGE_REVIEWERS", current_user["user_id"])
     abstract = db.query(Abstract).filter(Abstract.id == abstract_id, Abstract.deleted_at == None).first()
     if not abstract:
         raise HTTPException(status_code=404, detail="Abstract not found")
@@ -495,9 +551,11 @@ def assign_reviewer(
 def remove_reviewer(
     abstract_id: int,
     reviewer_id: int,
-    current_user: dict = Depends(user_dependency),
+    current_user: user_dependency,
     db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
 ):
+    auth_dependency.secure_access("MANAGE_REVIEWERS", current_user["user_id"])
     assignment = db.query(AbstractReviewer).filter(
         AbstractReviewer.abstract_id == abstract_id,
         AbstractReviewer.reviewer_id == reviewer_id,
@@ -513,7 +571,7 @@ def remove_reviewer(
 def submit_review(
     assignment_id: int,
     schema: AbstractReviewSchema,
-    current_user: dict = Depends(user_dependency),
+    current_user: user_dependency,
     db: Session = Depends(get_db),
 ):
     assignment = db.query(AbstractReviewer).filter(
@@ -544,7 +602,7 @@ def submit_review(
 @router.get("/{abstract_id}/reviews")
 def get_reviews(
     abstract_id: int,
-    current_user: dict = Depends(user_dependency),
+    current_user: user_dependency,
     db: Session = Depends(get_db),
 ):
     assignments = db.query(AbstractReviewer).options(

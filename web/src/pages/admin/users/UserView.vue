@@ -76,7 +76,7 @@
           </div>
         </section>
 
-        <div class="flex space-x-4 pt-4">
+        <div class="flex flex-wrap gap-3 pt-4">
           <button
             @click="goBack"
             class="bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-6 rounded-xl transition"
@@ -89,21 +89,69 @@
           >
             Edit
           </button>
+          <button
+            v-if="canResetPassword"
+            @click="showResetModal = true"
+            class="bg-amber-500 hover:bg-amber-600 text-white py-2 px-6 rounded-xl transition flex items-center gap-2"
+          >
+            <KeyIcon class="w-4 h-4" />
+            Reset Password
+          </button>
         </div>
       </div>
     </main>
+
+    <!-- Reset Password Confirmation Modal -->
+    <div
+      v-if="showResetModal"
+      class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
+    >
+      <div class="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full space-y-4">
+        <h3 class="text-lg font-semibold text-gray-800">Reset Password</h3>
+        <p class="text-sm text-gray-600">
+          A new random password will be generated and emailed to
+          <strong>{{ user?.email }}</strong>. The user will need to use it to log in.
+        </p>
+        <div v-if="resetError" class="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-2">
+          {{ resetError }}
+        </div>
+        <div v-if="resetSuccess" class="text-sm text-green-700 bg-green-50 rounded-lg px-4 py-2">
+          {{ resetSuccess }}
+        </div>
+        <div class="flex gap-3 justify-end">
+          <button
+            @click="showResetModal = false; resetError = ''; resetSuccess = ''"
+            :disabled="resetting"
+            class="px-5 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 transition text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            @click="resetPassword"
+            :disabled="resetting || !!resetSuccess"
+            class="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white transition text-sm flex items-center gap-2"
+          >
+            <span v-if="resetting">Resetting…</span>
+            <span v-else>Confirm Reset</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { KeyIcon } from '@heroicons/vue/24/outline'
+import { useAuthStore } from '@/stores/auth'
 import AdminBar from '@/components/common/AdminBar.vue'
 import DataLoadingSpinner from '@/components/common/DataLoadingSpinner.vue'
 import api from '@/plugins/axios'
 
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 
 const userId = route.params.id
 const user = ref(null)
@@ -113,6 +161,13 @@ const error = ref(null)
 const allRoles = ref([])
 const loadingRoles = ref(true)
 const loadingAssignRemove = ref(false)
+
+const showResetModal = ref(false)
+const resetting = ref(false)
+const resetError = ref('')
+const resetSuccess = ref('')
+
+const canResetPassword = computed(() => auth.hasPermission('UPDATE_USER'))
 
 const fetchUser = async () => {
   loading.value = true
@@ -170,6 +225,20 @@ const onRoleCheckboxChange = async (role, checked) => {
     alert(err.response?.data?.detail || 'Failed to update roles')
   } finally {
     loadingAssignRemove.value = false
+  }
+}
+
+const resetPassword = async () => {
+  resetting.value = true
+  resetError.value = ''
+  resetSuccess.value = ''
+  try {
+    await api.post(`/users/${userId}/reset-password`)
+    resetSuccess.value = 'Password reset successfully. New credentials sent to user\'s email.'
+  } catch (err) {
+    resetError.value = err.response?.data?.detail || 'Failed to reset password'
+  } finally {
+    resetting.value = false
   }
 }
 

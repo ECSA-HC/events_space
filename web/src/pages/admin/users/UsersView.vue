@@ -108,9 +108,9 @@
             v-model="perPage"
             class="border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#0095B6]"
           >
-            <option :value="5">5</option>
             <option :value="10">10</option>
-            <option :value="15">15</option>
+            <option :value="25">25</option>
+            <option :value="50">50</option>
           </select>
         </div>
         <div class="text-center flex-1 md:flex-none">Page {{ currentPage }} of {{ totalPages }}</div>
@@ -159,7 +159,7 @@ const auth = useAuthStore();
 const search = ref('');
 const debouncedSearch = ref('');
 const currentPage = ref(1);
-const perPage = ref(5);
+const perPage = ref(10);
 const totalPages = ref(1);
 const users = ref([]);
 const isLoading = ref(false);

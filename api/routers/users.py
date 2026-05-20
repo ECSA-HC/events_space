@@ -157,7 +157,9 @@ async def get_user(
     dependency: Dependency = Depends(get_dependency),
     auth_dependency: Auth = Depends(get_auth_dependency),
 ):
-    auth_dependency.secure_access("VIEW_USER", current_user["user_id"])
+    # Allow a user to view their own profile; otherwise require VIEW_USER permission
+    if current_user["user_id"] != user_id:
+        auth_dependency.secure_access("VIEW_USER", current_user["user_id"])
 
     client_ip = dependency.request_ip(request)
 
@@ -277,6 +279,43 @@ async def update_user(
     db.commit()
     db.refresh(user_model)
     return user_schema
+
+
+@router.post("/{user_id}/reset-password")
+async def admin_reset_user_password(
+    user_id: int,
+    current_user: user_dependency,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+    dependency: Dependency = Depends(get_dependency),
+):
+    auth_dependency.secure_access("UPDATE_USER", current_user["user_id"])
+
+    user = db.query(User).filter(User.id == user_id, User.deleted_at == None).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    new_password = auth_dependency.generate_random_password()
+    user.hashed_password = bcrypt.hash(new_password)
+    db.commit()
+
+    background_tasks.add_task(
+        mailer_util.new_account_email,
+        user.email,
+        user.firstname,
+        new_password,
+    )
+
+    dependency.log_activity(
+        current_user["user_id"],
+        "ADMIN_RESET_PASSWORD",
+        current_user["username"],
+        "127.0.0.1",
+        f"Admin reset password for user id {user_id}",
+    )
+
+    return {"detail": "Password reset and sent to user's email successfully"}
 
 
 @router.delete("/{user_id}")

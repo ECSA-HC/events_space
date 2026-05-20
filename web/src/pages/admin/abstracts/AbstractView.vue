@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-6">
+  <div class="flex-1 flex flex-col w-full max-w-5xl mx-auto p-6 space-y-6 overflow-x-hidden">
     <!-- Header -->
     <div class="flex items-center gap-4">
       <router-link :to="{ name: 'AdminAbstracts' }" class="text-gray-400 hover:text-gray-700">
@@ -208,7 +208,7 @@ const searchUsers = () => {
   if (!reviewerSearch.value.trim()) { userResults.value = []; return }
   searchTimeout = setTimeout(async () => {
     const res = await api.get(`/users/?search=${encodeURIComponent(reviewerSearch.value)}&limit=10`)
-    userResults.value = res.data?.users || res.data || []
+    userResults.value = res.data?.data || []
   }, 300)
 }
 

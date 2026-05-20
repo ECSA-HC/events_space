@@ -47,6 +47,8 @@ import MyEventsView from "@/pages/my_account/MyEventsView.vue";
 import MyEventView from "@/pages/my_account/MyEventView.vue";
 import AbstractsView from "@/pages/admin/abstracts/AbstractsView.vue";
 import AbstractView from "@/pages/admin/abstracts/AbstractView.vue";
+import ReviewersView from "@/pages/admin/abstracts/ReviewersView.vue";
+import RegistrationsView from "@/pages/admin/registrations/RegistrationsView.vue";
 import MyAbstractsView from "@/pages/my_account/MyAbstractsView.vue";
 import MyReviewsView from "@/pages/my_account/MyReviewsView.vue";
 
@@ -181,7 +183,7 @@ const routes = [
         path: "admin-events",
         name: "AdminEvents",
         component: AdminEventsView,
-        meta: { requiresAuth: true },
+        meta: { requiresAuth: true, permissions: ["VIEW_EVENT"] },
       },
       {
         path: "add-event",
@@ -229,7 +231,7 @@ const routes = [
         path: "roles",
         name: "Roles",
         component: RolesView,
-        meta: { requiresAuth: true },
+        meta: { requiresAuth: true, permissions: ["VIEW_ROLE"] },
       },
       {
         path: "add-role",
@@ -253,10 +255,12 @@ const routes = [
         path: "settings",
         name: "Settings",
         component: SettingsView,
-        meta: { requiresAuth: true },
+        meta: { requiresAuth: true, permissions: ["VIEW_USER"] },
       },
-      { path: "abstracts", name: "AdminAbstracts", component: AbstractsView, meta: { requiresAuth: true } },
-      { path: "abstracts/:id", name: "AdminAbstract", component: AbstractView, meta: { requiresAuth: true } },
+      { path: "abstracts", name: "AdminAbstracts", component: AbstractsView, meta: { requiresAuth: true, permissions: ["VIEW_ABSTRACTS"] } },
+      { path: "abstracts/:id", name: "AdminAbstract", component: AbstractView, meta: { requiresAuth: true, permissions: ["VIEW_ABSTRACTS"] } },
+      { path: "reviewers", name: "AdminReviewers", component: ReviewersView, meta: { requiresAuth: true, permissions: ["MANAGE_REVIEWERS"] } },
+      { path: "registrations", name: "AdminRegistrations", component: RegistrationsView, meta: { requiresAuth: true, permissions: ["VIEW_REGISTRATIONS"] } },
     ],
   },
   {
