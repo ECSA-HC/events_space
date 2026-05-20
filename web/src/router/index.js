@@ -279,9 +279,14 @@ const router = createRouter({
   routes,
 });
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const auth = useAuthStore();
   if (!auth.token) auth.loadFromStorage();
+
+  // Refresh permissions from server whenever we're working from stale localStorage data
+  if (auth.needsRefresh) {
+    await auth.refreshPermissions();
+  }
 
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
     return next({ name: "Login" });

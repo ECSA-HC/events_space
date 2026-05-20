@@ -5,8 +5,9 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session, joinedload
 
 from core.database import get_db
+from typing import Annotated
 from dependencies.dependency import Dependency
-from dependencies.auth_dependency import Auth
+from dependencies.auth_dependency import Auth, get_current_user
 import utils.mailer_util as mailer_util
 
 from models.models import (
@@ -16,6 +17,7 @@ from models.models import (
     AccountVerification,
     Role,
     RolePermission,
+    Permission,
 )
 from schemas.events_space import (
     UserSchema,
@@ -308,6 +310,48 @@ async def verify_email(
     mailer_util.account_verification_email(user.email, user.firstname, background_tasks)
 
     return {"message": "Account verification was successful"}
+
+
+@router.get("/me")
+async def get_me(
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Session = Depends(get_db),
+):
+    user_with_permissions = (
+        db.query(User)
+        .options(
+            joinedload(User.user_roles)
+            .joinedload(UserRole.role)
+            .joinedload(Role.role_permissions)
+            .joinedload(RolePermission.permission)
+        )
+        .filter(User.id == current_user["user_id"])
+        .first()
+    )
+
+    if not user_with_permissions:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    permissions = [
+        {
+            "permission": rp.permission.permission,
+            "permission_code": rp.permission.permission_code,
+        }
+        for user_role in user_with_permissions.user_roles
+        for rp in user_role.role.role_permissions
+    ]
+
+    return {
+        "user": {
+            "id": user_with_permissions.id,
+            "firstname": user_with_permissions.firstname,
+            "lastname": user_with_permissions.lastname,
+            "phone": user_with_permissions.phone,
+            "email": user_with_permissions.email,
+            "verified": user_with_permissions.verified,
+        },
+        "permissions": permissions,
+    }
 
 
 @router.post("/resend-verification")
