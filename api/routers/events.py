@@ -397,6 +397,16 @@ async def get_event(
                         if r.user and r.user.user_profile
                         else None
                     ),
+                    "position": (
+                        r.user.user_profile[0].position
+                        if r.user and r.user.user_profile
+                        else None
+                    ),
+                    "title": (
+                        r.user.user_profile[0].title
+                        if r.user and r.user.user_profile
+                        else None
+                    ),
                     "paid": getattr(r, "paid", None),
                     "payment_proof": getattr(r, "payment_proof", None),
                     "registered_at": r.registered_at,
@@ -1375,6 +1385,7 @@ async def download_participant_badges_pdf(
     event_id: int,
     current_user: user_dependency,
     paid: Literal["all", "true", "false"] = Query("all"),
+    user_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     dependency=Depends(get_dependency),
     auth_dependency: Auth = Depends(get_auth_dependency),
@@ -1433,6 +1444,10 @@ async def download_participant_badges_pdf(
     if paid != "all":
         is_paid = paid == "true"
         participants = [p for p in participants if p["paid"] == is_paid]
+
+    # Optional single-participant filter (used by badge preview download button)
+    if user_id is not None:
+        participants = [p for p in participants if p.get("user_id") == user_id]
 
     if not participants:
         raise HTTPException(status_code=404, detail="No participants found")

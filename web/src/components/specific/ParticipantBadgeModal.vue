@@ -59,12 +59,12 @@
 
           <!-- ── THEME box (9.4–26.7% w, 36.4–40.1% h) ────────────────── -->
           <div class="absolute flex items-center justify-center font-bold"
-               style="top:36.4%;left:9.4%;width:17.3%;height:3.7%;background:#00AEEF;color:#fff;font-size:2.8cqw;">
+               style="top:36.4%;left:9.4%;width:17.3%;height:3.7%;background:#00AEEF;color:#fff;font-size:3.5cqw;">
             THEME:
           </div>
           <!-- Theme text starts at y=41% -->
           <div class="absolute font-semibold leading-snug"
-               style="top:41%;left:9.7%;right:3%;color:#111;font-size:2.9cqw;">
+               style="top:41%;left:9.7%;right:3%;color:#111;font-size:3.2cqw;">
             {{ theme }}
           </div>
 
@@ -94,14 +94,14 @@
               <!-- Label -->
               <div
                 class="flex items-center justify-center font-bold shrink-0 text-center"
-                :style="{ width: row.labelPct, background:'#00AEEF', color:'#fff', fontSize:'2.8cqw' }"
+                :style="{ width: row.labelPct, background:'#00AEEF', color:'#fff', fontSize:'3.7cqw' }"
               >
                 {{ row.label }}
               </div>
               <!-- Value -->
               <div
                 class="flex items-center flex-1 px-1 font-semibold truncate"
-                :style="{ background: roleLightColor, color:'#111', fontSize:'2.8cqw' }"
+                :style="{ background: roleLightColor, color:'#111', fontSize:'3.4cqw' }"
               >
                 {{ row.value }}
               </div>
@@ -150,7 +150,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import html2pdf from 'html2pdf.js'
+import api from '@/plugins/axios'
 import badgeBg from '@/assets/badge_bg.jpg'
 
 const props = defineProps({
@@ -290,19 +290,25 @@ const qrUrl = computed(() => {
 // ── ECSA member-state flags ───────────────────────────────────────────────────
 const flagCodes = ['sz', 'ke', 'ls', 'mw', 'mu', 'tz', 'ug', 'zm', 'zw']
 
-// ── PDF download ──────────────────────────────────────────────────────────────
-function downloadPDF() {
-  if (!badgeRef.value) return
-  const name = [props.user?.firstname, props.user?.lastname].filter(Boolean).join('_') || 'badge'
-  html2pdf()
-    .set({
-      margin: 0,
-      filename: `badge_${name}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 3, useCORS: true },
-      jsPDF: { unit: 'mm', format: [105, 148], orientation: 'portrait' },
-    })
-    .from(badgeRef.value)
-    .save()
+// ── PDF download — calls the backend which generates a proper A6 PDF ─────────
+async function downloadPDF() {
+  if (!props.event?.id || !props.user?.user_id) return
+  try {
+    const url = `/events/${props.event.id}/participants/badges?paid=all&user_id=${props.user.user_id}`
+    const response = await api.get(url, { responseType: 'blob' })
+    const name = [props.user?.firstname, props.user?.lastname].filter(Boolean).join('_') || 'badge'
+    const blob = new Blob([response.data], { type: 'application/pdf' })
+    const link = document.createElement('a')
+    const objectUrl = URL.createObjectURL(blob)
+    link.href = objectUrl
+    link.download = `badge_${name}.pdf`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(objectUrl)
+  } catch (err) {
+    console.error('Badge download failed:', err)
+    alert('Failed to download badge PDF.')
+  }
 }
 </script>
