@@ -1160,9 +1160,18 @@ def hex_to_rgb(hex_color: str):
 
 
 def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_rgb=None):
-    """Render one A4 ECSA conference badge matching the official name-tag design."""
-    W = 210 * mm
-    H = 297 * mm
+    """Render one A6 ECSA conference badge matching the official name-tag design exactly.
+
+    All positions derived from official ECSA-HC A6 (105×148 mm) badge PDFs.
+    PyMuPDF extracted coordinates are in mm from top; converted to ReportLab
+    (y from bottom) via fy(y_top_mm) = (148 - y_top_mm) * mm.
+    """
+    W_mm, H_mm = 105.0, 148.0
+    W, H = W_mm * mm, H_mm * mm
+
+    def fy(y_from_top):
+        """mm-from-top  →  ReportLab points-from-bottom."""
+        return (H_mm - y_from_top) * mm
 
     # ── Role colour ──────────────────────────────────────────────────────────
     role_raw   = str(p.get("participation_role_raw", "delegate")).lower()
@@ -1172,164 +1181,187 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
     banner_txt = (0.0, 0.0, 0.0) if role_hex == "#FFD700" else (1.0, 1.0, 1.0)
     role_label = BADGE_ROLE_LABELS.get(role_raw, role_raw.upper())
 
-    # ── Background (warm light grey, approximates the textured paper) ────────
-    c.setFillColorRGB(0.906, 0.898, 0.882)
-    c.rect(0, 0, W, H, fill=True, stroke=False)
+    # ── Background texture (grey granite, extracted from official ECSA badge) ─
+    bg_path = "assets/badge_bg.jpg"
+    if os.path.exists(bg_path):
+        try:
+            c.drawImage(convert_png_to_rgb(bg_path), 0, 0, W, H)
+        except Exception:
+            c.setFillColorRGB(0.82, 0.80, 0.78)
+            c.rect(0, 0, W, H, fill=True, stroke=False)
+    else:
+        c.setFillColorRGB(0.82, 0.80, 0.78)
+        c.rect(0, 0, W, H, fill=True, stroke=False)
 
-    # ── Header logos ─────────────────────────────────────────────────────────
-    logo_h = 19 * mm
-    logo_y = H - 28 * mm          # bottom edge of logo row
+    # ── Logos ─────────────────────────────────────────────────────────────────
+    # Left logo (Eswatini MoH): 5–32 mm from left, 3–17 mm from top
+    # Right logo (ECSA-HC):    58–98 mm from left, 3–17 mm from top
+    logo_h_mm = 14.0
     if logo_left:
         try:
-            c.drawImage(logo_left,  8*mm, logo_y, width=55*mm, height=logo_h,
-                        preserveAspectRatio=True)
+            c.drawImage(logo_left, 5*mm, fy(3 + logo_h_mm),
+                        width=27*mm, height=logo_h_mm*mm, preserveAspectRatio=True)
         except Exception:
             pass
     if logo_right:
         try:
-            c.drawImage(logo_right, W - 68*mm, logo_y, width=60*mm, height=logo_h,
-                        preserveAspectRatio=True)
+            c.drawImage(logo_right, 58*mm, fy(3 + logo_h_mm),
+                        width=40*mm, height=logo_h_mm*mm, preserveAspectRatio=True)
         except Exception:
             pass
 
-    # ── Event title (two-line, orange + teal) ─────────────────────────────────
+    # ── Event title ───────────────────────────────────────────────────────────
+    # Extracted: title1 baseline y=29.3 mm (21.3 pt), title2 baseline y=38.1 mm (17.8 pt)
     raw_name = normalize_event_name(str(p.get("event_name") or ""))
     parts = raw_name.split(" & ", 1)
     if len(parts) == 2:
         title1 = parts[0].strip()
         title2 = "& " + parts[1].strip()
     else:
-        words  = raw_name.split()
-        mid    = max(1, (len(words) + 1) // 2)
+        words = raw_name.split()
+        mid   = max(1, (len(words) + 1) // 2)
         title1 = " ".join(words[:mid])
         title2 = " ".join(words[mid:])
 
-    c.setFillColorRGB(0.969, 0.580, 0.114)   # ECSA orange
-    c.setFont("Helvetica-Bold", 24)
-    c.drawCentredString(W / 2, H - 50*mm, title1)
+    c.setFillColorRGB(0.969, 0.580, 0.114)          # ECSA orange
+    c.setFont("Helvetica-Bold", 21)
+    c.drawCentredString(W / 2, fy(29.3 + 21 * 25.4/72 * 0.75), title1)
 
-    c.setFillColorRGB(0.0, 0.596, 0.729)     # ECSA teal
-    c.setFont("Helvetica-Bold", 22)
-    c.drawCentredString(W / 2, H - 63*mm, title2)
+    c.setFillColorRGB(0.06, 0.06, 0.06)             # near-black (matches official)
+    c.setFont("Helvetica-Bold", 18)
+    c.drawCentredString(W / 2, fy(38.1 + 18 * 25.4/72 * 0.75), title2)
 
     # ── Dates & location ──────────────────────────────────────────────────────
+    # Extracted: date baseline y=46.1 mm, 11 pt
     dates    = str(p.get("event_dates") or "")
     loc      = str(p.get("location") or "")
     date_str = f"{dates}  |  {loc}" if (dates and loc) else (dates or loc)
     c.setFillColorRGB(0.1, 0.1, 0.1)
-    c.setFont("Helvetica-Bold", 10)
-    c.drawCentredString(W / 2, H - 76*mm, date_str)
+    # Auto-size date string to fit within usable width (94 mm)
+    for date_fs in (11, 9, 8, 7):
+        c.setFont("Helvetica-Bold", date_fs)
+        if c.stringWidth(date_str, "Helvetica-Bold", date_fs) <= 94 * mm:
+            break
+    c.drawCentredString(W / 2, fy(46.1 + date_fs * 25.4/72 * 0.75), date_str)
 
-    # ── THEME: box + theme text ───────────────────────────────────────────────
-    lx         = 8 * mm
-    tb_w, tb_h = 24 * mm, 7.5 * mm
-    tb_y       = H - 94.5 * mm            # box bottom edge (RL coords)
-
-    c.setFillColorRGB(0.0, 0.682, 0.937)   # cyan
-    c.rect(lx, tb_y, tb_w, tb_h, fill=True, stroke=False)
+    # ── THEME box ─────────────────────────────────────────────────────────────
+    # Extracted: rect (9.9, 53.9)→(28.1, 59.4) mm  |  label 12.6 pt
+    c.setFillColorRGB(0.0, 0.681, 0.938)
+    c.rect(9.9*mm, fy(59.4), 18.2*mm, 5.5*mm, fill=True, stroke=False)
     c.setFillColorRGB(1, 1, 1)
-    c.setFont("Helvetica-Bold", 9)
-    c.drawCentredString(lx + tb_w / 2, tb_y + 2.2*mm, "THEME:")
+    c.setFont("Helvetica-Bold", 11)
+    theme_box_cy = (53.9 + 59.4) / 2                # 56.65 mm from top
+    c.drawCentredString(19.0*mm, fy(theme_box_cy + 11 * 25.4/72 * 0.3), "THEME:")
 
+    # ── Theme text ────────────────────────────────────────────────────────────
+    # Extracted: line1 y=60.7 mm, line2 y=64.6 mm  |  9 pt
     theme = str(p.get("event_theme") or "")
-    c.setFillColorRGB(0.08, 0.08, 0.08)
-    c.setFont("Helvetica-Bold", 9.5)
+    c.setFillColorRGB(0.06, 0.06, 0.06)
+    c.setFont("Helvetica-Bold", 8.5)
     if theme:
-        limit = 62
+        limit = 55
         if len(theme) <= limit:
-            c.drawString(lx, H - 102*mm, theme)
+            c.drawString(10.2*mm, fy(60.7 + 8.5 * 25.4/72 * 0.75), theme)
         else:
             bp = theme.rfind(" ", 0, limit) or limit
-            c.drawString(lx, H - 102*mm,  theme[:bp].rstrip())
-            c.drawString(lx, H - 109*mm,  theme[bp:].strip())
+            c.drawString(10.2*mm, fy(60.7 + 8.5 * 25.4/72 * 0.75), theme[:bp].rstrip())
+            c.drawString(10.2*mm, fy(64.6 + 8.5 * 25.4/72 * 0.75), theme[bp:].strip())
 
     # ── Role banner ───────────────────────────────────────────────────────────
-    banner_h = 28 * mm
-    banner_y = H - 171 * mm        # bottom edge
-
+    # Extracted: rect (7.8, 74.0)→(97.9, 86.3) mm  |  text 30 pt
     c.setFillColorRGB(*role_rgb)
-    c.rect(0, banner_y, W, banner_h, fill=True, stroke=False)
+    c.rect(7.8*mm, fy(86.3), 90.1*mm, 12.3*mm, fill=True, stroke=False)
 
-    fsize  = max(32, min(64, int(490 // max(len(role_label), 1))))
-    text_y = banner_y + (banner_h - fsize * 0.353 * mm * 0.70) / 2
+    fsize = max(22, min(42, int(330 // max(len(role_label), 1))))
+    banner_cy = (74.0 + 86.3) / 2                   # 80.15 mm from top
     c.setFont("Helvetica-Bold", fsize)
     c.setFillColorRGB(*banner_txt)
-    c.drawCentredString(W / 2, text_y, role_label)
+    c.drawCentredString(W / 2, fy(banner_cy + fsize * 25.4/72 * 0.3), role_label)
 
     # ── Info rows: Name / Designation / Organization ──────────────────────────
-    row_h  = 14 * mm
-    lbl_w  = 38 * mm
-    margin = 8 * mm
-    cont_w = W - margin - lbl_w - margin
-    row_ys = [H - 190*mm, H - 208.5*mm, H - 227*mm]   # bottom of each row
-
+    # Extracted box positions (mm from top):
+    #   Name label     (7.8, 89.1)→(29.1, 95.8)  content (29.2, 89.1)→(97.8, 95.8)
+    #   Designation    (7.8, 98.4)→(41.5, 105.0) content (41.2, 98.3)→(97.8, 105.0)
+    #   Organization   (7.8, 107.6)→(41.9, 114.3)content (41.9, 107.7)→(97.8, 114.3)
     full_name = " ".join(filter(None, [
         str(p.get("title")       or "").strip(),
         str(p.get("firstname")   or "").strip(),
         str(p.get("lastname")    or "").strip(),
     ]))
-    rows = [
-        ("Name",         full_name[:52]),
-        ("Designation",  str(p.get("position")     or "")[:52]),
-        ("Organization", str(p.get("organisation") or "")[:52]),
+    row_specs = [
+        # (label, lbl_x0, lbl_x1, y0, y1, value)
+        ("Name",         7.8, 29.1,  89.1,  95.8, full_name[:42]),
+        ("Designation",  7.8, 41.5,  98.4, 105.0, str(p.get("position")     or "")[:38]),
+        ("Organization", 7.8, 41.9, 107.6, 114.3, str(p.get("organisation") or "")[:38]),
     ]
 
-    for row_y, (lbl_text, val_text) in zip(row_ys, rows):
-        c.setFillColorRGB(*role_rgb)
-        c.rect(margin, row_y, lbl_w, row_h, fill=True, stroke=False)
-        c.setFillColorRGB(*banner_txt)
-        c.setFont("Helvetica-Bold", 10)
-        c.drawCentredString(margin + lbl_w / 2, row_y + 4.2*mm, lbl_text)
+    for lbl, lx0, lx1, y0f, y1f, val in row_specs:
+        row_h_mm = y1f - y0f         # 6.6 mm
+        rl_bot   = fy(y1f)
+        lbl_w_mm = lx1 - lx0
+        cont_w_mm = 97.8 - lx1
+        row_cy   = (y0f + y1f) / 2
 
+        # Label (darker cyan)
+        c.setFillColorRGB(0.0, 0.681, 0.938)
+        c.rect(lx0*mm, rl_bot, lbl_w_mm*mm, row_h_mm*mm, fill=True, stroke=False)
+        c.setFillColorRGB(1, 1, 1)
+        c.setFont("Helvetica-Bold", 11)
+        c.drawCentredString(((lx0 + lx1) / 2)*mm,
+                            fy(row_cy + 11 * 25.4/72 * 0.3), lbl)
+
+        # Content (light tint)
         c.setFillColorRGB(*role_light)
-        c.rect(margin + lbl_w, row_y, cont_w, row_h, fill=True, stroke=False)
-        c.setFillColorRGB(0.08, 0.08, 0.08)
-        c.setFont("Helvetica-Bold", 9)
-        c.drawString(margin + lbl_w + 3*mm, row_y + 4.5*mm, val_text)
+        c.rect(lx1*mm, rl_bot, cont_w_mm*mm, row_h_mm*mm, fill=True, stroke=False)
+        c.setFillColorRGB(0.06, 0.06, 0.06)
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString((lx1 + 1.5)*mm, fy(row_cy + 10 * 25.4/72 * 0.3), val)
 
-    # ── QR code (attendance check-in) ─────────────────────────────────────────
-    qr_size = 28 * mm
-    qr_x    = (W - qr_size) / 2
-    qr_y    = 32 * mm             # bottom edge of QR
-
-    qr_url = (
-        f"{CLIENT_ORIGIN}/event-attendance/{p['event_id']}"
-        f"?reg={p['registration_id']}"
-    )
+    # ── QR code ───────────────────────────────────────────────────────────────
+    # Fits between org row (114.3 mm) and flags (136 mm) → 18×18 mm centred
+    qr_mm   = 18
+    qr_top  = 115.5                  # mm from top
+    qr_url  = (f"{CLIENT_ORIGIN}/event-attendance/{p['event_id']}"
+               f"?reg={p['registration_id']}")
     try:
         qr_img = qrcode.make(qr_url)
         qr_buf = BytesIO()
         qr_img.save(qr_buf, format="PNG")
         qr_buf.seek(0)
-        c.drawImage(ImageReader(qr_buf), qr_x, qr_y, qr_size, qr_size)
+        c.drawImage(ImageReader(qr_buf),
+                    (W_mm - qr_mm) / 2 * mm, fy(qr_top + qr_mm),
+                    qr_mm * mm, qr_mm * mm)
     except Exception:
         pass
 
-    c.setFillColorRGB(0.35, 0.35, 0.35)
-    c.setFont("Helvetica", 7.5)
-    c.drawCentredString(W / 2, qr_y - 4*mm, "Scan QR code to confirm attendance")
+    c.setFillColorRGB(0.4, 0.4, 0.4)
+    c.setFont("Helvetica", 6.5)
+    c.drawCentredString(W / 2, fy(134.5), "Scan QR code to confirm attendance")
 
     # ── ECSA member-state flags ───────────────────────────────────────────────
+    # Two rows at the very bottom (136–147 mm from top)
     flag_map   = _get_flag_images()
     all_flags  = [flag_map.get(code) for code in ECSA_FLAG_CODES]
-    flag_w     = 19 * mm
-    flag_fh    = 10 * mm
-    f_gap      = 2.5 * mm
-    rows_flags = [all_flags[:5], all_flags[5:]]
-    base_fy    = 5 * mm
+    flag_w_mm  = 8.5
+    flag_h_mm  = 5.5
+    f_gap_mm   = 1.2
+    flag_rows  = [all_flags[:5], all_flags[5:]]
 
-    for ri, flag_row in enumerate(rows_flags):
+    for ri, flag_row in enumerate(flag_rows):
         valid = [img for img in flag_row if img is not None]
         if not valid:
             continue
-        n       = len(valid)
-        row_w   = n * flag_w + (n - 1) * f_gap
-        start_x = (W - row_w) / 2
-        fy      = base_fy + ri * (flag_fh + f_gap)
+        n        = len(valid)
+        row_w_mm = n * flag_w_mm + (n - 1) * f_gap_mm
+        sx       = (W_mm - row_w_mm) / 2
+        row_top  = 136.0 + ri * (flag_h_mm + f_gap_mm)
+        flag_rl_y = fy(row_top + flag_h_mm)
         for j, img in enumerate(valid):
             try:
-                c.drawImage(img, start_x + j * (flag_w + f_gap), fy,
-                            width=flag_w, height=flag_fh,
+                c.drawImage(img,
+                            (sx + j * (flag_w_mm + f_gap_mm)) * mm,
+                            flag_rl_y,
+                            flag_w_mm * mm, flag_h_mm * mm,
                             preserveAspectRatio=True)
             except Exception:
                 pass
@@ -1406,13 +1438,13 @@ async def download_participant_badges_pdf(
         raise HTTPException(status_code=404, detail="No participants found")
 
     buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=(210 * mm, 297 * mm))
+    c = canvas.Canvas(buffer, pagesize=(105 * mm, 148 * mm))
 
-    logo_left = convert_png_to_rgb("assets/logo_left.png")
+    logo_left  = convert_png_to_rgb("assets/logo_left.png")
     logo_right = convert_png_to_rgb("assets/logo_right.png")
 
     for p in participants:
-        _render_badge_page(c, p, logo_left, logo_right, primary_rgb, secondary_rgb)
+        _render_badge_page(c, p, logo_left, logo_right)
 
     c.save()
     buffer.seek(0)
@@ -1487,12 +1519,12 @@ async def download_my_badge(
     }
 
     buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=(210 * mm, 297 * mm))
+    c = canvas.Canvas(buffer, pagesize=(105 * mm, 148 * mm))
 
-    logo_left = convert_png_to_rgb("assets/logo_left.png")
+    logo_left  = convert_png_to_rgb("assets/logo_left.png")
     logo_right = convert_png_to_rgb("assets/logo_right.png")
 
-    _render_badge_page(c, p, logo_left, logo_right, primary_rgb, secondary_rgb)
+    _render_badge_page(c, p, logo_left, logo_right)
 
     c.save()
     buffer.seek(0)
