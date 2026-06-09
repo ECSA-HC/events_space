@@ -108,6 +108,85 @@ def normalize_event_name(name: str) -> str:
     )
 
 
+# ── Badge role colours / labels (matching official ECSA name-tag templates) ───
+BADGE_ROLE_COLORS = {
+    "media":        "#FFD700",
+    "moderator":    "#F7941D",
+    "secretariat":  "#00AEEF",
+    "speaker":      "#C8102E",
+    "presenter":    "#C8102E",
+    "delegate":     "#009639",
+    "moh":          "#009639",
+    "member_state": "#009639",
+    "other_africa": "#009639",
+    "world":        "#009639",
+    "student":      "#009639",
+    "participant":  "#009639",
+    "exhibitor":    "#F7941D",
+    "sponsor":      "#F7941D",
+}
+
+BADGE_ROLE_LABELS = {
+    "media":        "MEDIA",
+    "moderator":    "MODERATOR",
+    "secretariat":  "SECRETARIAT",
+    "speaker":      "SPEAKER",
+    "presenter":    "PRESENTER",
+    "delegate":     "DELEGATE",
+    "moh":          "DELEGATE",
+    "member_state": "DELEGATE",
+    "other_africa": "DELEGATE",
+    "world":        "DELEGATE",
+    "student":      "STUDENT",
+    "participant":  "PARTICIPANT",
+    "exhibitor":    "EXHIBITOR",
+    "sponsor":      "SPONSOR",
+}
+
+# ISO 3166-1 alpha-2 codes for ECSA member states shown on the badge
+ECSA_FLAG_CODES = ["sz", "ke", "ls", "mw", "mu", "tz", "ug", "zm", "zw"]
+_FLAG_CACHE: dict = {}
+
+
+def _get_flag_images():
+    """Return a {code: ImageReader} dict for ECSA member flags (cached)."""
+    global _FLAG_CACHE
+    if _FLAG_CACHE:
+        return _FLAG_CACHE
+    flags_dir = "assets/flags"
+    os.makedirs(flags_dir, exist_ok=True)
+    from urllib.request import urlretrieve
+    result = {}
+    for code in ECSA_FLAG_CODES:
+        local = f"{flags_dir}/{code}.png"
+        if not os.path.exists(local):
+            try:
+                urlretrieve(f"https://flagcdn.com/40x30/{code}.png", local)
+            except Exception:
+                result[code] = None
+                continue
+        try:
+            result[code] = convert_png_to_rgb(local)
+        except Exception:
+            result[code] = None
+    _FLAG_CACHE = result
+    return result
+
+
+def _fmt_event_dates(event) -> str:
+    """Return a human-readable date range for an event."""
+    def _fmt(d):
+        try:
+            return d.strftime("%-d %B %Y")
+        except Exception:
+            return str(d)
+    if event.start_date and event.end_date:
+        return f"{_fmt(event.start_date)} – {_fmt(event.end_date)}"
+    if event.start_date:
+        return _fmt(event.start_date)
+    return ""
+
+
 @router.get("")
 @router.get("/")
 async def get_events(
@@ -1080,119 +1159,180 @@ def hex_to_rgb(hex_color: str):
     return tuple(int(hex_color[i: i + 2], 16) / 255.0 for i in (0, 2, 4))
 
 
-def _render_badge_page(c, p, logo_left, logo_right, primary_rgb, secondary_rgb):
-    """Draw a single badge page onto ReportLab canvas c."""
-    width, height = (100 * mm, 140 * mm)
+def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_rgb=None):
+    """Render one A4 ECSA conference badge matching the official name-tag design."""
+    W = 210 * mm
+    H = 297 * mm
 
-    # ── White background ─────────────────────────────────────────────────────
+    # ── Role colour ──────────────────────────────────────────────────────────
+    role_raw   = str(p.get("participation_role_raw", "delegate")).lower()
+    role_hex   = BADGE_ROLE_COLORS.get(role_raw, "#0095B6")
+    role_rgb   = hex_to_rgb(role_hex)
+    role_light = tuple(0.80 + v * 0.20 for v in role_rgb)
+    banner_txt = (0.0, 0.0, 0.0) if role_hex == "#FFD700" else (1.0, 1.0, 1.0)
+    role_label = BADGE_ROLE_LABELS.get(role_raw, role_raw.upper())
+
+    # ── Background (warm light grey, approximates the textured paper) ────────
+    c.setFillColorRGB(0.906, 0.898, 0.882)
+    c.rect(0, 0, W, H, fill=True, stroke=False)
+
+    # ── Header logos ─────────────────────────────────────────────────────────
+    logo_h = 19 * mm
+    logo_y = H - 28 * mm          # bottom edge of logo row
+    if logo_left:
+        try:
+            c.drawImage(logo_left,  8*mm, logo_y, width=55*mm, height=logo_h,
+                        preserveAspectRatio=True)
+        except Exception:
+            pass
+    if logo_right:
+        try:
+            c.drawImage(logo_right, W - 68*mm, logo_y, width=60*mm, height=logo_h,
+                        preserveAspectRatio=True)
+        except Exception:
+            pass
+
+    # ── Event title (two-line, orange + teal) ─────────────────────────────────
+    raw_name = normalize_event_name(str(p.get("event_name") or ""))
+    parts = raw_name.split(" & ", 1)
+    if len(parts) == 2:
+        title1 = parts[0].strip()
+        title2 = "& " + parts[1].strip()
+    else:
+        words  = raw_name.split()
+        mid    = max(1, (len(words) + 1) // 2)
+        title1 = " ".join(words[:mid])
+        title2 = " ".join(words[mid:])
+
+    c.setFillColorRGB(0.969, 0.580, 0.114)   # ECSA orange
+    c.setFont("Helvetica-Bold", 24)
+    c.drawCentredString(W / 2, H - 50*mm, title1)
+
+    c.setFillColorRGB(0.0, 0.596, 0.729)     # ECSA teal
+    c.setFont("Helvetica-Bold", 22)
+    c.drawCentredString(W / 2, H - 63*mm, title2)
+
+    # ── Dates & location ──────────────────────────────────────────────────────
+    dates    = str(p.get("event_dates") or "")
+    loc      = str(p.get("location") or "")
+    date_str = f"{dates}  |  {loc}" if (dates and loc) else (dates or loc)
+    c.setFillColorRGB(0.1, 0.1, 0.1)
+    c.setFont("Helvetica-Bold", 10)
+    c.drawCentredString(W / 2, H - 76*mm, date_str)
+
+    # ── THEME: box + theme text ───────────────────────────────────────────────
+    lx         = 8 * mm
+    tb_w, tb_h = 24 * mm, 7.5 * mm
+    tb_y       = H - 94.5 * mm            # box bottom edge (RL coords)
+
+    c.setFillColorRGB(0.0, 0.682, 0.937)   # cyan
+    c.rect(lx, tb_y, tb_w, tb_h, fill=True, stroke=False)
     c.setFillColorRGB(1, 1, 1)
-    c.rect(0, 0, width, height, fill=True, stroke=False)
+    c.setFont("Helvetica-Bold", 9)
+    c.drawCentredString(lx + tb_w / 2, tb_y + 2.2*mm, "THEME:")
 
-    # ── Crop marks ───────────────────────────────────────────────────────────
-    mark_len = 5 * mm
-    line_offset = 0.5 * mm
-    c.setLineWidth(0.3)
-    c.setStrokeColorRGB(0.5, 0.5, 0.5)
-    c.line(0, height - line_offset, mark_len, height - line_offset)
-    c.line(line_offset, height, line_offset, height - mark_len)
-    c.line(width - mark_len, height - line_offset, width, height - line_offset)
-    c.line(width - line_offset, height, width - line_offset, height - mark_len)
-    c.line(0, line_offset, mark_len, line_offset)
-    c.line(line_offset, 0, line_offset, mark_len)
-    c.line(width - mark_len, line_offset, width, line_offset)
-    c.line(width - line_offset, 0, width - line_offset, mark_len)
+    theme = str(p.get("event_theme") or "")
+    c.setFillColorRGB(0.08, 0.08, 0.08)
+    c.setFont("Helvetica-Bold", 9.5)
+    if theme:
+        limit = 62
+        if len(theme) <= limit:
+            c.drawString(lx, H - 102*mm, theme)
+        else:
+            bp = theme.rfind(" ", 0, limit) or limit
+            c.drawString(lx, H - 102*mm,  theme[:bp].rstrip())
+            c.drawString(lx, H - 109*mm,  theme[bp:].strip())
 
-    # ── Colored top banner (primary_color) ───────────────────────────────────
-    banner_h = 38 * mm
-    c.setFillColorRGB(*primary_rgb)
-    c.setStrokeColorRGB(*primary_rgb)
-    c.rect(0, height - banner_h, width, banner_h, fill=True, stroke=False)
+    # ── Role banner ───────────────────────────────────────────────────────────
+    banner_h = 28 * mm
+    banner_y = H - 171 * mm        # bottom edge
 
-    # Logos inside the banner
-    logo_size = 22 * mm
-    c.drawImage(
-        logo_left,
-        4 * mm,
-        height - logo_size - 4 * mm,
-        logo_size,
-        logo_size,
-        preserveAspectRatio=True,
-    )
-    c.drawImage(
-        logo_right,
-        width - logo_size - 4 * mm,
-        height - logo_size - 4 * mm,
-        logo_size,
-        logo_size,
-        preserveAspectRatio=True,
-    )
+    c.setFillColorRGB(*role_rgb)
+    c.rect(0, banner_y, W, banner_h, fill=True, stroke=False)
 
-    # Event name in white on the banner
-    event_name_y = height - banner_h + 5 * mm
-    c.setFillColorRGB(1, 1, 1)
-    c.setFont("Helvetica-Bold", 8)
-    c.drawCentredString(width / 2, event_name_y, normalize_event_name(p["event_name"]))
+    fsize  = max(32, min(64, int(490 // max(len(role_label), 1))))
+    text_y = banner_y + (banner_h - fsize * 0.353 * mm * 0.70) / 2
+    c.setFont("Helvetica-Bold", fsize)
+    c.setFillColorRGB(*banner_txt)
+    c.drawCentredString(W / 2, text_y, role_label)
 
-    # ── Participant details ───────────────────────────────────────────────────
-    c.setFillColorRGB(0, 0, 0)
-    c.setStrokeColorRGB(0, 0, 0)
+    # ── Info rows: Name / Designation / Organization ──────────────────────────
+    row_h  = 14 * mm
+    lbl_w  = 38 * mm
+    margin = 8 * mm
+    cont_w = W - margin - lbl_w - margin
+    row_ys = [H - 190*mm, H - 208.5*mm, H - 227*mm]   # bottom of each row
 
-    y = height - banner_h - 10 * mm
-    full_name = (
-        f"{p['title']} {p['firstname']} {p['middle_name']} {p['lastname']}".strip()
-    )
-    c.setFont("Helvetica-Bold", 14)
-    c.drawCentredString(width / 2, y, full_name)
+    full_name = " ".join(filter(None, [
+        str(p.get("title")       or "").strip(),
+        str(p.get("firstname")   or "").strip(),
+        str(p.get("lastname")    or "").strip(),
+    ]))
+    rows = [
+        ("Name",         full_name[:52]),
+        ("Designation",  str(p.get("position")     or "")[:52]),
+        ("Organization", str(p.get("organisation") or "")[:52]),
+    ]
 
-    if p["position"]:
-        y -= 8 * mm
-        c.setFont("Helvetica-Bold", 11)
-        c.drawCentredString(width / 2, y, p["position"])
+    for row_y, (lbl_text, val_text) in zip(row_ys, rows):
+        c.setFillColorRGB(*role_rgb)
+        c.rect(margin, row_y, lbl_w, row_h, fill=True, stroke=False)
+        c.setFillColorRGB(*banner_txt)
+        c.setFont("Helvetica-Bold", 10)
+        c.drawCentredString(margin + lbl_w / 2, row_y + 4.2*mm, lbl_text)
 
-    if p["organisation"]:
-        y -= 7 * mm
-        c.setFont("Helvetica-Bold", 11)
-        c.drawCentredString(width / 2, y, p["organisation"])
-
-    if p["country"]:
-        y -= 7 * mm
-        c.setFont("Helvetica", 10)
-        c.drawCentredString(width / 2, y, p["country"])
-
-    # Participant ID
-    y -= 7 * mm
-    c.setFont("Helvetica", 9)
-    c.drawCentredString(width / 2, y, f"Participant ID: BPF{p['registration_id']}")
-
-    if p["location"]:
-        y -= 7 * mm
-        c.setFont("Helvetica-Oblique", 9)
-        c.drawCentredString(width / 2, y, f"📍 {p['location']}")
-
-    # ── Colored role strip (secondary_color) ─────────────────────────────────
-    role_strip_h = 9 * mm
-    role_strip_y = 33 * mm
-    c.setFillColorRGB(*secondary_rgb)
-    c.setStrokeColorRGB(*secondary_rgb)
-    c.rect(0, role_strip_y, width, role_strip_h, fill=True, stroke=False)
-    if p["participation_role"]:
-        c.setFillColorRGB(1, 1, 1)
+        c.setFillColorRGB(*role_light)
+        c.rect(margin + lbl_w, row_y, cont_w, row_h, fill=True, stroke=False)
+        c.setFillColorRGB(0.08, 0.08, 0.08)
         c.setFont("Helvetica-Bold", 9)
-        c.drawCentredString(
-            width / 2, role_strip_y + 2.5 * mm, p["participation_role"].upper()
-        )
+        c.drawString(margin + lbl_w + 3*mm, row_y + 4.5*mm, val_text)
 
-    # ── QR code (links to attendance check-in) ───────────────────────────────
+    # ── QR code (attendance check-in) ─────────────────────────────────────────
     qr_size = 28 * mm
-    qr_y = 3.5 * mm
-    qr_data = (
-        f"{CLIENT_ORIGIN}/event-attendance/{p['event_id']}?reg={p['registration_id']}"
+    qr_x    = (W - qr_size) / 2
+    qr_y    = 32 * mm             # bottom edge of QR
+
+    qr_url = (
+        f"{CLIENT_ORIGIN}/event-attendance/{p['event_id']}"
+        f"?reg={p['registration_id']}"
     )
-    qr = qrcode.make(qr_data)
-    qr_buf = BytesIO()
-    qr.save(qr_buf, format="PNG")
-    qr_buf.seek(0)
-    c.drawImage(ImageReader(qr_buf), (width - qr_size) / 2, qr_y, qr_size, qr_size)
+    try:
+        qr_img = qrcode.make(qr_url)
+        qr_buf = BytesIO()
+        qr_img.save(qr_buf, format="PNG")
+        qr_buf.seek(0)
+        c.drawImage(ImageReader(qr_buf), qr_x, qr_y, qr_size, qr_size)
+    except Exception:
+        pass
+
+    c.setFillColorRGB(0.35, 0.35, 0.35)
+    c.setFont("Helvetica", 7.5)
+    c.drawCentredString(W / 2, qr_y - 4*mm, "Scan QR code to confirm attendance")
+
+    # ── ECSA member-state flags ───────────────────────────────────────────────
+    flag_map   = _get_flag_images()
+    all_flags  = [flag_map.get(code) for code in ECSA_FLAG_CODES]
+    flag_w     = 19 * mm
+    flag_fh    = 10 * mm
+    f_gap      = 2.5 * mm
+    rows_flags = [all_flags[:5], all_flags[5:]]
+    base_fy    = 5 * mm
+
+    for ri, flag_row in enumerate(rows_flags):
+        valid = [img for img in flag_row if img is not None]
+        if not valid:
+            continue
+        n       = len(valid)
+        row_w   = n * flag_w + (n - 1) * f_gap
+        start_x = (W - row_w) / 2
+        fy      = base_fy + ri * (flag_fh + f_gap)
+        for j, img in enumerate(valid):
+            try:
+                c.drawImage(img, start_x + j * (flag_w + f_gap), fy,
+                            width=flag_w, height=flag_fh,
+                            preserveAspectRatio=True)
+            except Exception:
+                pass
 
     c.showPage()
 
@@ -1251,6 +1391,9 @@ async def download_participant_badges_pdf(
                 "participation_role": PARTICIPATION_ROLE_MAP.get(role_key, role_key),
                 "event_name": event.event,
                 "location": event.location or "",
+                "event_theme": event.theme or "",
+                "event_dates": _fmt_event_dates(event),
+                "participation_role_raw": role_key,
                 "paid": reg.paid,
             }
         )
@@ -1263,8 +1406,7 @@ async def download_participant_badges_pdf(
         raise HTTPException(status_code=404, detail="No participants found")
 
     buffer = BytesIO()
-    width, height = (100 * mm, 140 * mm)
-    c = canvas.Canvas(buffer, pagesize=(width, height))
+    c = canvas.Canvas(buffer, pagesize=(210 * mm, 297 * mm))
 
     logo_left = convert_png_to_rgb("assets/logo_left.png")
     logo_right = convert_png_to_rgb("assets/logo_right.png")
@@ -1338,12 +1480,14 @@ async def download_my_badge(
         "participation_role": PARTICIPATION_ROLE_MAP.get(role_key, role_key),
         "event_name": event.event,
         "location": event.location or "",
+        "event_theme": event.theme or "",
+        "event_dates": _fmt_event_dates(event),
+        "participation_role_raw": role_key,
         "paid": reg.paid,
     }
 
     buffer = BytesIO()
-    width, height = (100 * mm, 140 * mm)
-    c = canvas.Canvas(buffer, pagesize=(width, height))
+    c = canvas.Canvas(buffer, pagesize=(210 * mm, 297 * mm))
 
     logo_left = convert_png_to_rgb("assets/logo_left.png")
     logo_right = convert_png_to_rgb("assets/logo_right.png")
