@@ -4,6 +4,11 @@
 app/node_modules/
 web/node_modules/
 
+# Python virtual environments (platform-specific symlinks — never commit)
+api/venv/
+venv/
+.venv/
+
 # Expo
 .expo/
 app/dist/
