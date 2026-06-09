@@ -292,14 +292,20 @@ const flagCodes = ['sz', 'ke', 'ls', 'mw', 'mu', 'tz', 'ug', 'zm', 'zw']
 
 // ── PDF download — calls the backend which generates a proper A6 PDF ─────────
 async function downloadPDF() {
-  if (!props.event?.id || !props.user?.user_id) return
+  const eventId = props.event?.id
+  const userId  = props.user?.user_id   // registration.user_id from the event participants list
+  if (!eventId || !userId) {
+    console.warn('Badge download: missing eventId or userId', { eventId, userId, user: props.user })
+    alert('Cannot determine participant — please refresh and try again.')
+    return
+  }
   try {
-    const url = `/events/${props.event.id}/participants/badges?paid=all&user_id=${props.user.user_id}`
+    const url = `/events/${eventId}/participants/badges?paid=all&user_id=${userId}`
     const response = await api.get(url, { responseType: 'blob' })
     const name = [props.user?.firstname, props.user?.lastname].filter(Boolean).join('_') || 'badge'
-    const blob = new Blob([response.data], { type: 'application/pdf' })
-    const link = document.createElement('a')
+    const blob     = new Blob([response.data], { type: 'application/pdf' })
     const objectUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
     link.href = objectUrl
     link.download = `badge_${name}.pdf`
     document.body.appendChild(link)
@@ -307,8 +313,8 @@ async function downloadPDF() {
     document.body.removeChild(link)
     URL.revokeObjectURL(objectUrl)
   } catch (err) {
-    console.error('Badge download failed:', err)
-    alert('Failed to download badge PDF.')
+    console.error('Badge download failed:', err?.response?.status, err?.response?.data || err)
+    alert(`Failed to download badge PDF (${err?.response?.status || 'network error'}).`)
   }
 }
 </script>

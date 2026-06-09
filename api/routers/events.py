@@ -1423,6 +1423,7 @@ async def download_participant_badges_pdf(
         participants.append(
             {
                 "registration_id": reg.id,
+                "user_id": user.id,
                 "event_id": event_id,
                 "title": profile.title if profile else "",
                 "firstname": user.firstname,
