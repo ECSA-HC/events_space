@@ -9,6 +9,12 @@ api/venv/
 venv/
 .venv/
 
+# Environment / secrets files — never commit
+api/.env
+api/.env.*
+.env
+.env.*
+
 # Expo
 .expo/
 app/dist/
