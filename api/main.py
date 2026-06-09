@@ -14,6 +14,7 @@ from routers import (
     event_attendance,
     registrations,
     abstracts,
+    activity,
 )
 
 app = FastAPI(
@@ -64,3 +65,4 @@ app.include_router(
     registrations.router, tags=["Registrations"], prefix="/registrations"
 )
 app.include_router(abstracts.router, prefix="/abstracts", tags=["abstracts"])
+app.include_router(activity.router, prefix="/activity", tags=["Activity"])

@@ -200,6 +200,7 @@ class AbstractSubmitSchema(BaseModel):
     abstract_text: str
     keywords: Optional[str] = None
     track: Optional[str] = None
+    track_id: Optional[int] = None
     presentation_type: str = "either"
     authors: List[AbstractAuthorSchema]
 

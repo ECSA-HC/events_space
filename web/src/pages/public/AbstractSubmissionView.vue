@@ -322,12 +322,12 @@
           <!-- Scientific Track -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Scientific Track <span class="text-red-500">*</span></label>
-            <select v-model="form.track" required
+            <select v-model.number="form.track_id" required
               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]">
-              <option disabled value="">Select a track</option>
+              <option :value="null" disabled>Select a track</option>
               <template v-for="group in scientificTracks" :key="group.number">
                 <optgroup :label="`${group.number}. ${group.title}`">
-                  <option v-for="sub in group.subtracks" :key="sub.code" :value="sub.code">
+                  <option v-for="sub in group.subtracks" :key="sub.id" :value="sub.id">
                     {{ sub.code }}: {{ sub.label }}
                   </option>
                 </optgroup>
@@ -478,14 +478,22 @@ import { useAuthStore } from '@/stores/auth'
 const auth = useAuthStore()
 const isAuthenticated = computed(() => auth.isAuthenticated)
 
-const events = ref([])
+const events    = ref([])
+const dbTracks  = ref([])
+
+// Theme colours in order (cycle if > 7 themes)
+const THEME_COLORS = ['#0095B6', '#F7941D', '#007A96', '#c0392b', '#27ae60', '#8e44ad', '#e67e22']
 
 onMounted(async () => {
   try {
-    const res = await api.get('/events/?skip=0&limit=200')
-    events.value = res.data.data || []
+    const [evRes, trackRes] = await Promise.all([
+      api.get('/events/?skip=0&limit=200'),
+      api.get('/abstracts/tracks/public'),
+    ])
+    events.value   = evRes.data.data || []
+    dbTracks.value = trackRes.data   || []
   } catch (e) {
-    // silently fail — events list won't be populated
+    // silently fail
   }
 })
 
@@ -495,84 +503,29 @@ const callForAbstractItems = [
   "It is the author's responsibility to submit a correct abstract. Any errors in spelling, grammar or scientific fact in the abstract text will be reproduced as typed by the author. Abstract titles will be subject to a spell check if the abstract is selected for presentation.",
 ]
 
-const scientificTracks = [
-  {
-    number: '1',
-    title: 'Regional Health Security & Pandemic Agreement Implementation',
-    lead: 'Mohamed',
-    color: '#0095B6',
-    subtracks: [
-      { code: 'Track 1.1', label: 'Operationalizing the Pandemic Agreement and IHR (2005) Reforms in ECSA region' },
-      { code: 'Track 1.2', label: 'Surveillance, Early Warning, and One Health Intelligence for preparedness and response' },
-      { code: 'Track 1.3', label: 'Prevention and Control of Antimicrobial Resistance' },
-      { code: 'Track 1.4', label: 'Workforce Capacity and Emergency Preparedness' },
-    ],
-  },
-  {
-    number: '2',
-    title: 'Digital Innovation for Resilient Health Systems (including AI)',
-    lead: 'Timothy',
-    color: '#F7941D',
-    subtracks: [
-      { code: 'Track 2.1', label: 'Scaling Digital Health Solutions for Service Delivery and UHC' },
-      { code: 'Track 2.2', label: 'Artificial Intelligence and Data-Driven Decision-Making in Health Systems' },
-    ],
-  },
-  {
-    number: '3',
-    title: 'Harnessing Demographic Dividend & Youth Engagement',
-    lead: 'Andrew',
-    color: '#007A96',
-    subtracks: [
-      { code: 'Track 3.1', label: 'Youth-Centered Health Systems and Meaningful Engagement' },
-      { code: 'Track 3.2', label: 'Leveraging the Demographic Dividend for Health and Economic Development' },
-      { code: 'Track 3.3', label: 'Investing in Adolescent and Youth Sexual and Reproductive Health' },
-      { code: 'Track 3.4', label: 'Digital Innovation and Youth-Led Solutions in Health' },
-      { code: 'Track 3.5', label: 'Engaging Young Professionals in Leadership, Research, and Policy Development' },
-      { code: 'Track 3.6', label: 'Strengthening Adolescent Nutrition with Evidence-Based Interventions to Promote Healthy Youth Development' },
-    ],
-  },
-  {
-    number: '4',
-    title: 'Global Health Diplomacy Amid Reforms',
-    lead: 'Sibbusiso',
-    color: '#c0392b',
-    subtracks: [
-      { code: 'Track 4.1', label: 'Advancing Regional Voice and Negotiation Power in Global Health Governance' },
-      { code: 'Track 4.2', label: 'Strategic Positioning of ECSA-HC Priorities in Global Health Agendas' },
-    ],
-  },
-  {
-    number: '5',
-    title: 'Sustainable Financing & Partnerships',
-    lead: 'Edward',
-    color: '#27ae60',
-    subtracks: [
-      { code: 'Track 5.1', label: 'Domestic Resource Mobilization and Innovative Health Financing Models' },
-      { code: 'Track 5.2', label: 'Transforming Partnerships for Sustainable and Resilient Health Systems' },
-    ],
-  },
-  {
-    number: '6',
-    title: 'Innovation, Health Research & Development in ECSA',
-    lead: 'Sebentile',
-    color: '#8e44ad',
-    subtracks: [
-      { code: 'Track 6.1', label: 'Innovations in RMNCAH and Priority Population Health Interventions' },
-      { code: 'Track 6.2', label: 'Advancing Health Research, Innovation Ecosystems and Knowledge Translation' },
-    ],
-  },
-  {
-    number: '7',
-    title: 'Quality of Care & Patient Safety',
-    lead: 'Tina',
-    color: '#e67e22',
-    subtracks: [
-      { code: 'Track 7.1', label: 'Improving Quality of Care Across the Continuum of Services' },
-      { code: 'Track 7.2', label: 'Patient Safety Systems and Culture in Health Care' },
-    ],
-  },
-]
+// Build grouped tracks from the DB list dynamically
+const scientificTracks = computed(() => {
+  const groups = []
+  const themeMap = new Map()
+  for (const t of dbTracks.value) {
+    const themeKey = t.theme || 'Other'
+    if (!themeMap.has(themeKey)) {
+      // Parse "N. Title (Lead)" → number, title, lead
+      const m = themeKey.match(/^(\d+)\.\s*(.+?)\s*(?:\(([^)]+)\))?\s*$/)
+      const colorIdx = groups.length % THEME_COLORS.length
+      themeMap.set(themeKey, {
+        number: m ? m[1] : String(groups.length + 1),
+        title:  m ? m[2].trim() : themeKey,
+        lead:   m && m[3] ? m[3] : '',
+        color:  THEME_COLORS[colorIdx],
+        subtracks: [],
+      })
+      groups.push(themeMap.get(themeKey))
+    }
+    themeMap.get(themeKey).subtracks.push({ id: t.id, code: t.code, label: t.title })
+  }
+  return groups
+})
 
 const submittingItems = [
   'Abstracts do not comply with style guidelines, including excessive length (contributed abstract body text is limited to approximately 300 words)',
@@ -583,7 +536,7 @@ const submittingItems = [
 const form = ref({
   event_id: null,
   title: '',
-  track: '',
+  track_id: null,
   presentation_type: 'either',
   abstract_text: '',
   keywords: '',
@@ -619,7 +572,7 @@ const submitAbstract = async () => {
       title: form.value.title,
       abstract_text: form.value.abstract_text,
       keywords: form.value.keywords || null,
-      track: form.value.track || null,
+      track_id: form.value.track_id || null,
       presentation_type: form.value.presentation_type,
       authors: form.value.authors.map((a, i) => ({ ...a, author_order: i })),
     })
@@ -627,7 +580,7 @@ const submitAbstract = async () => {
     form.value = {
       event_id: null,
       title: '',
-      track: '',
+      track_id: null,
       presentation_type: 'either',
       abstract_text: '',
       keywords: '',

@@ -190,6 +190,61 @@ def organisation_approval_status_email(
     send_email_backgroundable(recipient_email, subject, email_body, background_tasks)
 
 
+def payment_reminder_email(
+    recipient_email,
+    firstname,
+    event_name,
+    payment_url="https://ecsahc.org/payment_bpf2026/",
+    portal_url="https://events.ecsahc.org",
+    background_tasks: BackgroundTasks = None,
+):
+    subject = f"Action Required: Complete Your Payment – {event_name}"
+    template = templates.get_template("payment_reminder_template.html")
+    email_body = template.render(
+        subject=subject,
+        firstname=firstname,
+        event_name=event_name,
+        payment_url=payment_url,
+        portal_url=portal_url,
+        year=YEAR,
+    )
+    send_email_backgroundable(recipient_email, subject, email_body, background_tasks)
+
+
+def event_invitation_email(
+    recipient_email,
+    firstname,
+    event_name,
+    participation_role,
+    event_location=None,
+    event_dates=None,
+    is_new_user=False,
+    password=None,
+    no_payment=False,
+    portal_url="https://events.ecsahc.org",
+    payment_url="https://ecsahc.org/payment_bpf2026/",
+    background_tasks: BackgroundTasks = None,
+):
+    subject = f"You Have Been Registered for {event_name} – ECSA Events Portal"
+    template = templates.get_template("event_invitation_template.html")
+    email_body = template.render(
+        subject=subject,
+        firstname=firstname,
+        email=recipient_email,
+        event_name=event_name,
+        participation_role=participation_role,
+        event_location=event_location,
+        event_dates=event_dates,
+        is_new_user=is_new_user,
+        password=password,
+        no_payment=no_payment,
+        portal_url=portal_url,
+        payment_url=payment_url,
+        year=YEAR,
+    )
+    send_email_backgroundable(recipient_email, subject, email_body, background_tasks)
+
+
 def reviewer_assignment_email(
     recipient_email,
     firstname,

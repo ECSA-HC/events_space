@@ -39,6 +39,8 @@ def _serialize_reg(r: Registration) -> dict:
         "country": profile.country.country if profile and profile.country else "",
         "participation_role": r.participation_role.name if r.participation_role else "",
         "paid": r.paid,
+        "payment_proof": getattr(r, "payment_proof", None),
+        "reminder_sent_at": getattr(r, "reminder_sent_at", None),
         "registered_at": r.registered_at,
     }
 

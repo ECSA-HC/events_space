@@ -9,7 +9,7 @@ from openpyxl.utils import get_column_letter
 
 from core.database import get_db
 from dependencies.auth_dependency import Auth, get_current_user
-from models.models import Abstract, AbstractAuthor, AbstractReviewer, AbstractReview, User, UserRole, Role
+from models.models import Abstract, AbstractAuthor, AbstractReviewer, AbstractReview, User, UserRole, Role, EventTrack
 from datetime import datetime
 from schemas.events_space import (
     AbstractSubmitSchema, AbstractUpdateSchema,
@@ -35,6 +35,10 @@ def _serialize_abstract(a: Abstract):
         "abstract_text": a.abstract_text,
         "keywords": a.keywords,
         "track": a.track,
+        "track_id": a.track_id,
+        "track_code": a.event_track.code if a.event_track else None,
+        "track_title": a.event_track.title if a.event_track else None,
+        "track_theme": a.event_track.theme if a.event_track else None,
         "presentation_type": a.presentation_type.value if a.presentation_type else None,
         "status": a.status.value if a.status else None,
         "word_count": a.word_count,
@@ -87,13 +91,25 @@ def submit_abstract(
     db: Session = Depends(get_db),
 ):
     word_count = len(schema.abstract_text.split())
+
+    # Resolve track text from track_id if provided
+    track_text = schema.track
+    track_id   = schema.track_id
+    if track_id:
+        track_record = db.query(EventTrack).filter(EventTrack.id == track_id).first()
+        if track_record:
+            track_text = f"{track_record.code}: {track_record.title}"
+        else:
+            track_id = None  # invalid id — ignore
+
     abstract = Abstract(
         event_id=schema.event_id,
         submitted_by=current_user["user_id"],
         title=schema.title,
         abstract_text=schema.abstract_text,
         keywords=schema.keywords,
-        track=schema.track,
+        track=track_text,
+        track_id=track_id,
         presentation_type=schema.presentation_type,
         word_count=word_count,
     )
@@ -119,6 +135,7 @@ def submit_abstract(
         joinedload(Abstract.authors),
         joinedload(Abstract.submitter),
         joinedload(Abstract.event),
+        joinedload(Abstract.event_track),
         joinedload(Abstract.reviewer_assignments),
     ).filter(Abstract.id == abstract.id).first()
     return _serialize_abstract(abstract)
@@ -138,6 +155,7 @@ def list_abstracts(
         joinedload(Abstract.authors),
         joinedload(Abstract.submitter),
         joinedload(Abstract.event),
+        joinedload(Abstract.event_track),
         joinedload(Abstract.reviewer_assignments).joinedload(AbstractReviewer.reviewer),
         joinedload(Abstract.reviewer_assignments).joinedload(AbstractReviewer.review),
     ).filter(Abstract.deleted_at == None)
@@ -446,6 +464,7 @@ def get_abstract(
         joinedload(Abstract.authors),
         joinedload(Abstract.submitter),
         joinedload(Abstract.event),
+        joinedload(Abstract.event_track),
         joinedload(Abstract.reviewer_assignments).joinedload(AbstractReviewer.reviewer),
         joinedload(Abstract.reviewer_assignments).joinedload(AbstractReviewer.review),
     ).filter(Abstract.id == abstract_id, Abstract.deleted_at == None).first()
@@ -712,3 +731,99 @@ def get_reviews(
         }
         for a in assignments
     ]
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  TRACKS  endpoints
+# ══════════════════════════════════════════════════════════════════════════════
+
+from pydantic import BaseModel as PydanticBase
+from typing import Optional
+
+class TrackUpdateSchema(PydanticBase):
+    code:       Optional[str] = None
+    title:      Optional[str] = None
+    theme:      Optional[str] = None
+    sort_order: Optional[int] = None
+
+
+def _serialize_track(t: EventTrack, abstract_count: int = 0) -> dict:
+    return {
+        "id":             t.id,
+        "event_id":       t.event_id,
+        "event":          t.event.event if t.event else None,
+        "code":           t.code,
+        "title":          t.title,
+        "theme":          t.theme,
+        "sort_order":     t.sort_order,
+        "abstract_count": abstract_count,
+        "created_at":     t.created_at,
+    }
+
+
+@router.get("/tracks/list")
+def list_tracks(
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+    event_id: int = None,
+):
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+    from sqlalchemy import func as sqlfunc
+    q = db.query(
+        EventTrack,
+        sqlfunc.count(Abstract.id).label("abstract_count")
+    ).outerjoin(
+        Abstract,
+        (Abstract.track_id == EventTrack.id) & (Abstract.deleted_at == None)
+    ).options(joinedload(EventTrack.event))
+    if event_id:
+        q = q.filter(EventTrack.event_id == event_id)
+    rows = q.group_by(EventTrack.id).order_by(EventTrack.sort_order, EventTrack.code).all()
+    return [_serialize_track(t, cnt) for t, cnt in rows]
+
+
+@router.get("/tracks/public")
+def list_tracks_public(
+    db: Session = Depends(get_db),
+    event_id: int = None,
+):
+    """Public endpoint — no auth required. Returns tracks for the submission form."""
+    q = db.query(EventTrack)
+    if event_id:
+        q = q.filter(EventTrack.event_id == event_id)
+    rows = q.order_by(EventTrack.sort_order, EventTrack.code).all()
+    return [
+        {"id": t.id, "code": t.code, "title": t.title, "theme": t.theme, "sort_order": t.sort_order}
+        for t in rows
+    ]
+
+
+@router.put("/tracks/{track_id}")
+def update_track(
+    track_id: int,
+    schema: TrackUpdateSchema,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+):
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+    track = db.query(EventTrack).options(joinedload(EventTrack.event)).filter(EventTrack.id == track_id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    if schema.code       is not None: track.code       = schema.code
+    if schema.title      is not None: track.title      = schema.title
+    if schema.theme      is not None: track.theme      = schema.theme
+    if schema.sort_order is not None: track.sort_order = schema.sort_order
+    if schema.code is not None or schema.title is not None:
+        new_text = f"{track.code}: {track.title}"
+        db.query(Abstract).filter(Abstract.track_id == track_id).update(
+            {"track": new_text}, synchronize_session=False
+        )
+    db.commit()
+    db.refresh(track)
+    from sqlalchemy import func as sqlfunc
+    cnt = db.query(sqlfunc.count(Abstract.id)).filter(
+        Abstract.track_id == track_id, Abstract.deleted_at == None
+    ).scalar() or 0
+    return _serialize_track(track, cnt)

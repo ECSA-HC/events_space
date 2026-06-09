@@ -81,15 +81,36 @@
               <span v-if="!minimized" class="ml-3">Registrations</span>
             </router-link>
           </li>
+          <li v-if="auth.hasPermission('VIEW_ABSTRACTS')" class="mb-1">
+            <router-link
+              :to="{ name: 'AdminTracks' }"
+              class="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-200 hover:text-gray-800 rounded-2xl transition-colors"
+              :class="isTracksActive ? 'bg-gray-300 text-gray-900 rounded-2xl' : ''"
+            >
+              <TagIcon class="w-5 h-5" />
+              <span v-if="!minimized" class="ml-3">Tracks</span>
+            </router-link>
+          </li>
         </ul>
       </div>
 
-      <!-- Settings -->
+      <!-- Settings (collapsible) -->
       <div>
-        <h3 v-if="!minimized" class="text-xs font-semibold text-gray-400 lowercase tracking-wide mb-2 px-3 select-none">
-          settings
-        </h3>
-        <ul>
+        <!-- Section toggle -->
+        <button @click="settingsOpen = !settingsOpen"
+          class="w-full flex items-center px-3 py-1.5 mb-1 rounded-xl hover:bg-gray-100 transition-colors group">
+          <AdjustmentsHorizontalIcon class="w-5 h-5 text-gray-400 group-hover:text-gray-600 flex-shrink-0" />
+          <span v-if="!minimized" class="ml-3 text-xs font-semibold text-gray-400 lowercase tracking-wide flex-1 text-left group-hover:text-gray-600">
+            settings
+          </span>
+          <svg v-if="!minimized" class="w-4 h-4 text-gray-400 transition-transform flex-shrink-0"
+            :class="settingsOpen ? 'rotate-180' : ''"
+            fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+
+        <ul v-show="settingsOpen || minimized">
           <li v-if="auth.hasPermission('VIEW_USER')" class="mb-1">
             <router-link
               :to="{ name: 'Users' }"
@@ -98,6 +119,16 @@
             >
               <UsersIcon class="w-5 h-5" />
               <span v-if="!minimized" class="ml-3">User Management</span>
+            </router-link>
+          </li>
+          <li v-if="auth.hasPermission('VIEW_USER')" class="mb-1">
+            <router-link
+              :to="{ name: 'AdminActivity' }"
+              class="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-200 hover:text-gray-800 rounded-2xl transition-colors"
+              :class="isActivityActive ? 'bg-gray-300 text-gray-900 rounded-2xl' : ''"
+            >
+              <ClockIcon class="w-5 h-5" />
+              <span v-if="!minimized" class="ml-3">Activity Log</span>
             </router-link>
           </li>
           <li v-if="auth.hasPermission('VIEW_ROLE')" class="mb-1">
@@ -179,9 +210,12 @@ import {
   ArrowLeftOnRectangleIcon,
   UserGroupIcon,
   ClipboardDocumentCheckIcon,
+  AdjustmentsHorizontalIcon,
+  TagIcon,
+  ClockIcon,
 } from '@heroicons/vue/24/outline'
 
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter, useRoute } from 'vue-router'
 
@@ -207,6 +241,10 @@ const isEventsActive = computed(() =>
 const isAbstractsActive = computed(() =>
   ['AdminAbstracts', 'AdminAbstract'].includes(String(route.name))
 )
+
+const isTracksActive   = computed(() => route.name === 'AdminTracks')
+const isActivityActive = computed(() => route.name === 'AdminActivity')
+const settingsOpen   = ref(false)
 
 const isReviewersActive = computed(() => route.name === 'AdminReviewers')
 const isRegistrationsActive = computed(() => route.name === 'AdminRegistrations')
