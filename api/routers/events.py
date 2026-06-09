@@ -1,4 +1,5 @@
 import math, os
+from pydantic import BaseModel
 import uuid
 import shutil
 from fastapi.responses import StreamingResponse
@@ -16,8 +17,8 @@ from dependencies.auth_dependency import Auth
 from dependencies.dependency import Dependency
 from dependencies.auth_dependency import get_current_user, get_optional_current_user
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends, Query, Request
-from models.models import Event, User, Registration, Document, Link, Payment
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends, Query, Request
+from models.models import Event, User, Registration, Document, Link, Payment, ParticipationRole
 from schemas.events_space import EventSchema, EventUpdateSchema, RegistrationSchema, LinkSchema
 from PIL import Image
 from reportlab.lib.units import mm
@@ -320,6 +321,7 @@ async def get_event(
                     "paid": getattr(r, "paid", None),
                     "payment_proof": getattr(r, "payment_proof", None),
                     "registered_at": r.registered_at,
+                    "reminder_sent_at": getattr(r, "reminder_sent_at", None),
                 }
                 for r in registrations
             ],
@@ -1402,3 +1404,302 @@ async def get_event_attendance(
         })
 
     return {"total": len(result), "data": result}
+
+
+class PaymentReminderSchema(BaseModel):
+    registration_ids: list[int] = []  # empty = send to ALL unpaid
+
+@router.post("/{event_id}/send-payment-reminders")
+async def send_payment_reminders(
+    event_id: int,
+    background_tasks: BackgroundTasks,
+    current_user: user_dependency,
+    body: PaymentReminderSchema = PaymentReminderSchema(),
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    """Admin: send payment reminder emails to selected (or all) unpaid registrants."""
+    auth_dependency.secure_access("VIEW_EVENT", current_user["user_id"])
+
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    q = (
+        db.query(Registration)
+        .join(User, Registration.user_id == User.id)
+        .filter(
+            Registration.event_id == event_id,
+            Registration.paid == False,
+            Registration.deleted_at == None,
+            User.deleted_at == None,
+        )
+        .options(joinedload(Registration.user))
+    )
+
+    if body.registration_ids:
+        q = q.filter(Registration.id.in_(body.registration_ids))
+
+    targets = q.all()
+
+    if not targets:
+        return {"sent": 0, "message": "No matching unpaid registrations found."}
+
+    import utils.mailer_util as mailer_util
+    now = datetime.utcnow()
+    for reg in targets:
+        user = reg.user
+        if user and user.email:
+            mailer_util.payment_reminder_email(
+                recipient_email=user.email,
+                firstname=user.firstname or "Participant",
+                event_name=event.event,
+                payment_url="https://ecsahc.org/payment_bpf2026/",
+                portal_url="https://events.ecsahc.org",
+                background_tasks=background_tasks,
+            )
+            reg.reminder_sent_at = now
+
+    db.commit()
+
+    return {
+        "sent": len(targets),
+        "message": f"Payment reminder sent to {len(targets)} participant(s).",
+    }
+
+
+# ── Admin: look up user by email ──────────────────────────────────────────────
+@router.get("/{event_id}/lookup-user")
+async def lookup_user_by_email(
+    event_id: int,
+    email: str = Query(...),
+    current_user: user_dependency = None,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    """Look up whether a user with the given email already exists."""
+    auth_dependency.secure_access("ADMIN_DASHBOARD", current_user["user_id"])
+    user = db.query(User).filter(User.email == email, User.deleted_at == None).first()
+    if not user:
+        return {"exists": False}
+
+    # Check if already registered for this event
+    reg = db.query(Registration).filter(
+        Registration.user_id == user.id,
+        Registration.event_id == event_id,
+        Registration.deleted_at == None,
+    ).first()
+
+    return {
+        "exists": True,
+        "user_id": user.id,
+        "firstname": user.firstname,
+        "lastname": user.lastname,
+        "email": user.email,
+        "already_registered": bool(reg),
+        "current_role": reg.participation_role.name if reg else None,
+    }
+
+
+# ── Admin: add (or re-register) a participant to an event ────────────────────
+class AdminAddParticipantSchema(BaseModel):
+    email: str
+    firstname: str = ""
+    lastname: str = ""
+    participation_role: str
+    send_invitation: bool = True
+    payment_url: str = "https://ecsahc.org/payment_bpf2026/"
+    portal_url: str = "https://events.ecsahc.org"
+
+
+@router.post("/{event_id}/admin-add-participant")
+async def admin_add_participant(
+    event_id: int,
+    body: AdminAddParticipantSchema,
+    background_tasks: BackgroundTasks,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    """Admin: find-or-create a user, register them to the event, optionally send invitation."""
+    auth_dependency.secure_access("ADMIN_DASHBOARD", current_user["user_id"])
+
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    # Validate role
+    try:
+        role_enum = ParticipationRole[body.participation_role]
+    except KeyError:
+        raise HTTPException(status_code=400, detail=f"Invalid participation role: {body.participation_role}")
+
+    # ── 1. Find or create the user ────────────────────────────────────────────
+    is_new_user = False
+    temp_password = None
+
+    user = db.query(User).filter(User.email == body.email, User.deleted_at == None).first()
+
+    if not user:
+        # Create new user with a temp password
+        if not body.firstname or not body.lastname:
+            raise HTTPException(
+                status_code=400,
+                detail="First name and last name are required for new users."
+            )
+        from passlib.hash import bcrypt as bcrypt_hash
+        temp_password = auth_dependency.generate_random_password()
+        hashed = bcrypt_hash.hash(temp_password)
+        user = User(
+            firstname=body.firstname,
+            lastname=body.lastname,
+            email=body.email,
+            phone="",
+            hashed_password=hashed,
+            verified=1,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        is_new_user = True
+
+    # ── 2. Register (or update role if already registered) ────────────────────
+    # Roles that are exempt from payment — mark as paid automatically
+    NO_PAYMENT_ROLES = {"secretariat"}
+    auto_paid = body.participation_role in NO_PAYMENT_ROLES
+
+    existing_reg = db.query(Registration).filter(
+        Registration.user_id == user.id,
+        Registration.event_id == event_id,
+        Registration.deleted_at == None,
+    ).first()
+
+    if existing_reg:
+        existing_reg.participation_role = role_enum
+        if auto_paid:
+            existing_reg.paid = True
+        db.commit()
+        db.refresh(existing_reg)
+        reg_id = existing_reg.id
+        action = "updated"
+    else:
+        new_reg = Registration(
+            user_id=user.id,
+            event_id=event_id,
+            participation_role=role_enum,
+            paid=auto_paid,
+        )
+        db.add(new_reg)
+        db.commit()
+        db.refresh(new_reg)
+        reg_id = new_reg.id
+        action = "registered"
+
+    # ── 3. Send email ─────────────────────────────────────────────────────────
+    import utils.mailer_util as mailer_util
+
+    # Build friendly role label
+    role_labels = {
+        "secretariat": "ECSA-HC Secretariat",
+        "moh": "Country Delegate (Ministry of Health)",
+        "member_state": "Participant from ECSA Member States",
+        "other_africa": "Participant from other African countries",
+        "world": "International Participant",
+        "student": "Student",
+        "exhibitor": "Sponsor / Exhibitor",
+        "participant": "Participant",
+        "delegate": "Delegate",
+        "presenter": "Presenter",
+        "speaker": "Speaker",
+        "sponsor": "Sponsor",
+        "moderator": "Moderator",
+    }
+    role_label = role_labels.get(body.participation_role, body.participation_role)
+
+    # Format event dates
+    event_dates = None
+    if event.start_date and event.end_date:
+        def _fmt(d):
+            return d.strftime("%-d %B %Y") if hasattr(d, "strftime") else str(d)
+        event_dates = f"{_fmt(event.start_date)} – {_fmt(event.end_date)}"
+
+    email_sent = False
+
+    if is_new_user:
+        # Brand-new user created inline: send welcome + event invitation with credentials
+        mailer_util.event_invitation_email(
+            recipient_email=user.email,
+            firstname=user.firstname,
+            event_name=event.event,
+            participation_role=role_label,
+            event_location=event.location,
+            event_dates=event_dates,
+            is_new_user=True,
+            password=temp_password,
+            no_payment=auto_paid,
+            portal_url=body.portal_url,
+            payment_url=body.payment_url,
+            background_tasks=background_tasks,
+        )
+        user.credentials_sent = True
+        db.commit()
+        email_sent = True
+
+    elif body.send_invitation:
+        if not user.credentials_sent:
+            # Existing user who has never received their credentials yet
+            # (created silently via User Management). Issue a fresh password
+            # so we can include it in the invitation.
+            from passlib.hash import bcrypt as bcrypt_hash
+            fresh_password = auth_dependency.generate_random_password()
+            user.hashed_password = bcrypt_hash.hash(fresh_password)
+            user.credentials_sent = True
+            db.commit()
+            db.refresh(user)
+            mailer_util.event_invitation_email(
+                recipient_email=user.email,
+                firstname=user.firstname,
+                event_name=event.event,
+                participation_role=role_label,
+                event_location=event.location,
+                event_dates=event_dates,
+                is_new_user=True,       # triggers credentials block in template
+                password=fresh_password,
+                no_payment=auto_paid,
+                portal_url=body.portal_url,
+                payment_url=body.payment_url,
+                background_tasks=background_tasks,
+            )
+        else:
+            # Existing user who already has their credentials: send event-only invitation
+            mailer_util.event_invitation_email(
+                recipient_email=user.email,
+                firstname=user.firstname,
+                event_name=event.event,
+                participation_role=role_label,
+                event_location=event.location,
+                event_dates=event_dates,
+                is_new_user=False,
+                password=None,
+                no_payment=auto_paid,
+                portal_url=body.portal_url,
+                payment_url=body.payment_url,
+                background_tasks=background_tasks,
+            )
+        email_sent = True
+
+    return {
+        "user_id": user.id,
+        "registration_id": reg_id,
+        "firstname": user.firstname,
+        "lastname": user.lastname,
+        "email": user.email,
+        "is_new_user": is_new_user,
+        "action": action,
+        "email_sent": email_sent,
+        "message": (
+            f"{'New user created and registered' if is_new_user else f'Existing user {action}'}"
+            f" to {event.event}."
+            f"{' Invitation email sent.' if email_sent else ''}"
+        ),
+    }

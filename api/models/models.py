@@ -107,6 +107,7 @@ class User(BaseWithSoftDelete):
     email = Column(String(45), nullable=False, unique=True)
     hashed_password = Column(String(200), nullable=False)
     verified = Column(Boolean, nullable=False, server_default="False")
+    credentials_sent = Column(Boolean, nullable=False, server_default="0")
     created_at = Column(
         TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
     )
@@ -507,6 +508,7 @@ class Registration(Base):
         onupdate=func.now(),
     )
     deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    reminder_sent_at = Column(TIMESTAMP(timezone=True), nullable=True)
 
     user = relationship("User", back_populates="registrations")
     events = relationship("Event", back_populates="registrations")
@@ -671,6 +673,21 @@ class ReviewRecommendation(PyEnum):
     reject = "reject"
     revision_required = "revision_required"
 
+class EventTrack(Base):
+    __tablename__ = "event_track"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    event_id   = Column(Integer, ForeignKey("event.id"), nullable=False)
+    code       = Column(String(50), nullable=False)   # e.g. "Track 1.1"
+    title      = Column(Text, nullable=False)          # full subtitle
+    theme      = Column(String(500), nullable=True)    # parent theme group
+    sort_order = Column(Integer, nullable=False, default=0)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+
+    event    = relationship("Event")
+    abstracts = relationship("Abstract", back_populates="event_track")
+
+
 class Abstract(BaseWithSoftDelete):
     __tablename__ = "abstract"
 
@@ -680,7 +697,8 @@ class Abstract(BaseWithSoftDelete):
     title = Column(Text, nullable=False)
     abstract_text = Column(Text, nullable=False)
     keywords = Column(Text, nullable=True)
-    track = Column(String(200), nullable=True)
+    track = Column(String(500), nullable=True)          # full "Code: Title" text
+    track_id = Column(Integer, ForeignKey("event_track.id"), nullable=True)
     presentation_type = Column(Enum(PresentationType), nullable=False, server_default="either")
     status = Column(Enum(AbstractStatus), nullable=False, server_default="submitted")
     word_count = Column(Integer, nullable=True)
@@ -691,6 +709,7 @@ class Abstract(BaseWithSoftDelete):
     submitter = relationship("User", foreign_keys=[submitted_by])
     authors = relationship("AbstractAuthor", back_populates="abstract", order_by="AbstractAuthor.author_order")
     reviewer_assignments = relationship("AbstractReviewer", back_populates="abstract")
+    event_track = relationship("EventTrack", back_populates="abstracts")
 
     __table_args__ = (Index("ix_abstract", "event_id", "status", "deleted_at"),)
 

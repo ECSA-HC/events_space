@@ -60,6 +60,7 @@ async def get_users(
     skip: int = Query(default=0, ge=0),
     limit: int = 10,
     search: str = "",
+    role: str = "",
     dependency: Dependency = Depends(get_dependency),
     auth_dependency: Auth = Depends(get_auth_dependency),
 ):
@@ -73,6 +74,8 @@ async def get_users(
         "Get all users",
     )
 
+    from models.models import Role
+
     search_filter = or_(
         User.firstname.ilike(f"%{search}%"),
         User.lastname.ilike(f"%{search}%"),
@@ -82,6 +85,15 @@ async def get_users(
     users_query = db.query(User).filter(User.deleted_at == None, search_filter).options(
         joinedload(User.user_roles).joinedload(UserRole.role)
     )
+
+    # Optional role filter — join through user_role → role
+    if role:
+        users_query = (
+            users_query
+            .join(UserRole, UserRole.user_id == User.id)
+            .join(Role, Role.id == UserRole.role_id)
+            .filter(Role.role.ilike(f"%{role}%"))
+        )
 
     total_count = users_query.count()
     users = users_query.offset(skip).limit(limit).all()
@@ -107,7 +119,6 @@ async def get_users(
 async def add_user(
     user_schema: UserSchema,
     current_user: user_dependency,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     auth_dependency: Auth = Depends(get_auth_dependency),
 ):
@@ -137,13 +148,9 @@ async def add_user(
     db.commit()
     db.refresh(create_user_model)
 
-    # Send email in background
-    background_tasks.add_task(
-        mailer_util.new_account_email,
-        user_schema.email,
-        user_schema.firstname,
-        password,
-    )
+    # Credentials are NOT sent at creation time.
+    # They will be sent (with full event details) when the user is first
+    # linked to an event via admin-add-participant.
 
     return user_schema
 
