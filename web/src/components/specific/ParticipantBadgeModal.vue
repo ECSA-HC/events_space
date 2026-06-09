@@ -4,7 +4,7 @@
     class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3"
     @click.self="close"
   >
-    <div class="w-full max-w-xs bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden" style="max-height:92vh;">
+    <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden" style="max-height:95vh;">
 
       <!-- Header bar -->
       <div class="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 flex-shrink-0">
@@ -17,7 +17,7 @@
       </div>
 
       <!-- Badge (A6 = 105×148mm, same aspect ratio as A4) -->
-      <div class="overflow-y-auto flex-1">
+      <div class="flex-1 flex items-center justify-center p-2 bg-gray-50">
         <div
           ref="badgeRef"
           class="relative w-full"
@@ -27,81 +27,82 @@
             backgroundImage: `url(${badgeBg})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
+            fontFamily: '\'Roboto Condensed\', Roboto, Arial, sans-serif',
           }"
         >
 
           <!-- ── Logos ─────────────────────────────────────────────────── -->
           <!-- Left: Eswatini MoH  5–32 mm | Right: ECSA-HC  58–98 mm      -->
-          <!-- As % of 105mm width and 148mm height                        -->
+          <!-- Enlarged to 13% height for better visibility                 -->
           <div class="absolute flex justify-between items-center"
-               style="top:2%;left:4.8%;right:1.9%;height:9.5%;">
-            <img src="@/assets/moh_sz.png"        class="h-full w-auto object-contain" alt="Kingdom of Eswatini Ministry of Health" />
-            <img src="@/assets/ecsa_hc_banner.png" class="h-full w-auto object-contain" alt="ECSA-HC" />
+               style="top:1.5%;left:3%;right:1.5%;height:13%;">
+            <img src="@/assets/moh_sz.png"         class="h-full w-auto object-contain" style="max-width:48%;" alt="Kingdom of Eswatini Ministry of Health" />
+            <img src="@/assets/ecsa_hc_banner.png" class="h-full w-auto object-contain" style="max-width:48%;" alt="ECSA-HC" />
           </div>
 
-          <!-- ── Title 1 (orange) baseline at y≈19.8% of badge height ─── -->
-          <div class="absolute w-full text-center font-bold leading-tight px-2"
-               style="top:19.8%;transform:translateY(-50%);color:#F7941D;font-size:7.1cqw;">
+          <!-- ── Title 1 (orange) baseline at y≈22% of badge height ────── -->
+          <div class="absolute w-full text-center leading-tight px-2"
+               style="top:22%;transform:translateY(-50%);color:#F7941D;font-size:7.1cqw;font-weight:900;font-family:'Roboto Condensed',Roboto,sans-serif;">
             {{ title1 }}
           </div>
 
-          <!-- ── Title 2 (dark/near-black) baseline at y≈25.7% ─────────── -->
-          <div class="absolute w-full text-center font-bold leading-tight px-2"
-               style="top:25.7%;transform:translateY(-50%);color:#111111;font-size:6.1cqw;">
+          <!-- ── Title 2 (dark/near-black) baseline at y≈28% ──────────── -->
+          <div class="absolute w-full text-center leading-tight px-2"
+               style="top:28%;transform:translateY(-50%);color:#111111;font-size:6.1cqw;font-weight:900;font-family:'Roboto Condensed',Roboto,sans-serif;">
             {{ title2 }}
           </div>
 
-          <!-- ── Dates & location at y≈31.1% ───────────────────────────── -->
-          <div class="absolute w-full text-center font-semibold px-3"
-               style="top:31.1%;transform:translateY(-50%);color:#222;font-size:2.6cqw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          <!-- ── Dates & location at y≈33.5% ──────────────────────────── -->
+          <div class="absolute w-full text-center px-3"
+               style="top:33.5%;transform:translateY(-50%);color:#222;font-size:2.6cqw;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
             {{ dateStr }}
           </div>
 
-          <!-- ── THEME box (9.4–26.7% w, 36.4–40.1% h) ────────────────── -->
-          <div class="absolute flex items-center justify-center font-bold"
-               style="top:36.4%;left:9.4%;width:17.3%;height:3.7%;background:#00AEEF;color:#fff;font-size:3.5cqw;">
+          <!-- ── THEME box ─────────────────────────────────────────────── -->
+          <div class="absolute flex items-center justify-center"
+               style="top:38%;left:9.4%;width:17.3%;height:3.7%;background:#00AEEF;color:#fff;font-size:3.5cqw;font-weight:900;">
             THEME:
           </div>
-          <!-- Theme text starts at y=41% -->
-          <div class="absolute font-semibold leading-snug"
-               style="top:41%;left:9.7%;right:3%;color:#111;font-size:3.2cqw;">
+          <!-- Theme text -->
+          <div class="absolute leading-snug"
+               style="top:42.5%;left:9.7%;right:3%;color:#111;font-size:3.2cqw;font-weight:700;">
             {{ theme }}
           </div>
 
-          <!-- ── Role banner  top=50%, height=8.3%, left=7.4%, right=6.9% ─ -->
+          <!-- ── Role banner  top=52%, height=8.3%, left=7.4%, right=6.9% ─ -->
           <div
-            class="absolute flex items-center justify-center font-black"
+            class="absolute flex items-center justify-center"
             :style="{
-              top: '50%',
+              top: '52%',
               left: '7.4%',
               right: '6.9%',
               height: '8.3%',
               background: roleColor,
               color: roleBannerTextColor,
               fontSize: roleFontSize,
-              letterSpacing: '0.04em',
+              fontWeight: 900,
+              fontFamily: '\'Roboto Condensed\', Roboto, sans-serif',
+              letterSpacing: '0.06em',
             }"
           >
             {{ roleLabel }}
           </div>
 
           <!-- ── Info rows (Name / Designation / Organization) ──────────── -->
-          <!-- Each row: h=4.5%, left=7.4%, right=6.9%                      -->
-          <!-- Variable label widths matching official: 20.3%, 32.1%, 32.5% -->
           <template v-for="(row, i) in infoRows" :key="i">
             <div class="absolute flex overflow-hidden"
                  :style="{ top: rowTops[i], left:'7.4%', right:'6.9%', height:'4.5%' }">
               <!-- Label -->
               <div
-                class="flex items-center justify-center font-bold shrink-0 text-center"
-                :style="{ width: row.labelPct, background:'#00AEEF', color:'#fff', fontSize:'3.7cqw' }"
+                class="flex items-center justify-center shrink-0 text-center"
+                :style="{ width: row.labelPct, background:'#00AEEF', color:'#fff', fontSize:'3.7cqw', fontWeight:700 }"
               >
                 {{ row.label }}
               </div>
               <!-- Value -->
               <div
-                class="flex items-center flex-1 px-1 font-semibold truncate"
-                :style="{ background: roleLightColor, color:'#111', fontSize:'3.4cqw' }"
+                class="flex items-center flex-1 px-1 truncate"
+                :style="{ background: roleLightColor, color:'#111', fontSize:'3.4cqw', fontWeight:600 }"
               >
                 {{ row.value }}
               </div>
@@ -276,9 +277,8 @@ const infoRows = computed(() => [
   },
 ])
 
-// Row top positions as % of badge height (148mm):
-// Name=89.1/148, Designation=98.4/148, Organization=107.6/148
-const rowTops = ['60.2%', '66.5%', '72.7%']
+// Row top positions — shifted slightly to match enlarged logo area
+const rowTops = ['62%', '68%', '74%']
 
 // ── QR code ──────────────────────────────────────────────────────────────────
 const apiOrigin = 'https://events.ecsahc.org'
