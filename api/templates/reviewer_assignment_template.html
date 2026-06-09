@@ -79,13 +79,18 @@
         {% endif %}
       </div>
 
-      <p>Use the credentials below to log in and access your review assignment:</p>
+      {% if password %}
+      <p>A portal account has been created for you. Use the credentials below to log in and access your review assignment:</p>
 
       <div class="credentials-box">
         <h2>Your Login Details</h2>
-        <p><strong>Email:</strong> {{ username }}</p>
-        <p><strong>Password:</strong> {{ password }}</p>
+        <p><strong>Email / Username:</strong> {{ username }}</p>
+        <p><strong>Temporary Password:</strong> {{ password }}</p>
       </div>
+      <p>Please log in and <strong>change your password</strong> immediately to secure your account.</p>
+      {% else %}
+      <p>Please log in using your existing credentials to access your review assignment.</p>
+      {% endif %}
 
       <p>
         Once logged in, navigate to <strong>My Account → Reviews</strong> to find your assigned abstract

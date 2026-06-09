@@ -568,20 +568,35 @@ def assign_reviewer(
     )
     db.add(assignment)
 
-    # Generate fresh credentials and email them with the abstract context
-    new_password = auth_dependency.generate_random_password()
-    reviewer.hashed_password = auth_dependency.hash_password(new_password)
-    db.commit()
-
     import utils.mailer_util as mailer_util
-    mailer_util.reviewer_assignment_email(
-        recipient_email=reviewer.email,
-        firstname=reviewer.firstname,
-        password=new_password,
-        abstract_title=abstract.title,
-        event_name=abstract.event.event if abstract.event else None,
-        background_tasks=background_tasks,
-    )
+
+    if not reviewer.credentials_sent:
+        # First time this user is contacted — generate a fresh password and
+        # include it in the assignment email so they can log in.
+        new_password = auth_dependency.generate_random_password()
+        reviewer.hashed_password = auth_dependency.hash_password(new_password)
+        reviewer.credentials_sent = True
+        db.commit()
+        mailer_util.reviewer_assignment_email(
+            recipient_email=reviewer.email,
+            firstname=reviewer.firstname,
+            password=new_password,
+            abstract_title=abstract.title,
+            event_name=abstract.event.event if abstract.event else None,
+            background_tasks=background_tasks,
+        )
+    else:
+        # Reviewer already has their credentials — just notify them of the new
+        # assignment without touching their password.
+        db.commit()
+        mailer_util.reviewer_assignment_email(
+            recipient_email=reviewer.email,
+            firstname=reviewer.firstname,
+            password=None,
+            abstract_title=abstract.title,
+            event_name=abstract.event.event if abstract.event else None,
+            background_tasks=background_tasks,
+        )
 
     return {"message": "Reviewer assigned", "reviewer_name": f"{reviewer.firstname} {reviewer.lastname}"}
 
