@@ -11,8 +11,8 @@
       <div class="p-3 border border-dashed border-gray-300 text-center flex flex-col items-center">
         <!-- Logos -->
         <div class="w-full flex justify-between items-center mb-2">
-          <img src="@/assets/ecsalogo.png" alt="Left Logo" class="h-16 w-auto" />
-          <img src="@/assets/mauritius.png" alt="Right Logo" class="h-16 w-auto" />
+          <img src="@/assets/moh_sz.png" alt="Kingdom of Eswatini MoH" class="h-16 w-auto" />
+          <img src="@/assets/ecsa_hc_banner.png" alt="ECSA-HC" class="h-16 w-auto" />
         </div>
 
         <!-- Badge Content -->
@@ -79,8 +79,8 @@
 
         <!-- Logos -->
         <div class="w-[3.6in] flex justify-between items-center mb-2">
-          <img src="@/assets/ecsalogo.png" alt="Left Logo" class="h-16 w-auto" />
-          <img src="@/assets/mauritius.png" alt="Right Logo" class="h-16 w-auto" />
+          <img src="@/assets/moh_sz.png" alt="Kingdom of Eswatini MoH" class="h-16 w-auto" />
+          <img src="@/assets/ecsa_hc_banner.png" alt="ECSA-HC" class="h-16 w-auto" />
         </div>
 
         <!-- Badge Content (PDF) -->

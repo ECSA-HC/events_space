@@ -35,8 +35,8 @@
           <!-- As % of 105mm width and 148mm height                        -->
           <div class="absolute flex justify-between items-center"
                style="top:2%;left:4.8%;right:1.9%;height:9.5%;">
-            <img src="@/assets/moh_sz.png"    class="h-full w-auto object-contain" alt="Kingdom of Eswatini Ministry of Health" />
-            <img src="@/assets/ecsalogo.png"  class="h-full w-auto object-contain" alt="ECSA-HC" />
+            <img src="@/assets/moh_sz.png"        class="h-full w-auto object-contain" alt="Kingdom of Eswatini Ministry of Health" />
+            <img src="@/assets/ecsa_hc_banner.png" class="h-full w-auto object-contain" alt="ECSA-HC" />
           </div>
 
           <!-- ── Title 1 (orange) baseline at y≈19.8% of badge height ─── -->
