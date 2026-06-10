@@ -149,32 +149,6 @@
   </div>
 </template>
 
-<style>
-/* Badge-only font weights — @font-face is always global but these only
-   affect elements that explicitly set font-family:'Roboto Condensed'    */
-@font-face {
-  font-family: 'Roboto Condensed';
-  src: url('@/assets/fonts/Roboto/Roboto_Condensed-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Roboto Condensed';
-  src: url('@/assets/fonts/Roboto/Roboto-Bold.ttf') format('truetype');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Roboto Condensed';
-  src: url('@/assets/fonts/Roboto/Roboto_Condensed-Black.ttf') format('truetype');
-  font-weight: 900;
-  font-style: normal;
-  font-display: swap;
-}
-</style>
-
 <script setup>
 import { computed, ref } from 'vue'
 import api from '@/plugins/axios'
