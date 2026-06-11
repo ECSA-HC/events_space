@@ -55,7 +55,8 @@ def _log_email(db, recipient_email, subject, email_type, sent_by_user_id, reply_
 
 
 def send_email(recipient_email, subject, email_body, reply_to_email=None,
-               email_type="general", sent_by_user_id=None, db=None):
+               email_type="general", sent_by_user_id=None, db=None,
+               sender_display_name=None):
     smtp_host     = os.getenv("SMTP_HOST", "")
     smtp_port     = os.getenv("SMTP_PORT", "")
     smtp_username = os.getenv("SMTP_USERNAME", "")
@@ -74,12 +75,15 @@ def send_email(recipient_email, subject, email_body, reply_to_email=None,
         logger.error("SMTP_PORT must be an integer.")
         return
 
+    # Use "Name via ECSA Events <admission@...>" when a personal sender is provided
+    display_name = f"{sender_display_name} via {FROM_NAME}" if sender_display_name else FROM_NAME
+
     try:
         with smtplib.SMTP(smtp_host, smtp_port) as server:
             server.starttls()
             server.login(smtp_username, smtp_password)
             message = MIMEMultipart()
-            message["From"]    = f"{FROM_NAME} <{FROM_EMAIL}>"
+            message["From"]    = f"{display_name} <{FROM_EMAIL}>"
             message["To"]      = recipient_email
             message["Subject"] = subject
             if reply_to_email:
@@ -101,15 +105,16 @@ def send_email(recipient_email, subject, email_body, reply_to_email=None,
 def send_email_backgroundable(
     recipient_email, subject, email_body, background_tasks: BackgroundTasks = None,
     reply_to_email=None, email_type="general", sent_by_user_id=None, db=None,
+    sender_display_name=None,
 ):
     if background_tasks:
         background_tasks.add_task(
             send_email, recipient_email, subject, email_body,
-            reply_to_email, email_type, sent_by_user_id, db,
+            reply_to_email, email_type, sent_by_user_id, db, sender_display_name,
         )
     else:
         send_email(recipient_email, subject, email_body,
-                   reply_to_email, email_type, sent_by_user_id, db)
+                   reply_to_email, email_type, sent_by_user_id, db, sender_display_name)
 
 
 # --- EMAIL FUNCTIONS ---
@@ -291,6 +296,7 @@ def reviewer_assignment_email(
     abstract_title,
     event_name=None,
     assigned_by_name=None,
+    assigned_by_email=None,
     sent_by_user_id=None,
     background_tasks: BackgroundTasks = None,
     db=None,
@@ -305,11 +311,14 @@ def reviewer_assignment_email(
         abstract_title=abstract_title,
         event_name=event_name,
         assigned_by_name=assigned_by_name or "ECSA Secretariat",
+        assigned_by_email=assigned_by_email or FROM_EMAIL,
         year=YEAR,
     )
     send_email_backgroundable(
         recipient_email, subject, email_body, background_tasks,
+        reply_to_email=assigned_by_email,
         email_type="reviewer_assignment",
         sent_by_user_id=sent_by_user_id,
+        sender_display_name=assigned_by_name,
         db=db,
     )
