@@ -25,6 +25,15 @@
       h1 { font-size: 24px; margin-bottom: 16px; color: #003f5c; }
       h2 { font-size: 18px; color: #003f5c; margin-bottom: 8px; }
       p { font-size: 16px; line-height: 1.5; margin-bottom: 16px; color: #444444; }
+      .assigned-by-banner {
+        background-color: #e8f7fb;
+        border-left: 4px solid #0095b6;
+        border-radius: 0 8px 8px 0;
+        padding: 12px 20px;
+        margin: 0 0 20px 0;
+        font-size: 15px;
+        color: #005f7a;
+      }
       .abstract-box {
         background-color: #f0f8ff;
         border-left: 4px solid #0095b6;
@@ -41,6 +50,15 @@
         margin: 20px 0;
       }
       .credentials-box p { margin: 6px 0; font-size: 15px; }
+      .steps-box {
+        background-color: #fffbf0;
+        border: 1px solid #f0d070;
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 20px 0;
+      }
+      .steps-box ol { margin: 8px 0 0 0; padding-left: 20px; }
+      .steps-box li { font-size: 15px; line-height: 1.7; color: #555; }
       a.button {
         display: inline-block;
         background-color: #0095b6;
@@ -66,17 +84,21 @@
       <h1>Abstract Review Assignment</h1>
       <p>Dear <strong>{{ firstname }}</strong>,</p>
 
+      <div class="assigned-by-banner">
+        <strong>{{ assigned_by_name }}</strong> has assigned you an abstract to review on the ECSA Events Portal.
+      </div>
+
       <p>
-        You have been assigned to review the following abstract submitted to the
-        <strong>ECSA Events Portal</strong>. Please log in at your earliest convenience to complete your review.
+        Please find the details of your assignment below and log in at your earliest convenience to complete your review.
       </p>
 
       <div class="abstract-box">
-        <h2>Abstract Details</h2>
-        <p><strong>Title:</strong> {{ abstract_title }}</p>
+        <h2>Assignment Details</h2>
+        <p><strong>Abstract Title:</strong> {{ abstract_title }}</p>
         {% if event_name %}
         <p><strong>Event:</strong> {{ event_name }}</p>
         {% endif %}
+        <p><strong>Assigned By:</strong> {{ assigned_by_name }}</p>
       </div>
 
       {% if password %}
@@ -92,12 +114,16 @@
       <p>Please log in using your existing credentials to access your review assignment.</p>
       {% endif %}
 
-      <p>
-        Once logged in, navigate to <strong>My Account → Reviews</strong> to find your assigned abstract
-        and submit your review.
-      </p>
+      <div class="steps-box">
+        <strong>How to submit your review:</strong>
+        <ol>
+          <li>Log in at <a href="https://events.ecsahc.org/login">events.ecsahc.org</a></li>
+          <li>Go to <strong>My Account → My Reviews</strong></li>
+          <li>Find the assigned abstract and click <strong>Submit Review</strong></li>
+        </ol>
+      </div>
 
-      <a href="https://events.ecsahc.org/login" class="button">Log In & Start Reviewing</a>
+      <a href="https://events.ecsahc.org/login" class="button">Log In &amp; Start Reviewing</a>
 
       <p style="margin-top: 28px;">
         If you have any questions, please contact us at

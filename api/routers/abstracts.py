@@ -581,6 +581,9 @@ def assign_reviewer(
     if not reviewer:
         raise HTTPException(status_code=404, detail="Reviewer not found")
 
+    assigner = db.query(User).filter(User.id == current_user["user_id"]).first()
+    assigner_name = f"{assigner.firstname} {assigner.lastname}" if assigner else "ECSA Secretariat"
+
     assignment = AbstractReviewer(
         abstract_id=abstract_id,
         reviewer_id=schema.reviewer_id,
@@ -603,6 +606,7 @@ def assign_reviewer(
             password=new_password,
             abstract_title=abstract.title,
             event_name=abstract.event.event if abstract.event else None,
+            assigned_by_name=assigner_name,
             background_tasks=background_tasks,
         )
     else:
@@ -615,6 +619,7 @@ def assign_reviewer(
             password=None,
             abstract_title=abstract.title,
             event_name=abstract.event.event if abstract.event else None,
+            assigned_by_name=assigner_name,
             background_tasks=background_tasks,
         )
 

@@ -251,6 +251,7 @@ def reviewer_assignment_email(
     password,
     abstract_title,
     event_name=None,
+    assigned_by_name=None,
     background_tasks: BackgroundTasks = None,
 ):
     subject = "You Have Been Assigned an Abstract to Review – ECSA Events Portal"
@@ -262,6 +263,7 @@ def reviewer_assignment_email(
         password=password,
         abstract_title=abstract_title,
         event_name=event_name,
+        assigned_by_name=assigned_by_name or "ECSA Secretariat",
         year=YEAR,
     )
     send_email_backgroundable(recipient_email, subject, email_body, background_tasks)
