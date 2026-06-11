@@ -168,7 +168,7 @@ const showDeleteModal = ref(false);
 const selectedUser = ref(null);
 
 const updateDebouncedSearch = debounce((val) => {
-  debouncedSearch.value = val;
+  debouncedSearch.value = val.trim();
   currentPage.value = 1;
 }, 300);
 
