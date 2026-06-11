@@ -291,7 +291,6 @@ def reviewer_assignment_email(
     abstract_title,
     event_name=None,
     assigned_by_name=None,
-    assigned_by_email=None,
     sent_by_user_id=None,
     background_tasks: BackgroundTasks = None,
     db=None,
@@ -310,7 +309,6 @@ def reviewer_assignment_email(
     )
     send_email_backgroundable(
         recipient_email, subject, email_body, background_tasks,
-        reply_to_email=assigned_by_email,
         email_type="reviewer_assignment",
         sent_by_user_id=sent_by_user_id,
         db=db,

@@ -1,11 +1,17 @@
+from typing import Annotated
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session, joinedload
 from core.database import get_db
-from dependencies.auth_dependency import get_auth_dep, Auth
-from dependencies.user_dependency import user_dependency
+from dependencies.auth_dependency import Auth, get_current_user
 from models.models import EmailLog
 
 router = APIRouter()
+
+user_dependency = Annotated[dict, Depends(get_current_user)]
+
+
+def get_auth_dep(db: Session = Depends(get_db)) -> Auth:
+    return Auth(db)
 
 
 @router.get("/")
@@ -14,7 +20,7 @@ def list_email_logs(
     db: Session = Depends(get_db),
     auth_dependency: Auth = Depends(get_auth_dep),
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 500,
     email_type: str = None,
 ):
     auth_dependency.secure_access("VIEW_USER", current_user["user_id"])
