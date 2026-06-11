@@ -35,8 +35,12 @@ def verify_password(password: str, hashed_password: str):
 logger = logging.getLogger(__name__)
 
 
-def _log_email(db, recipient_email, subject, email_type, sent_by_user_id, reply_to_email, status, error_message=None):
-    """Persist a record of every email attempt to email_log."""
+APP_BASE_URL = os.getenv("APP_BASE_URL", "https://events.ecsahc.org")
+
+
+def _create_email_log(db, recipient_email, subject, email_type, sent_by_user_id,
+                      reply_to_email, body=None):
+    """Insert a pending email log entry before sending. Returns the record ID or None."""
     try:
         from models.models import EmailLog
         record = EmailLog(
@@ -45,13 +49,29 @@ def _log_email(db, recipient_email, subject, email_type, sent_by_user_id, reply_
             email_type=email_type,
             sent_by_user_id=sent_by_user_id,
             reply_to_email=reply_to_email,
-            status=status,
-            error_message=error_message,
+            status="pending",
+            body=body,
         )
         db.add(record)
         db.commit()
+        db.refresh(record)
+        return record.id
     except Exception as log_err:
-        logger.error("Failed to write email log: %s", log_err)
+        logger.error("Failed to create email log entry: %s", log_err)
+        return None
+
+
+def _update_email_log(db, log_id, status, error_message=None):
+    """Update the status of an existing email log entry after the send attempt."""
+    try:
+        from models.models import EmailLog
+        record = db.query(EmailLog).filter(EmailLog.id == log_id).first()
+        if record:
+            record.status = status
+            record.error_message = error_message
+            db.commit()
+    except Exception as log_err:
+        logger.error("Failed to update email log entry %s: %s", log_id, log_err)
 
 
 def send_email(recipient_email, subject, email_body, reply_to_email=None,
@@ -65,8 +85,13 @@ def send_email(recipient_email, subject, email_body, reply_to_email=None,
     if not smtp_host or not smtp_port:
         logger.error("SMTP host and port must be set in environment variables.")
         if db:
-            _log_email(db, recipient_email, subject, email_type, sent_by_user_id,
-                       reply_to_email, "failed", "SMTP not configured")
+            _create_email_log(db, recipient_email, subject, email_type, sent_by_user_id,
+                              reply_to_email, email_body)
+            # immediately mark as failed — re-fetch last inserted
+            from models.models import EmailLog
+            last = db.query(EmailLog).order_by(EmailLog.id.desc()).first()
+            if last:
+                _update_email_log(db, last.id, "failed", "SMTP not configured")
         return
 
     try:
@@ -74,6 +99,21 @@ def send_email(recipient_email, subject, email_body, reply_to_email=None,
     except ValueError:
         logger.error("SMTP_PORT must be an integer.")
         return
+
+    # Create log record BEFORE sending so we have an ID for the tracking pixel
+    log_id = None
+    if db:
+        log_id = _create_email_log(db, recipient_email, subject, email_type,
+                                   sent_by_user_id, reply_to_email, email_body)
+
+    # Inject a 1×1 tracking pixel so we can detect when the email is opened
+    final_body = email_body
+    if log_id:
+        pixel = (
+            f'<img src="{APP_BASE_URL}/email-logs/{log_id}/pixel.png"'
+            ' width="1" height="1" style="display:none;" alt="" />'
+        )
+        final_body = email_body.replace("</body>", f"{pixel}\n</body>", 1)
 
     # Use "Name via ECSA Events <admission@...>" when a personal sender is provided
     display_name = f"{sender_display_name} via {FROM_NAME}" if sender_display_name else FROM_NAME
@@ -88,17 +128,20 @@ def send_email(recipient_email, subject, email_body, reply_to_email=None,
             message["Subject"] = subject
             if reply_to_email:
                 message["Reply-To"] = reply_to_email
-            message.attach(MIMEText(email_body, "html"))
+            message.attach(MIMEText(final_body, "html"))
             server.sendmail(smtp_username, recipient_email, message.as_string())
             logger.info("Email sent successfully to %s", recipient_email)
-            if db:
-                _log_email(db, recipient_email, subject, email_type, sent_by_user_id,
-                           reply_to_email, "sent")
+            if db and log_id:
+                _update_email_log(db, log_id, "sent")
     except Exception as e:
         logger.error("Failed to send email to %s: %s", recipient_email, str(e))
         if db:
-            _log_email(db, recipient_email, subject, email_type, sent_by_user_id,
-                       reply_to_email, "failed", str(e))
+            if log_id:
+                _update_email_log(db, log_id, "failed", str(e))
+            else:
+                # logging was unavailable before send; attempt a fresh log entry
+                _create_email_log(db, recipient_email, subject, email_type,
+                                  sent_by_user_id, reply_to_email, email_body)
 
 
 # --- BACKGROUND TASK WRAPPER ---

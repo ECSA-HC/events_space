@@ -979,6 +979,9 @@ class EmailLog(Base):
     reply_to_email = Column(String(255), nullable=True)
     status = Column(String(20), nullable=False, server_default="sent")
     error_message = Column(Text, nullable=True)
+    body = Column(Text, nullable=True)
+    opened_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    opened_count = Column(Integer, nullable=False, server_default="0")
     sent_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
 
     sent_by = relationship("User", foreign_keys=[sent_by_user_id])
