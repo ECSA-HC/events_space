@@ -131,6 +131,16 @@
               <span v-if="!minimized" class="ml-3">Activity Log</span>
             </router-link>
           </li>
+          <li v-if="auth.hasPermission('VIEW_USER')" class="mb-1">
+            <router-link
+              :to="{ name: 'AdminEmailLogs' }"
+              class="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-200 hover:text-gray-800 rounded-2xl transition-colors"
+              :class="isEmailLogsActive ? 'bg-gray-300 text-gray-900 rounded-2xl' : ''"
+            >
+              <EnvelopeIcon class="w-5 h-5" />
+              <span v-if="!minimized" class="ml-3">Email Logs</span>
+            </router-link>
+          </li>
           <li v-if="auth.hasPermission('VIEW_ROLE')" class="mb-1">
             <router-link
               :to="{ name: 'Roles' }"
@@ -213,6 +223,7 @@ import {
   AdjustmentsHorizontalIcon,
   TagIcon,
   ClockIcon,
+  EnvelopeIcon,
 } from '@heroicons/vue/24/outline'
 
 import { computed, ref, watch } from 'vue'
@@ -243,7 +254,8 @@ const isAbstractsActive = computed(() =>
 )
 
 const isTracksActive   = computed(() => route.name === 'AdminTracks')
-const isActivityActive = computed(() => route.name === 'AdminActivity')
+const isActivityActive   = computed(() => route.name === 'AdminActivity')
+const isEmailLogsActive  = computed(() => route.name === 'AdminEmailLogs')
 const settingsOpen   = ref(false)
 
 const isReviewersActive = computed(() => route.name === 'AdminReviewers')
@@ -266,7 +278,7 @@ const isClustersActive = computed(() =>
 
 // Auto-open settings section when any settings sub-route is active
 const isSettingsRoute = computed(() =>
-  isUsersActive.value || isActivityActive.value || isRolesActive.value || isClustersActive.value
+  isUsersActive.value || isActivityActive.value || isRolesActive.value || isClustersActive.value || isEmailLogsActive.value
 )
 watch(isSettingsRoute, (active) => { if (active) settingsOpen.value = true }, { immediate: true })
 

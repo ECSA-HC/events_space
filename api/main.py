@@ -15,6 +15,7 @@ from routers import (
     registrations,
     abstracts,
     activity,
+    email_logs,
 )
 
 app = FastAPI(
@@ -66,3 +67,4 @@ app.include_router(
 )
 app.include_router(abstracts.router, prefix="/abstracts", tags=["abstracts"])
 app.include_router(activity.router, prefix="/activity", tags=["Activity"])
+app.include_router(email_logs.router, prefix="/email-logs", tags=["Email Logs"])

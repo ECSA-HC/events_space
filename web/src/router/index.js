@@ -49,6 +49,7 @@ import AbstractsView from "@/pages/admin/abstracts/AbstractsView.vue";
 import AbstractView from "@/pages/admin/abstracts/AbstractView.vue";
 import TracksView from "@/pages/admin/tracks/TracksView.vue";
 import ActivityView from "@/pages/admin/activity/ActivityView.vue";
+import EmailLogsView from "@/pages/admin/settings/EmailLogsView.vue";
 import ReviewersView from "@/pages/admin/abstracts/ReviewersView.vue";
 import RegistrationsView from "@/pages/admin/registrations/RegistrationsView.vue";
 import MyAbstractsView from "@/pages/my_account/MyAbstractsView.vue";
@@ -265,6 +266,7 @@ const routes = [
       { path: "reviewers", name: "AdminReviewers", component: ReviewersView, meta: { requiresAuth: true, permissions: ["MANAGE_REVIEWERS"] } },
       { path: "registrations", name: "AdminRegistrations", component: RegistrationsView, meta: { requiresAuth: true, permissions: ["VIEW_REGISTRATIONS"] } },
       { path: "activity", name: "AdminActivity", component: ActivityView, meta: { requiresAuth: true, permissions: ["VIEW_USER"] } },
+      { path: "email-logs", name: "AdminEmailLogs", component: EmailLogsView, meta: { requiresAuth: true, permissions: ["VIEW_USER"] } },
     ],
   },
   {

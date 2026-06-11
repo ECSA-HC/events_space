@@ -582,7 +582,8 @@ def assign_reviewer(
         raise HTTPException(status_code=404, detail="Reviewer not found")
 
     assigner = db.query(User).filter(User.id == current_user["user_id"]).first()
-    assigner_name = f"{assigner.firstname} {assigner.lastname}" if assigner else "ECSA Secretariat"
+    assigner_name  = f"{assigner.firstname} {assigner.lastname}" if assigner else "ECSA Secretariat"
+    assigner_email = assigner.email if assigner else None
 
     assignment = AbstractReviewer(
         abstract_id=abstract_id,
@@ -607,7 +608,10 @@ def assign_reviewer(
             abstract_title=abstract.title,
             event_name=abstract.event.event if abstract.event else None,
             assigned_by_name=assigner_name,
+            assigned_by_email=assigner_email,
+            sent_by_user_id=current_user["user_id"],
             background_tasks=background_tasks,
+            db=db,
         )
     else:
         # Reviewer already has their credentials — just notify them of the new
@@ -620,7 +624,10 @@ def assign_reviewer(
             abstract_title=abstract.title,
             event_name=abstract.event.event if abstract.event else None,
             assigned_by_name=assigner_name,
+            assigned_by_email=assigner_email,
+            sent_by_user_id=current_user["user_id"],
             background_tasks=background_tasks,
+            db=db,
         )
 
     return {"message": "Reviewer assigned", "reviewer_name": f"{reviewer.firstname} {reviewer.lastname}"}

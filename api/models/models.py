@@ -966,3 +966,22 @@ class OrganisationApprovalStatus(BaseWithSoftDelete):
         return (
             f"<OrganisationApprovalStatus id={self.id}, is_approved={self.is_approved}>"
         )
+
+
+class EmailLog(Base):
+    __tablename__ = "email_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    recipient_email = Column(String(255), nullable=False)
+    subject = Column(String(500), nullable=False)
+    email_type = Column(String(100), nullable=False)
+    sent_by_user_id = Column(Integer, ForeignKey("user.id"), nullable=True)
+    reply_to_email = Column(String(255), nullable=True)
+    status = Column(String(20), nullable=False, server_default="sent")
+    error_message = Column(Text, nullable=True)
+    sent_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+
+    sent_by = relationship("User", foreign_keys=[sent_by_user_id])
+
+    def __repr__(self):
+        return f"<EmailLog id={self.id} to={self.recipient_email} type={self.email_type}>"
