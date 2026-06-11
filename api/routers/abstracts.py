@@ -13,7 +13,7 @@ from models.models import Abstract, AbstractAuthor, AbstractReviewer, AbstractRe
 from datetime import datetime
 from schemas.events_space import (
     AbstractSubmitSchema, AbstractUpdateSchema,
-    AssignReviewerSchema, AbstractReviewSchema,
+    AssignReviewerSchema, BulkAssignReviewerSchema, AbstractReviewSchema,
     CreateReviewerSchema,
 )
 
@@ -552,6 +552,85 @@ def update_status(
     abstract.status = payload.get("status", abstract.status)
     db.commit()
     return {"message": "Status updated"}
+
+
+@router.post("/bulk-assign-reviewer", status_code=status.HTTP_201_CREATED)
+def bulk_assign_reviewer(
+    schema: BulkAssignReviewerSchema,
+    background_tasks: BackgroundTasks,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+):
+    """Assign one reviewer to multiple abstracts and send a single consolidated email."""
+    auth_dependency.secure_access("MANAGE_REVIEWERS", current_user["user_id"])
+
+    reviewer = db.query(User).filter(User.id == schema.reviewer_id).first()
+    if not reviewer:
+        raise HTTPException(status_code=404, detail="Reviewer not found")
+
+    assigner = db.query(User).filter(User.id == current_user["user_id"]).first()
+    assigner_name  = f"{assigner.firstname} {assigner.lastname}" if assigner else "ECSA Secretariat"
+    assigner_email = assigner.email if assigner else None
+
+    assigned_abstracts = []
+    skipped = []
+
+    for abstract_id in schema.abstract_ids:
+        abstract = db.query(Abstract).options(joinedload(Abstract.event)).filter(
+            Abstract.id == abstract_id, Abstract.deleted_at == None
+        ).first()
+        if not abstract:
+            skipped.append({"id": abstract_id, "reason": "not found"})
+            continue
+        existing = db.query(AbstractReviewer).filter(
+            AbstractReviewer.abstract_id == abstract_id,
+            AbstractReviewer.reviewer_id == schema.reviewer_id,
+        ).first()
+        if existing:
+            skipped.append({"id": abstract_id, "reason": "already assigned"})
+            continue
+        db.add(AbstractReviewer(
+            abstract_id=abstract_id,
+            reviewer_id=schema.reviewer_id,
+            assigned_by=current_user["user_id"],
+        ))
+        assigned_abstracts.append(abstract)
+
+    if not assigned_abstracts:
+        db.commit()
+        return {"message": "No new assignments made", "assigned": 0, "skipped": skipped}
+
+    import utils.mailer_util as mailer_util
+
+    new_password = None
+    if not reviewer.credentials_sent:
+        new_password = auth_dependency.generate_random_password()
+        reviewer.hashed_password = auth_dependency.hash_password(new_password)
+        reviewer.credentials_sent = True
+
+    db.commit()
+
+    mailer_util.reviewer_bulk_assignment_email(
+        recipient_email=reviewer.email,
+        firstname=reviewer.firstname,
+        password=new_password,
+        abstracts=[
+            {"title": a.title, "event": a.event.event if a.event else ""}
+            for a in assigned_abstracts
+        ],
+        assigned_by_name=assigner_name,
+        assigned_by_email=assigner_email,
+        sent_by_user_id=current_user["user_id"],
+        background_tasks=background_tasks,
+        db=db,
+    )
+
+    return {
+        "message": f"{len(assigned_abstracts)} abstract(s) assigned to {reviewer.firstname} {reviewer.lastname}",
+        "assigned": len(assigned_abstracts),
+        "skipped": skipped,
+    }
 
 
 @router.post("/{abstract_id}/assign-reviewer", status_code=status.HTTP_201_CREATED)

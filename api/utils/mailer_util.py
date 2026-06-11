@@ -322,3 +322,40 @@ def reviewer_assignment_email(
         sender_display_name=assigned_by_name,
         db=db,
     )
+
+
+def reviewer_bulk_assignment_email(
+    recipient_email,
+    firstname,
+    password,
+    abstracts,           # list of {"title": ..., "event": ...}
+    assigned_by_name=None,
+    assigned_by_email=None,
+    sent_by_user_id=None,
+    background_tasks: BackgroundTasks = None,
+    db=None,
+):
+    count = len(abstracts)
+    subject = (
+        f"You Have Been Assigned {count} Abstract{'s' if count != 1 else ''} to Review – ECSA Events Portal"
+    )
+    template = templates.get_template("reviewer_bulk_assignment_template.html")
+    email_body = template.render(
+        subject=subject,
+        username=recipient_email,
+        firstname=firstname,
+        password=password,
+        abstracts=abstracts,
+        count=count,
+        assigned_by_name=assigned_by_name or "ECSA Secretariat",
+        assigned_by_email=assigned_by_email or FROM_EMAIL,
+        year=YEAR,
+    )
+    send_email_backgroundable(
+        recipient_email, subject, email_body, background_tasks,
+        reply_to_email=assigned_by_email,
+        email_type="reviewer_assignment",
+        sent_by_user_id=sent_by_user_id,
+        sender_display_name=assigned_by_name,
+        db=db,
+    )

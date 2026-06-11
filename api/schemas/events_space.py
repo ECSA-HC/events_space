@@ -216,6 +216,10 @@ class AbstractUpdateSchema(BaseModel):
 class AssignReviewerSchema(BaseModel):
     reviewer_id: int
 
+class BulkAssignReviewerSchema(BaseModel):
+    reviewer_id: int
+    abstract_ids: List[int]
+
 class AbstractReviewSchema(BaseModel):
     relevance_score: int
     methodology_score: int

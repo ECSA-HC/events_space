@@ -660,29 +660,32 @@ function removeBulkReviewer(id) {
 }
 
 async function runBulkAssign() {
-  const abstractIds  = [...selectedIds.value]
-  const reviewers    = bulkModal.value.reviewers
+  const abstractIds = [...selectedIds.value]
+  const reviewers   = bulkModal.value.reviewers
   if (!abstractIds.length || !reviewers.length) return
 
-  const pairs = abstractIds.flatMap(aId => reviewers.map(r => ({ aId, r })))
-  bulkModal.value.assigning    = true
-  bulkModal.value.done         = false
-  bulkModal.value.progress     = 0
-  bulkModal.value.total        = pairs.length
-  bulkModal.value.results_log  = []
+  bulkModal.value.assigning   = true
+  bulkModal.value.done        = false
+  bulkModal.value.progress    = 0
+  bulkModal.value.total       = reviewers.length
+  bulkModal.value.results_log = []
 
-  for (const { aId, r } of pairs) {
-    const abs = abstracts.value.find(a => a.id === aId)
+  // One request per reviewer — backend sends a single consolidated email per reviewer
+  for (const r of reviewers) {
     try {
-      await api.post(`/abstracts/${aId}/assign-reviewer`, { reviewer_id: r.id })
+      const res = await api.post('/abstracts/bulk-assign-reviewer', {
+        reviewer_id:  r.id,
+        abstract_ids: abstractIds,
+      })
+      const { assigned, skipped } = res.data
       bulkModal.value.results_log.push({
-        key: `${aId}-${r.id}`, ok: true,
-        msg: `"${abs?.title?.slice(0, 40) ?? aId}" → ${r.firstname} ${r.lastname}`,
+        key: r.id, ok: true,
+        msg: `${r.firstname} ${r.lastname}: ${assigned} assigned${skipped.length ? `, ${skipped.length} skipped` : ''} — 1 email sent`,
       })
     } catch (e) {
       bulkModal.value.results_log.push({
-        key: `${aId}-${r.id}`, ok: false,
-        msg: `"${abs?.title?.slice(0, 40) ?? aId}" → ${r.firstname} ${r.lastname}: ${e.response?.data?.detail || 'failed'}`,
+        key: r.id, ok: false,
+        msg: `${r.firstname} ${r.lastname}: ${e.response?.data?.detail || 'failed'}`,
       })
     }
     bulkModal.value.progress++
