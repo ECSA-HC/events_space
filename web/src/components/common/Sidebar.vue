@@ -215,7 +215,7 @@ import {
   ClockIcon,
 } from '@heroicons/vue/24/outline'
 
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter, useRoute } from 'vue-router'
 
@@ -263,6 +263,12 @@ const isRolesActive = computed(() =>
 const isClustersActive = computed(() =>
   ['Clusters', 'Cluster', 'AddCluster', 'EditCluster'].includes(String(route.name))
 )
+
+// Auto-open settings section when any settings sub-route is active
+const isSettingsRoute = computed(() =>
+  isUsersActive.value || isActivityActive.value || isRolesActive.value || isClustersActive.value
+)
+watch(isSettingsRoute, (active) => { if (active) settingsOpen.value = true }, { immediate: true })
 
 const logout = () => {
   auth.logout()
