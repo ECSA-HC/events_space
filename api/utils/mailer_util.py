@@ -164,7 +164,8 @@ def send_email_backgroundable(
 
 
 def new_account_email(
-    recipient_email, firstname, password, event_name=None, background_tasks: BackgroundTasks = None
+    recipient_email, firstname, password, event_name=None,
+    background_tasks: BackgroundTasks = None, db=None, sent_by_user_id=None,
 ):
     subject = "Welcome to ECSA Events Portal – Your Account Details"
     template = templates.get_template("acount_creation_template.html")
@@ -176,7 +177,8 @@ def new_account_email(
         event_name=event_name,
         year=YEAR,
     )
-    send_email_backgroundable(recipient_email, subject, email_body, background_tasks)
+    send_email_backgroundable(recipient_email, subject, email_body, background_tasks,
+                              email_type="new_account", sent_by_user_id=sent_by_user_id, db=db)
 
 
 def reset_password_request_email(
@@ -284,6 +286,8 @@ def payment_reminder_email(
     payment_url="https://ecsahc.org/payment_bpf2026/",
     portal_url="https://events.ecsahc.org",
     background_tasks: BackgroundTasks = None,
+    db=None,
+    sent_by_user_id=None,
 ):
     subject = f"Action Required: Complete Your Payment – {event_name}"
     template = templates.get_template("payment_reminder_template.html")
@@ -295,7 +299,8 @@ def payment_reminder_email(
         portal_url=portal_url,
         year=YEAR,
     )
-    send_email_backgroundable(recipient_email, subject, email_body, background_tasks)
+    send_email_backgroundable(recipient_email, subject, email_body, background_tasks,
+                              email_type="payment_reminder", sent_by_user_id=sent_by_user_id, db=db)
 
 
 def event_invitation_email(
@@ -311,6 +316,8 @@ def event_invitation_email(
     portal_url="https://events.ecsahc.org",
     payment_url="https://ecsahc.org/payment_bpf2026/",
     background_tasks: BackgroundTasks = None,
+    db=None,
+    sent_by_user_id=None,
 ):
     subject = f"You Have Been Registered for {event_name} – ECSA Events Portal"
     template = templates.get_template("event_invitation_template.html")
@@ -329,7 +336,8 @@ def event_invitation_email(
         payment_url=payment_url,
         year=YEAR,
     )
-    send_email_backgroundable(recipient_email, subject, email_body, background_tasks)
+    send_email_backgroundable(recipient_email, subject, email_body, background_tasks,
+                              email_type="event_invitation", sent_by_user_id=sent_by_user_id, db=db)
 
 
 def reviewer_assignment_email(

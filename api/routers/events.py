@@ -1649,6 +1649,8 @@ async def send_payment_reminders(
                 payment_url="https://ecsahc.org/payment_bpf2026/",
                 portal_url="https://events.ecsahc.org",
                 background_tasks=background_tasks,
+                db=db,
+                sent_by_user_id=current_user["user_id"],
             )
             reg.reminder_sent_at = now
 
@@ -1832,6 +1834,8 @@ async def admin_add_participant(
             portal_url=body.portal_url,
             payment_url=body.payment_url,
             background_tasks=background_tasks,
+            db=db,
+            sent_by_user_id=current_user["user_id"],
         )
         user.credentials_sent = True
         db.commit()
@@ -1855,12 +1859,14 @@ async def admin_add_participant(
                 participation_role=role_label,
                 event_location=event.location,
                 event_dates=event_dates,
-                is_new_user=True,       # triggers credentials block in template
+                is_new_user=True,
                 password=fresh_password,
                 no_payment=auto_paid,
                 portal_url=body.portal_url,
                 payment_url=body.payment_url,
                 background_tasks=background_tasks,
+                db=db,
+                sent_by_user_id=current_user["user_id"],
             )
         else:
             # Existing user who already has their credentials: send event-only invitation
@@ -1877,6 +1883,8 @@ async def admin_add_participant(
                 portal_url=body.portal_url,
                 payment_url=body.payment_url,
                 background_tasks=background_tasks,
+                db=db,
+                sent_by_user_id=current_user["user_id"],
             )
         email_sent = True
 

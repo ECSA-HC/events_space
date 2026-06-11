@@ -21,6 +21,8 @@
         class="input flex-1 min-w-[200px]" />
       <select v-model="filterType" class="input w-52">
         <option value="">All Types</option>
+        <option value="event_invitation">Event Invitation</option>
+        <option value="payment_reminder">Payment Reminder</option>
         <option value="reviewer_assignment">Reviewer Assignment</option>
         <option value="new_account">New Account</option>
         <option value="general">General</option>
