@@ -278,6 +278,16 @@ async def update_user(
     )
     user_model = get_object(user_id, db, User)
 
+    # Reject if the new email is already taken by a *different* user
+    if user_schema.email != user_model.email:
+        conflict = db.query(User).filter(
+            User.email == user_schema.email,
+            User.id != user_id,
+            User.deleted_at == None,
+        ).first()
+        if conflict:
+            raise HTTPException(status_code=400, detail="Email address is already in use by another account")
+
     user_model.firstname = user_schema.firstname
     user_model.lastname = user_schema.lastname
     user_model.phone = user_schema.phone

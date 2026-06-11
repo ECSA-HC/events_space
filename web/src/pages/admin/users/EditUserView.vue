@@ -61,6 +61,11 @@
             />
           </div>
 
+          <!-- Error message -->
+          <div v-if="errorMsg" class="w-full md:w-1/2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
+            {{ errorMsg }}
+          </div>
+
           <!-- Buttons -->
           <div class="flex space-x-4 w-full md:w-1/2">
             <LoadingButton
@@ -103,22 +108,25 @@ const user = ref({
 })
 
 const isSubmitting = ref(false)
+const errorMsg = ref('')
 
 const fetchUser = async () => {
   try {
     const response = await api.get(`/users/${userId}`)
-    user.value = response.data.user // extract only the `user` object
+    user.value = response.data.user
   } catch (error) {
     console.error('Failed to fetch user:', error.response?.data || error.message)
   }
 }
 
 const submitForm = async () => {
+  errorMsg.value = ''
   try {
     isSubmitting.value = true
     await api.put(`/users/${userId}`, user.value)
     router.push({ name: 'Users' })
   } catch (error) {
+    errorMsg.value = error.response?.data?.detail || 'Failed to update user. Please try again.'
     console.error('Failed to update user:', error.response?.data || error.message)
   } finally {
     isSubmitting.value = false
