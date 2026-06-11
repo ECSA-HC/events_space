@@ -155,17 +155,28 @@
                 {{ abs.status?.replace('_', ' ') }}
               </span>
             </td>
-            <!-- Reviewer count pill -->
+            <!-- Reviewer count pill with hover tooltip -->
             <td class="px-4 py-3 hidden lg:table-cell">
-              <span v-if="abs.reviewer_assignments?.length"
-                class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium border"
-                style="color:#0095B6; background-color:#e6f7fb; border-color:#b3e4f0;">
-                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
-                </svg>
-                {{ abs.reviewer_assignments.length }}
-              </span>
+              <div v-if="abs.reviewer_assignments?.length" class="relative inline-block group">
+                <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium border cursor-default"
+                  style="color:#0095B6; background-color:#e6f7fb; border-color:#b3e4f0;">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  </svg>
+                  {{ abs.reviewer_assignments.length }}
+                </span>
+                <!-- Hover tooltip listing reviewer names -->
+                <div class="absolute z-50 left-0 top-full mt-1 hidden group-hover:block
+                            bg-white border border-gray-200 rounded-xl shadow-lg py-2 min-w-[180px]">
+                  <p class="text-xs font-semibold text-gray-400 uppercase px-3 pb-1">Reviewers</p>
+                  <div v-for="ra in abs.reviewer_assignments" :key="ra.id"
+                       class="px-3 py-1 text-xs text-gray-700 hover:bg-gray-50">
+                    {{ ra.reviewer_name }}
+                    <span class="block text-gray-400 truncate">{{ ra.reviewer_email }}</span>
+                  </div>
+                </div>
+              </div>
               <span v-else class="text-gray-300 text-xs">—</span>
             </td>
             <!-- Actions -->

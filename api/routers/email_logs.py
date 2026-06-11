@@ -63,6 +63,23 @@ def list_email_logs(
     }
 
 
+# ── Delete ───────────────────────────────────────────────────────────────────
+@router.delete("/{log_id}")
+def delete_email_log(
+    log_id: int,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+):
+    auth_dependency.secure_access("VIEW_USER", current_user["user_id"])
+    log = db.query(EmailLog).filter(EmailLog.id == log_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Email log not found")
+    db.delete(log)
+    db.commit()
+    return {"detail": "Deleted"}
+
+
 # ── Detail ────────────────────────────────────────────────────────────────────
 @router.get("/{log_id}")
 def get_email_log(
