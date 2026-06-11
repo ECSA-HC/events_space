@@ -409,6 +409,26 @@ def my_reviews(
     ]
 
 
+@router.get("/reviewers/candidates")
+def list_reviewer_candidates(
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+):
+    """Return all users marked as reviewers (is_reviewer=True) for the assignment picker."""
+    auth_dependency.secure_access("MANAGE_REVIEWERS", current_user["user_id"])
+    users = (
+        db.query(User)
+        .filter(User.is_reviewer == True, User.deleted_at == None)
+        .order_by(User.firstname, User.lastname)
+        .all()
+    )
+    return [
+        {"id": u.id, "firstname": u.firstname, "lastname": u.lastname, "email": u.email}
+        for u in users
+    ]
+
+
 @router.get("/reviewers")
 def list_reviewers(
     current_user: user_dependency,
@@ -648,8 +668,17 @@ def create_reviewer(
     """Create a new user account designated as a reviewer and send them login credentials."""
     auth_dependency.secure_access("MANAGE_REVIEWERS", current_user["user_id"])
 
-    if db.query(User).filter(User.email == schema.email).first():
-        raise HTTPException(status_code=400, detail="A user with this email already exists")
+    existing = db.query(User).filter(User.email == schema.email).first()
+    if existing:
+        # User already exists — mark them as a reviewer and return their data
+        existing.is_reviewer = True
+        db.commit()
+        return {
+            "id": existing.id,
+            "firstname": existing.firstname,
+            "lastname": existing.lastname,
+            "email": existing.email,
+        }
 
     # Get or create the phone (phone optional for reviewers — use email as fallback stub)
     phone = schema.phone or schema.email
@@ -664,6 +693,7 @@ def create_reviewer(
         phone=phone,
         hashed_password=hashed,
         verified=True,
+        is_reviewer=True,
     )
     db.add(user)
     db.flush()

@@ -541,8 +541,8 @@ async function loadAllReviewers() {
   if (allReviewers.value.length > 0) return // already cached
   loadingReviewers.value = true
   try {
-    const res = await api.get('/users/?skip=0&limit=500&role=reviewer')
-    allReviewers.value = res.data?.data || []
+    const res = await api.get('/abstracts/reviewers/candidates')
+    allReviewers.value = res.data || []
   } catch (e) {
     console.error('Failed to load reviewers', e)
   } finally {

@@ -348,8 +348,8 @@ onMounted(async () => {
 const loadAllUsers = async () => {
   usersLoading.value = true
   try {
-    const res = await api.get('/users/?skip=0&limit=500&role=reviewer')
-    allUsers.value = res.data?.data || []
+    const res = await api.get('/abstracts/reviewers/candidates')
+    allUsers.value = res.data || []
   } catch (_) {}
   finally { usersLoading.value = false }
 }
