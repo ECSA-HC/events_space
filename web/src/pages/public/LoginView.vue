@@ -70,11 +70,6 @@
         </button>
       </form>
 
-      <!-- Register Link -->
-      <p class="text-center text-sm text-gray-600">
-        Don’t have an account?
-        <router-link :to="{ name: 'RegisterAccount'}" class="text-bondi-blue hover:underline">Register</router-link>
-      </p>
     </div>
   </div>
 </template>

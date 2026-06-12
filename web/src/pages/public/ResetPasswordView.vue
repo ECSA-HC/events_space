@@ -64,11 +64,6 @@
         </button>
       </form>
 
-      <!-- Register Link -->
-      <p class="text-center text-sm text-gray-600" v-if="!successMessage">
-        Don’t have an account?
-        <router-link to="/register" class="text-bondi-blue hover:underline">Register</router-link>
-      </p>
     </div>
   </div>
 </template>
