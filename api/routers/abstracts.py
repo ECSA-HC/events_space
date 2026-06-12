@@ -49,8 +49,8 @@ def _serialize_abstract(a: Abstract):
         "status": a.status.value if a.status else None,
         "word_count": a.word_count,
         "submitted_by": a.submitted_by,
-        "submitter_name": f"{a.submitter.firstname} {a.submitter.lastname}" if a.submitter else None,
-        "submitter_email": a.submitter.email if a.submitter else None,
+        "submitter_name": f"{a.submitter.firstname} {a.submitter.lastname}" if a.submitter else (f"{a.authors[0].firstname} {a.authors[0].lastname}" if a.authors else None),
+        "submitter_email": a.submitter.email if a.submitter else (a.authors[0].email if a.authors else None),
         "created_at": a.created_at,
         "updated_at": a.updated_at,
         "authors": [
