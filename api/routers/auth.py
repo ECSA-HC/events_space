@@ -18,6 +18,7 @@ from models.models import (
     Role,
     RolePermission,
     Permission,
+    Abstract,
 )
 from schemas.events_space import (
     UserSchema,
@@ -54,14 +55,15 @@ async def register(
     )
 
     if existing_user:
-        # Still send a reminder email with login link (no password resent for security)
-        mailer_util.new_account_email(
-            existing_user.email,
-            existing_user.firstname,
-            None,
-            user_schema.event_name,
-            background_tasks,
-        )
+        # Link the abstract to the existing user if provided and still unlinked
+        if user_schema.abstract_id:
+            abstract = db.query(Abstract).filter(
+                Abstract.id == user_schema.abstract_id,
+                Abstract.submitted_by == None,
+            ).first()
+            if abstract:
+                abstract.submitted_by = existing_user.id
+                db.commit()
         return {
             "user_id": existing_user.id,
             "email": existing_user.email,
@@ -91,6 +93,16 @@ async def register(
 
     db.add(UserRole(user_id=create_user_model.id, role_id=role.id))
     db.commit()
+
+    # Link any unlinked abstract submitted just before registration
+    if user_schema.abstract_id:
+        abstract = db.query(Abstract).filter(
+            Abstract.id == user_schema.abstract_id,
+            Abstract.submitted_by == None,
+        ).first()
+        if abstract:
+            abstract.submitted_by = create_user_model.id
+            db.commit()
 
     verification_token = str(uuid.uuid4())
     expires_at = datetime.utcnow() + timedelta(hours=1)

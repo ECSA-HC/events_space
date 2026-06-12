@@ -279,80 +279,39 @@
       <section class="bg-white rounded-2xl shadow-sm p-8" id="submit">
 
         <!-- ── Post-submission success state ───────────────────────────────── -->
-        <div v-if="submitted" class="space-y-5">
+        <div v-if="submitted" class="space-y-5 text-center py-4">
 
-          <!-- Green check + title -->
-          <div class="text-center pb-2">
-            <div class="flex items-center justify-center w-14 h-14 rounded-full bg-green-100 mx-auto mb-4">
-              <svg class="w-7 h-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-              </svg>
-            </div>
-            <h2 class="text-2xl font-bold text-gray-800">Abstract Submitted!</h2>
-            <p class="text-sm text-gray-500 mt-1">
-              Notification of acceptance will be sent before <strong>5<sup>th</sup> July 2026</strong>.
+          <!-- Green check -->
+          <div class="flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mx-auto">
+            <svg class="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+          </div>
+
+          <div class="space-y-2">
+            <h2 class="text-2xl font-bold text-gray-800">Abstract Submitted Successfully!</h2>
+            <p class="text-sm text-gray-500 max-w-sm mx-auto leading-relaxed">
+              Your abstract has been registered. You will now be redirected to register for the conference.
             </p>
           </div>
 
-          <!-- New account block (only for auto-registered users) -->
-          <div v-if="newAccountCreated" class="rounded-xl border border-blue-200 bg-blue-50 p-5 text-sm text-blue-800">
-            <p class="font-semibold flex items-center gap-2 mb-2">
-              <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-              </svg>
-              Portal Account Created
-            </p>
-            <p class="text-xs leading-relaxed text-blue-700">
-              We created a portal account for you at
-              <strong class="text-blue-900">{{ accountEmail }}</strong>.
-              Your login credentials have been sent to that email address.
-              You will be asked to set your own password when you first log in.
-            </p>
+          <!-- Countdown / redirect notice -->
+          <div class="inline-flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-700 text-sm px-5 py-3 rounded-full">
+            <svg class="w-4 h-4 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+            </svg>
+            Redirecting to conference registration in {{ countdown }}s…
           </div>
 
-          <!-- Conference registration CTA -->
-          <div class="rounded-xl border-2 p-6 text-center space-y-3"
-            :class="newAccountCreated ? 'border-[#0095B6] bg-blue-50/30' : 'border-gray-200 bg-gray-50'">
-            <div class="flex items-center justify-center w-10 h-10 rounded-full mx-auto"
-              :style="{ backgroundColor: newAccountCreated ? '#0095B6' : '#F7941D' }">
-              <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-              </svg>
-            </div>
-            <div>
-              <p class="font-bold text-gray-800 text-base">
-                {{ newAccountCreated ? 'Next Step: Register for the Conference' : 'Don\'t Forget to Register!' }}
-              </p>
-              <p class="text-xs text-gray-500 mt-1 leading-relaxed max-w-sm mx-auto">
-                Submitting an abstract does not register you for the event.
-                Please complete your conference registration to attend the
-                16<sup>th</sup> Best Practices Forum.
-              </p>
-            </div>
+          <p class="text-xs text-gray-400">
+            Not redirected?
             <router-link
-              :to="bpfEventId ? { name: 'Register', params: { id: bpfEventId } } : { name: 'Events' }"
-              class="inline-flex items-center gap-2 px-6 py-3 rounded-full font-semibold text-white text-sm shadow-lg transition hover:opacity-90"
-              style="background-color: #0095B6;"
-            >
-              Register for the Conference
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-              </svg>
+              :to="bpfEventId ? { name: 'Register', params: { id: bpfEventId }, query: registrationQuery } : { name: 'Events' }"
+              class="underline hover:opacity-80" style="color:#0095B6;">
+              Click here
             </router-link>
-          </div>
-
-          <!-- Secondary actions -->
-          <div class="flex items-center justify-center gap-4 text-sm pt-1">
-            <button @click="resetForm" class="text-gray-500 hover:text-gray-700 underline underline-offset-2">
-              Submit another abstract
-            </button>
-            <span class="text-gray-300">·</span>
-            <router-link :to="{ name: 'Login' }" class="hover:underline underline-offset-2" style="color: #0095B6;">
-              Log in to the portal
-            </router-link>
-          </div>
+          </p>
         </div>
 
         <!-- ── Form (hidden after submission) ──────────────────────────────── -->
@@ -608,11 +567,21 @@ const form = ref(emptyForm())
 const submitting = ref(false)
 const submitted = ref(false)
 const submitError = ref('')
-const newAccountCreated = ref(false)
-const accountEmail = ref('')
+const countdown = ref(5)
+const abstractId = ref(null)
+const authorFirstname = ref('')
+const authorLastname = ref('')
+const authorEmail = ref('')
 
 // ID of the BPF event to link to after abstract submission (first event in list)
 const bpfEventId = computed(() => events.value[0]?.id ?? null)
+
+const registrationQuery = computed(() => ({
+  ...(abstractId.value ? { abstract_id: abstractId.value } : {}),
+  ...(authorEmail.value ? { email: authorEmail.value } : {}),
+  ...(authorFirstname.value ? { firstname: authorFirstname.value } : {}),
+  ...(authorLastname.value ? { lastname: authorLastname.value } : {}),
+}))
 
 const wordCount = computed(() => {
   const text = form.value.abstract_text.trim()
@@ -627,13 +596,6 @@ const removeAuthor = (idx) => {
   form.value.authors.splice(idx, 1)
 }
 
-const resetForm = () => {
-  submitted.value = false
-  newAccountCreated.value = false
-  accountEmail.value = ''
-  submitError.value = ''
-  form.value = emptyForm()
-}
 
 const submitAbstract = async () => {
   submitting.value = true
@@ -648,18 +610,25 @@ const submitAbstract = async () => {
       presentation_type: form.value.presentation_type,
       authors: form.value.authors.map((a, i) => ({ ...a, author_order: i })),
     })
-    newAccountCreated.value = res.data.new_account_created ?? false
-    accountEmail.value = res.data.account_email ?? ''
+    abstractId.value = res.data.abstract_id ?? null
+    authorFirstname.value = res.data.author_firstname ?? ''
+    authorLastname.value = res.data.author_lastname ?? ''
+    authorEmail.value = res.data.author_email ?? ''
     submitted.value = true
     form.value = emptyForm()
-    // Redirect to conference registration after a brief moment so the success state is visible
-    setTimeout(() => {
-      if (bpfEventId.value) {
-        router.push({ name: 'Register', params: { id: bpfEventId.value } })
-      } else {
-        router.push({ name: 'Events' })
+
+    // Countdown then redirect to conference registration
+    countdown.value = 5
+    const timer = setInterval(() => {
+      countdown.value--
+      if (countdown.value <= 0) {
+        clearInterval(timer)
+        const dest = bpfEventId.value
+          ? { name: 'Register', params: { id: bpfEventId.value }, query: registrationQuery.value }
+          : { name: 'Events' }
+        router.push(dest)
       }
-    }, 2500)
+    }, 1000)
   } catch (e) {
     submitError.value = e.response?.data?.detail || 'Submission failed. Please try again.'
   } finally {

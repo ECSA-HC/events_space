@@ -11,6 +11,7 @@ class UserSchema(BaseModel):
     phone: str
     email: EmailStr
     event_name: Optional[str] = None
+    abstract_id: Optional[int] = None
 
     @field_validator("phone")
     def validate_phone(cls, value):

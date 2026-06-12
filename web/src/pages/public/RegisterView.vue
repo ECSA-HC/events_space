@@ -586,7 +586,14 @@ const handleRegister = async (proceedToPayment) => {
     payNow.value = proceedToPayment
     registrationError.value = null
 
-    const userPayload = { firstname: firstName.value, lastname: lastName.value, email: email.value, phone: phone.value, event_name: event.value?.event || null }
+    const userPayload = {
+      firstname: firstName.value,
+      lastname: lastName.value,
+      email: email.value,
+      phone: phone.value,
+      event_name: event.value?.event || null,
+      abstract_id: route.query.abstract_id ? parseInt(route.query.abstract_id) : null,
+    }
     const userProfilePayload = {
       title: title.value, middle_name: middleName.value, country_id: country_id.value,
       profession: profession.value, gender: gender.value, organisation: organisation.value, position: position.value,
@@ -622,6 +629,11 @@ onMounted(async () => {
     const res = await api.get('/countries', { params: { limit: 300 } })
     countries.value = res.data.data
   } catch {}
+
+  // Pre-fill from abstract submission redirect
+  if (route.query.firstname) firstName.value = route.query.firstname
+  if (route.query.lastname) lastName.value = route.query.lastname
+  if (route.query.email) email.value = route.query.email
 })
 </script>
 

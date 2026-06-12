@@ -94,11 +94,9 @@ def _serialize_abstract(a: Abstract):
 def submit_abstract(
     request: Request,
     schema: AbstractSubmitSchema,
-    background_tasks: BackgroundTasks,
     current_user: Optional[dict] = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
     dependency: Dependency = Depends(get_dependency),
-    auth_dep: Auth = Depends(get_auth_dep),
 ):
     word_count = len(schema.abstract_text.split())
 
@@ -112,11 +110,11 @@ def submit_abstract(
         else:
             track_id = None
 
-    # Determine the submitter user ID
-    # If logged in, use that user. Otherwise auto-register from the first author's email.
+    # Determine the submitter: logged-in user takes priority.
+    # For anonymous submissions, link to an existing account if the email matches.
+    # Account creation is deferred to the conference registration step.
     submitter_id = current_user["user_id"] if current_user else None
     submitter_email = current_user["username"] if current_user else None
-    new_account_created = False
 
     if not submitter_id and schema.authors:
         first_author = schema.authors[0]
@@ -128,32 +126,6 @@ def submit_abstract(
             if existing:
                 submitter_id = existing.id
                 submitter_email = existing.email
-            else:
-                # Create a portal account so they can track their submission
-                password = auth_dep.generate_random_password()
-                new_user = User(
-                    firstname=first_author.firstname,
-                    lastname=first_author.lastname,
-                    email=first_author.email,
-                    phone=None,
-                    hashed_password=auth_dep.hash_password(password),
-                    verified=True,
-                    must_change_password=True,
-                )
-                db.add(new_user)
-                db.flush()
-                role = auth_dep.get_user_role("User")
-                db.add(UserRole(user_id=new_user.id, role_id=role.id))
-                mailer_util.new_account_email(
-                    first_author.email,
-                    first_author.firstname,
-                    password,
-                    None,
-                    background_tasks,
-                )
-                submitter_id = new_user.id
-                submitter_email = new_user.email
-                new_account_created = True
 
     abstract = Abstract(
         event_id=schema.event_id,
@@ -200,10 +172,13 @@ def submit_abstract(
             f"Submitted abstract: {schema.title}",
         )
 
+    first_author = schema.authors[0] if schema.authors else None
     return {
         "abstract": _serialize_abstract(abstract),
-        "new_account_created": new_account_created,
-        "account_email": submitter_email if new_account_created else None,
+        "abstract_id": abstract.id,
+        "author_firstname": first_author.firstname if first_author else None,
+        "author_lastname": first_author.lastname if first_author else None,
+        "author_email": first_author.email if first_author else None,
     }
 
 
