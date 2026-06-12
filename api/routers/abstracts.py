@@ -1,5 +1,5 @@
 import io
-from typing import Annotated
+from typing import Annotated, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
@@ -93,7 +93,7 @@ def _serialize_abstract(a: Abstract):
 def submit_abstract(
     request: Request,
     schema: AbstractSubmitSchema,
-    current_user: dict | None = Depends(get_optional_current_user),
+    current_user: Optional[dict] = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
     dependency: Dependency = Depends(get_dependency),
 ):
