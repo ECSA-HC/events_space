@@ -1,6 +1,6 @@
 import io
 from typing import Annotated
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from openpyxl import Workbook
@@ -9,6 +9,7 @@ from openpyxl.utils import get_column_letter
 
 from core.database import get_db
 from dependencies.auth_dependency import Auth, get_current_user
+from dependencies.dependency import Dependency
 from models.models import Abstract, AbstractAuthor, AbstractReviewer, AbstractReview, User, UserRole, Role, EventTrack
 from datetime import datetime
 from schemas.events_space import (
@@ -24,6 +25,10 @@ user_dependency = Annotated[dict, Depends(get_current_user)]
 
 def get_auth_dep(db: Session = Depends(get_db)) -> Auth:
     return Auth(db)
+
+
+def get_dependency(db: Session = Depends(get_db)) -> Dependency:
+    return Dependency(db)
 
 
 def _serialize_abstract(a: Abstract):
@@ -86,9 +91,11 @@ def _serialize_abstract(a: Abstract):
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def submit_abstract(
+    request: Request,
     schema: AbstractSubmitSchema,
     current_user: user_dependency,
     db: Session = Depends(get_db),
+    dependency: Dependency = Depends(get_dependency),
 ):
     word_count = len(schema.abstract_text.split())
 
@@ -138,6 +145,15 @@ def submit_abstract(
         joinedload(Abstract.event_track),
         joinedload(Abstract.reviewer_assignments),
     ).filter(Abstract.id == abstract.id).first()
+
+    dependency.log_activity(
+        current_user["user_id"],
+        "SUBMIT_ABSTRACT",
+        current_user["username"],
+        dependency.request_ip(request),
+        f"Submitted abstract: {schema.title}",
+    )
+
     return _serialize_abstract(abstract)
 
 
