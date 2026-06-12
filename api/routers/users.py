@@ -124,11 +124,11 @@ async def add_user(
 ):
     auth_dependency.secure_access("ADD_USER", current_user["user_id"])
 
-    existing_email = db.query(User).filter(User.email == user_schema.email).first()
+    existing_email = db.query(User).filter(User.email == user_schema.email, User.deleted_at == None).first()
     if existing_email:
         raise HTTPException(status_code=400, detail="Email already exists")
 
-    existing_phone = db.query(User).filter(User.phone == user_schema.phone).first()
+    existing_phone = db.query(User).filter(User.phone == user_schema.phone, User.deleted_at == None).first()
     if existing_phone:
         raise HTTPException(status_code=400, detail="Phone number already exists")
 
