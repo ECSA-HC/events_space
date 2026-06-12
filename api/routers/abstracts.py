@@ -8,7 +8,7 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 
 from core.database import get_db
-from dependencies.auth_dependency import Auth, get_current_user
+from dependencies.auth_dependency import Auth, get_current_user, get_optional_current_user
 from dependencies.dependency import Dependency
 from models.models import Abstract, AbstractAuthor, AbstractReviewer, AbstractReview, User, UserRole, Role, EventTrack
 from datetime import datetime
@@ -93,7 +93,7 @@ def _serialize_abstract(a: Abstract):
 def submit_abstract(
     request: Request,
     schema: AbstractSubmitSchema,
-    current_user: user_dependency,
+    current_user: dict | None = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
     dependency: Dependency = Depends(get_dependency),
 ):
@@ -111,7 +111,7 @@ def submit_abstract(
 
     abstract = Abstract(
         event_id=schema.event_id,
-        submitted_by=current_user["user_id"],
+        submitted_by=current_user["user_id"] if current_user else None,
         title=schema.title,
         abstract_text=schema.abstract_text,
         keywords=schema.keywords,
@@ -146,13 +146,14 @@ def submit_abstract(
         joinedload(Abstract.reviewer_assignments),
     ).filter(Abstract.id == abstract.id).first()
 
-    dependency.log_activity(
-        current_user["user_id"],
-        "SUBMIT_ABSTRACT",
-        current_user["username"],
-        dependency.request_ip(request),
-        f"Submitted abstract: {schema.title}",
-    )
+    if current_user:
+        dependency.log_activity(
+            current_user["user_id"],
+            "SUBMIT_ABSTRACT",
+            current_user["username"],
+            dependency.request_ip(request),
+            f"Submitted abstract: {schema.title}",
+        )
 
     return _serialize_abstract(abstract)
 

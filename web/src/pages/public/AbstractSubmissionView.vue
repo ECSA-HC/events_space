@@ -289,17 +289,6 @@
           </div>
         </div>
 
-        <!-- Login prompt if not authenticated -->
-        <div v-if="!isAuthenticated" class="mb-6 bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 text-sm text-amber-800 flex items-start gap-3">
-          <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z"/>
-          </svg>
-          <div>
-            You must be logged in to submit an abstract.
-            <router-link :to="{ name: 'Login' }" class="ml-1 font-semibold underline hover:opacity-80" style="color: #0095B6;">Log in here →</router-link>
-          </div>
-        </div>
-
         <form @submit.prevent="submitAbstract" class="space-y-5">
 
           <!-- Event selection -->
@@ -477,7 +466,7 @@
           <div class="flex items-center gap-4 flex-wrap">
             <button
               type="submit"
-              :disabled="submitting || !isAuthenticated || wordCount > 300"
+              :disabled="submitting || wordCount > 300"
               class="px-8 py-3 rounded-full font-semibold text-white text-sm transition hover:opacity-90 disabled:opacity-60 shadow-sm"
               style="background-color: #0095B6;"
             >
@@ -501,7 +490,6 @@ import api from '@/plugins/axios'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
-const isAuthenticated = computed(() => auth.isAuthenticated)
 
 const events    = ref([])
 const dbTracks  = ref([])
@@ -591,7 +579,6 @@ const removeAuthor = (idx) => {
 }
 
 const submitAbstract = async () => {
-  if (!isAuthenticated.value) return
   submitting.value = true
   submitError.value = ''
   try {

@@ -695,7 +695,7 @@ class Abstract(BaseWithSoftDelete):
 
     id = Column(Integer, primary_key=True, index=True)
     event_id = Column(Integer, ForeignKey("event.id"), nullable=False)
-    submitted_by = Column(Integer, ForeignKey("user.id"), nullable=False)
+    submitted_by = Column(Integer, ForeignKey("user.id"), nullable=True)
     title = Column(Text, nullable=False)
     abstract_text = Column(Text, nullable=False)
     keywords = Column(Text, nullable=True)
