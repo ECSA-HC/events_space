@@ -25,6 +25,7 @@
         <option value="payment_reminder">Payment Reminder</option>
         <option value="reviewer_assignment">Reviewer Assignment</option>
         <option value="new_account">New Account</option>
+        <option value="admin_password_reset">Admin Password Reset</option>
         <option value="password_reset_request">Password Reset Request</option>
         <option value="password_reset">Password Reset</option>
         <option value="general">General</option>
@@ -318,26 +319,28 @@ function fmtDate(d) {
 
 function typeLabel(t) {
   const map = {
-    reviewer_assignment:   'Reviewer Assignment',
-    new_account:           'New Account',
-    event_invitation:      'Event Invitation',
-    payment_reminder:      'Payment Reminder',
+    reviewer_assignment:    'Reviewer Assignment',
+    new_account:            'New Account',
+    admin_password_reset:   'Admin Password Reset',
+    event_invitation:       'Event Invitation',
+    payment_reminder:       'Payment Reminder',
     password_reset_request: 'Password Reset Request',
-    password_reset:        'Password Reset',
-    general:               'General',
+    password_reset:         'Password Reset',
+    general:                'General',
   }
   return map[t] || t
 }
 
 function typeClass(t) {
   const map = {
-    reviewer_assignment:   'bg-blue-100 text-blue-700',
-    new_account:           'bg-purple-100 text-purple-700',
-    event_invitation:      'bg-teal-100 text-teal-700',
-    payment_reminder:      'bg-orange-100 text-orange-700',
+    reviewer_assignment:    'bg-blue-100 text-blue-700',
+    new_account:            'bg-purple-100 text-purple-700',
+    admin_password_reset:   'bg-amber-100 text-amber-700',
+    event_invitation:       'bg-teal-100 text-teal-700',
+    payment_reminder:       'bg-orange-100 text-orange-700',
     password_reset_request: 'bg-yellow-100 text-yellow-700',
-    password_reset:        'bg-yellow-100 text-yellow-700',
-    general:               'bg-gray-100 text-gray-600',
+    password_reset:         'bg-yellow-100 text-yellow-700',
+    general:                'bg-gray-100 text-gray-600',
   }
   return map[t] || 'bg-gray-100 text-gray-600'
 }

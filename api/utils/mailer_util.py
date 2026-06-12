@@ -181,6 +181,23 @@ def new_account_email(
                               email_type="new_account", sent_by_user_id=sent_by_user_id, db=db)
 
 
+def admin_password_reset_email(
+    recipient_email, firstname, password,
+    background_tasks: BackgroundTasks = None, db=None, sent_by_user_id=None,
+):
+    subject = "Your Password Has Been Reset – ECSA Events Portal"
+    template = templates.get_template("admin_password_reset_template.html")
+    email_body = template.render(
+        subject=subject,
+        firstname=firstname,
+        email=recipient_email,
+        password=password,
+        year=YEAR,
+    )
+    send_email_backgroundable(recipient_email, subject, email_body, background_tasks,
+                              email_type="admin_password_reset", sent_by_user_id=sent_by_user_id, db=db)
+
+
 def reset_password_request_email(
     recipient_email, firstname, reset_token, background_tasks: BackgroundTasks = None,
     db=None,

@@ -318,7 +318,7 @@ async def admin_reset_user_password(
     user.hashed_password = bcrypt.hash(new_password)
     db.commit()
 
-    mailer_util.new_account_email(
+    mailer_util.admin_password_reset_email(
         user.email,
         user.firstname,
         new_password,
