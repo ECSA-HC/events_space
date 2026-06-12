@@ -531,10 +531,12 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '@/plugins/axios'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
+const router = useRouter()
 
 const events    = ref([])
 const dbTracks  = ref([])
@@ -650,6 +652,14 @@ const submitAbstract = async () => {
     accountEmail.value = res.data.account_email ?? ''
     submitted.value = true
     form.value = emptyForm()
+    // Redirect to conference registration after a brief moment so the success state is visible
+    setTimeout(() => {
+      if (bpfEventId.value) {
+        router.push({ name: 'Register', params: { id: bpfEventId.value } })
+      } else {
+        router.push({ name: 'Events' })
+      }
+    }, 2500)
   } catch (e) {
     submitError.value = e.response?.data?.detail || 'Submission failed. Please try again.'
   } finally {
