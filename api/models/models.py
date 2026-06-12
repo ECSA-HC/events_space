@@ -103,7 +103,7 @@ class User(BaseWithSoftDelete):
     id = Column(Integer, primary_key=True, index=True)
     firstname = Column(String(45), nullable=False)
     lastname = Column(String(45), nullable=False)
-    phone = Column(String(25), nullable=False, unique=True)
+    phone = Column(String(25), nullable=True, unique=True)
     email = Column(String(45), nullable=False, unique=True)
     hashed_password = Column(String(200), nullable=False)
     verified = Column(Boolean, nullable=False, server_default="False")

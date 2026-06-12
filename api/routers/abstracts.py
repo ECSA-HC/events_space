@@ -10,6 +10,7 @@ from openpyxl.utils import get_column_letter
 from core.database import get_db
 from dependencies.auth_dependency import Auth, get_current_user, get_optional_current_user
 from dependencies.dependency import Dependency
+import utils.mailer_util as mailer_util
 from models.models import Abstract, AbstractAuthor, AbstractReviewer, AbstractReview, User, UserRole, Role, EventTrack
 from datetime import datetime
 from schemas.events_space import (
@@ -93,9 +94,11 @@ def _serialize_abstract(a: Abstract):
 def submit_abstract(
     request: Request,
     schema: AbstractSubmitSchema,
+    background_tasks: BackgroundTasks,
     current_user: Optional[dict] = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
     dependency: Dependency = Depends(get_dependency),
+    auth_dep: Auth = Depends(get_auth_dep),
 ):
     word_count = len(schema.abstract_text.split())
 
@@ -107,11 +110,52 @@ def submit_abstract(
         if track_record:
             track_text = f"{track_record.code}: {track_record.title}"
         else:
-            track_id = None  # invalid id — ignore
+            track_id = None
+
+    # Determine the submitter user ID
+    # If logged in, use that user. Otherwise auto-register from the first author's email.
+    submitter_id = current_user["user_id"] if current_user else None
+    submitter_email = current_user["username"] if current_user else None
+
+    if not submitter_id and schema.authors:
+        first_author = schema.authors[0]
+        if first_author.email:
+            existing = db.query(User).filter(
+                User.email == first_author.email,
+                User.deleted_at == None,
+            ).first()
+            if existing:
+                submitter_id = existing.id
+                submitter_email = existing.email
+            else:
+                # Create a portal account so they can track their submission
+                password = auth_dep.generate_random_password()
+                new_user = User(
+                    firstname=first_author.firstname,
+                    lastname=first_author.lastname,
+                    email=first_author.email,
+                    phone=None,
+                    hashed_password=auth_dep.hash_password(password),
+                    verified=True,
+                    must_change_password=True,
+                )
+                db.add(new_user)
+                db.flush()
+                role = auth_dep.get_user_role("User")
+                db.add(UserRole(user_id=new_user.id, role_id=role.id))
+                mailer_util.new_account_email(
+                    first_author.email,
+                    first_author.firstname,
+                    password,
+                    None,
+                    background_tasks,
+                )
+                submitter_id = new_user.id
+                submitter_email = new_user.email
 
     abstract = Abstract(
         event_id=schema.event_id,
-        submitted_by=current_user["user_id"] if current_user else None,
+        submitted_by=submitter_id,
         title=schema.title,
         abstract_text=schema.abstract_text,
         keywords=schema.keywords,
@@ -137,7 +181,6 @@ def submit_abstract(
 
     db.commit()
     db.refresh(abstract)
-    # reload with relationships
     abstract = db.query(Abstract).options(
         joinedload(Abstract.authors),
         joinedload(Abstract.submitter),
@@ -146,11 +189,11 @@ def submit_abstract(
         joinedload(Abstract.reviewer_assignments),
     ).filter(Abstract.id == abstract.id).first()
 
-    if current_user:
+    if submitter_id and submitter_email:
         dependency.log_activity(
-            current_user["user_id"],
+            submitter_id,
             "SUBMIT_ABSTRACT",
-            current_user["username"],
+            submitter_email,
             dependency.request_ip(request),
             f"Submitted abstract: {schema.title}",
         )
