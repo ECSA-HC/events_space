@@ -116,6 +116,7 @@ def submit_abstract(
     # If logged in, use that user. Otherwise auto-register from the first author's email.
     submitter_id = current_user["user_id"] if current_user else None
     submitter_email = current_user["username"] if current_user else None
+    new_account_created = False
 
     if not submitter_id and schema.authors:
         first_author = schema.authors[0]
@@ -152,6 +153,7 @@ def submit_abstract(
                 )
                 submitter_id = new_user.id
                 submitter_email = new_user.email
+                new_account_created = True
 
     abstract = Abstract(
         event_id=schema.event_id,
@@ -198,7 +200,11 @@ def submit_abstract(
             f"Submitted abstract: {schema.title}",
         )
 
-    return _serialize_abstract(abstract)
+    return {
+        "abstract": _serialize_abstract(abstract),
+        "new_account_created": new_account_created,
+        "account_email": submitter_email if new_account_created else None,
+    }
 
 
 @router.get("/")

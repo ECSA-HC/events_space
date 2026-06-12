@@ -277,6 +277,86 @@
 
       <!-- ─ Submit Abstract Form ──────────────────────────────────────────────── -->
       <section class="bg-white rounded-2xl shadow-sm p-8" id="submit">
+
+        <!-- ── Post-submission success state ───────────────────────────────── -->
+        <div v-if="submitted" class="space-y-5">
+
+          <!-- Green check + title -->
+          <div class="text-center pb-2">
+            <div class="flex items-center justify-center w-14 h-14 rounded-full bg-green-100 mx-auto mb-4">
+              <svg class="w-7 h-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-800">Abstract Submitted!</h2>
+            <p class="text-sm text-gray-500 mt-1">
+              Notification of acceptance will be sent before <strong>5<sup>th</sup> July 2026</strong>.
+            </p>
+          </div>
+
+          <!-- New account block (only for auto-registered users) -->
+          <div v-if="newAccountCreated" class="rounded-xl border border-blue-200 bg-blue-50 p-5 text-sm text-blue-800">
+            <p class="font-semibold flex items-center gap-2 mb-2">
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+              </svg>
+              Portal Account Created
+            </p>
+            <p class="text-xs leading-relaxed text-blue-700">
+              We created a portal account for you at
+              <strong class="text-blue-900">{{ accountEmail }}</strong>.
+              Your login credentials have been sent to that email address.
+              You will be asked to set your own password when you first log in.
+            </p>
+          </div>
+
+          <!-- Conference registration CTA -->
+          <div class="rounded-xl border-2 p-6 text-center space-y-3"
+            :class="newAccountCreated ? 'border-[#0095B6] bg-blue-50/30' : 'border-gray-200 bg-gray-50'">
+            <div class="flex items-center justify-center w-10 h-10 rounded-full mx-auto"
+              :style="{ backgroundColor: newAccountCreated ? '#0095B6' : '#F7941D' }">
+              <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="font-bold text-gray-800 text-base">
+                {{ newAccountCreated ? 'Next Step: Register for the Conference' : 'Don\'t Forget to Register!' }}
+              </p>
+              <p class="text-xs text-gray-500 mt-1 leading-relaxed max-w-sm mx-auto">
+                Submitting an abstract does not register you for the event.
+                Please complete your conference registration to attend the
+                16<sup>th</sup> Best Practices Forum.
+              </p>
+            </div>
+            <router-link
+              :to="bpfEventId ? { name: 'Register', params: { id: bpfEventId } } : { name: 'Events' }"
+              class="inline-flex items-center gap-2 px-6 py-3 rounded-full font-semibold text-white text-sm shadow-lg transition hover:opacity-90"
+              style="background-color: #0095B6;"
+            >
+              Register for the Conference
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </router-link>
+          </div>
+
+          <!-- Secondary actions -->
+          <div class="flex items-center justify-center gap-4 text-sm pt-1">
+            <button @click="resetForm" class="text-gray-500 hover:text-gray-700 underline underline-offset-2">
+              Submit another abstract
+            </button>
+            <span class="text-gray-300">·</span>
+            <router-link :to="{ name: 'Login' }" class="hover:underline underline-offset-2" style="color: #0095B6;">
+              Log in to the portal
+            </router-link>
+          </div>
+        </div>
+
+        <!-- ── Form (hidden after submission) ──────────────────────────────── -->
+        <template v-else>
         <div class="flex items-center gap-3 mb-6">
           <div class="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background-color: #0095B6;">
             <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -420,42 +500,6 @@
             </div>
           </div>
 
-          <!-- Success / error feedback -->
-          <div v-if="submitted" class="flex items-center gap-3 text-green-700 bg-green-50 border border-green-200 rounded-xl px-5 py-4 text-sm">
-            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-            </svg>
-            <div>
-              <p class="font-semibold">Abstract submitted successfully!</p>
-              <p class="text-green-600 mt-0.5">Notification of acceptance will be sent before 5<sup>th</sup> July 2026.</p>
-            </div>
-          </div>
-
-          <!-- BPF Registration prompt (shown after submission) -->
-          <div v-if="submitted" class="flex items-start gap-4 bg-blue-50 border border-blue-200 rounded-xl px-5 py-4 text-sm text-blue-800">
-            <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <div class="flex-1">
-              <p class="font-semibold mb-1">Don't forget to register for the BPF Event!</p>
-              <p class="text-blue-700 text-xs leading-relaxed mb-3">
-                Submitting an abstract does not automatically register you for the conference.
-                Please complete your conference registration to attend the 16<sup>th</sup> Best Practices Forum.
-              </p>
-              <router-link
-                :to="bpfEventId ? { name: 'Register', params: { id: bpfEventId } } : { name: 'Events' }"
-                class="inline-flex items-center gap-2 px-4 py-2 rounded-full font-semibold text-white text-xs shadow transition hover:opacity-90"
-                style="background-color: #0095B6;"
-              >
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                </svg>
-                Register for the Conference
-              </router-link>
-            </div>
-          </div>
-
           <div v-if="submitError" class="flex items-center gap-3 text-red-700 bg-red-50 border border-red-200 rounded-xl px-5 py-4 text-sm">
             <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -478,6 +522,7 @@
             </p>
           </div>
         </form>
+        </template>
       </section>
 
     </div>
@@ -546,21 +591,23 @@ const submittingItems = [
   'Abstracts fall outside of the topical scope of the meeting',
 ]
 
-const form = ref({
+const emptyForm = () => ({
   event_id: null,
   title: '',
   track_id: null,
   presentation_type: 'either',
   abstract_text: '',
   keywords: '',
-  authors: [
-    { firstname: '', lastname: '', email: '', affiliation: '', country: '', is_presenting: true }
-  ],
+  authors: [{ firstname: '', lastname: '', email: '', affiliation: '', country: '', is_presenting: true }],
 })
+
+const form = ref(emptyForm())
 
 const submitting = ref(false)
 const submitted = ref(false)
 const submitError = ref('')
+const newAccountCreated = ref(false)
+const accountEmail = ref('')
 
 // ID of the BPF event to link to after abstract submission (first event in list)
 const bpfEventId = computed(() => events.value[0]?.id ?? null)
@@ -578,11 +625,19 @@ const removeAuthor = (idx) => {
   form.value.authors.splice(idx, 1)
 }
 
+const resetForm = () => {
+  submitted.value = false
+  newAccountCreated.value = false
+  accountEmail.value = ''
+  submitError.value = ''
+  form.value = emptyForm()
+}
+
 const submitAbstract = async () => {
   submitting.value = true
   submitError.value = ''
   try {
-    await api.post('/abstracts/', {
+    const res = await api.post('/abstracts/', {
       event_id: form.value.event_id,
       title: form.value.title,
       abstract_text: form.value.abstract_text,
@@ -591,16 +646,10 @@ const submitAbstract = async () => {
       presentation_type: form.value.presentation_type,
       authors: form.value.authors.map((a, i) => ({ ...a, author_order: i })),
     })
+    newAccountCreated.value = res.data.new_account_created ?? false
+    accountEmail.value = res.data.account_email ?? ''
     submitted.value = true
-    form.value = {
-      event_id: null,
-      title: '',
-      track_id: null,
-      presentation_type: 'either',
-      abstract_text: '',
-      keywords: '',
-      authors: [{ firstname: '', lastname: '', email: '', affiliation: '', country: '', is_presenting: true }],
-    }
+    form.value = emptyForm()
   } catch (e) {
     submitError.value = e.response?.data?.detail || 'Submission failed. Please try again.'
   } finally {
