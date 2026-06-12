@@ -301,6 +301,7 @@ async def update_user(
 @router.post("/{user_id}/reset-password")
 async def admin_reset_user_password(
     user_id: int,
+    request: Request,
     current_user: user_dependency,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -317,18 +318,20 @@ async def admin_reset_user_password(
     user.hashed_password = bcrypt.hash(new_password)
     db.commit()
 
-    background_tasks.add_task(
-        mailer_util.new_account_email,
+    mailer_util.new_account_email(
         user.email,
         user.firstname,
         new_password,
+        background_tasks=background_tasks,
+        db=db,
+        sent_by_user_id=current_user["user_id"],
     )
 
     dependency.log_activity(
         current_user["user_id"],
         "ADMIN_RESET_PASSWORD",
         current_user["username"],
-        "127.0.0.1",
+        dependency.request_ip(request),
         f"Admin reset password for user id {user_id}",
     )
 
