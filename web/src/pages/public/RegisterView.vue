@@ -393,6 +393,21 @@
             <strong class="text-gray-700">{{ email }}</strong>.
           </p>
 
+          <!-- Temporary credentials notice -->
+          <div class="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 text-left max-w-md mx-auto">
+            <p class="font-semibold mb-1 flex items-center gap-2">
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+              </svg>
+              Temporary Credentials
+            </p>
+            <p class="text-xs leading-relaxed">
+              The password in your email is <strong>temporary</strong>. You will be prompted to set your
+              own password the first time you log in.
+            </p>
+          </div>
+
           <!-- Pay Now path: redirecting notice -->
           <div v-if="payNow" class="rounded-xl border border-blue-200 bg-blue-50 p-5 text-sm text-blue-800 text-left max-w-md mx-auto">
             <p class="font-semibold mb-2 flex items-center gap-2">

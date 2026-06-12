@@ -8,6 +8,7 @@ export const useAuthStore = defineStore("auth", {
     user: null,
     token: null,
     permissions: [],
+    mustChangePassword: false,
     refreshTimeout: null,
     needsRefresh: false,
   }),
@@ -21,6 +22,7 @@ export const useAuthStore = defineStore("auth", {
       this.user = user;
       this.token = token;
       this.permissions = permissions;
+      this.mustChangePassword = user?.must_change_password ?? false;
       this.needsRefresh = false;
       axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 
@@ -33,10 +35,11 @@ export const useAuthStore = defineStore("auth", {
       const token = localStorage.getItem("token");
       const user = localStorage.getItem("user");
       const permissions = localStorage.getItem("permissions");
-      if (token && user && permissions) {
+      if (token && user) {
         this.user = JSON.parse(user);
         this.token = token;
-        this.permissions = JSON.parse(permissions);
+        this.permissions = permissions ? JSON.parse(permissions) : [];
+        this.mustChangePassword = this.user?.must_change_password ?? false;
         this.needsRefresh = true; // stale — refresh on next navigation
         axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       }
@@ -57,6 +60,7 @@ export const useAuthStore = defineStore("auth", {
         const res = await axios.get("/auth/me");
         this.user = res.data.user;
         this.permissions = res.data.permissions;
+        this.mustChangePassword = res.data.user?.must_change_password ?? false;
         this.needsRefresh = false;
         localStorage.setItem("user", JSON.stringify(res.data.user));
         localStorage.setItem("permissions", JSON.stringify(res.data.permissions));

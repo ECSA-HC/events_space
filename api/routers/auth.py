@@ -24,6 +24,7 @@ from schemas.events_space import (
     EmailSchema,
     PasswordResetSchema,
     VerificationTokenSchema,
+    ChangePasswordSchema,
 )
 
 router = APIRouter()
@@ -39,6 +40,7 @@ def get_auth_dependency(db: Session = Depends(get_db)) -> Auth:
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(
+    request: Request,
     user_schema: UserSchema,
     background_tasks: BackgroundTasks,
     dependency: Dependency = Depends(get_dependency),
@@ -81,6 +83,7 @@ async def register(
         email=user_schema.email,
         hashed_password=hashed_password,
         verified=False,
+        must_change_password=True,
     )
     db.add(create_user_model)
     db.commit()
@@ -104,7 +107,7 @@ async def register(
         create_user_model.id,
         "USER_REGISTER",
         user_schema.email,
-        "127.0.0.1",
+        dependency.request_ip(request),
         user_schema.email,
     )
 
@@ -117,6 +120,7 @@ async def register(
 
 @router.post("/login")
 async def login(
+    request: Request,
     auth_schema: OAuth2PasswordRequestForm = Depends(),
     dependency: Dependency = Depends(get_dependency),
     auth_dependencies: Auth = Depends(get_auth_dependency),
@@ -149,7 +153,7 @@ async def login(
     )
 
     dependency.log_activity(
-        user.id, "USER_LOGIN", user.email, "127.0.0.1", auth_schema.username
+        user.id, "USER_LOGIN", user.email, dependency.request_ip(request), auth_schema.username
     )
 
     permissions = [
@@ -169,6 +173,7 @@ async def login(
             "phone": user.phone,
             "email": user.email,
             "verified": user.verified,
+            "must_change_password": user.must_change_password,
         },
         "permissions": permissions,
         "access_token": token,
@@ -351,9 +356,42 @@ async def get_me(
             "phone": user_with_permissions.phone,
             "email": user_with_permissions.email,
             "verified": user_with_permissions.verified,
+            "must_change_password": user_with_permissions.must_change_password,
         },
         "permissions": permissions,
     }
+
+
+@router.post("/change-password")
+async def change_password(
+    request: Request,
+    schema: ChangePasswordSchema,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    dependency: Dependency = Depends(get_dependency),
+    auth_dependencies: Auth = Depends(get_auth_dependency),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == current_user["user_id"], User.deleted_at == None).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    from passlib.hash import bcrypt as passlib_bcrypt
+    if not passlib_bcrypt.verify(schema.current_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    user.hashed_password = auth_dependencies.hash_password(schema.new_password)
+    user.must_change_password = False
+    db.commit()
+
+    dependency.log_activity(
+        current_user["user_id"],
+        "CHANGE_PASSWORD",
+        current_user["username"],
+        dependency.request_ip(request),
+        "User changed their password",
+    )
+
+    return {"detail": "Password changed successfully"}
 
 
 @router.post("/resend-verification")

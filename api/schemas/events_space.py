@@ -44,6 +44,11 @@ class PasswordResetSchema(BaseModel):
     rest_token: str
 
 
+class ChangePasswordSchema(BaseModel):
+    current_password: str
+    new_password: str
+
+
 class VerificationTokenSchema(BaseModel):
     verification_token: str
 

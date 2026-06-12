@@ -109,6 +109,7 @@ class User(BaseWithSoftDelete):
     verified = Column(Boolean, nullable=False, server_default="False")
     credentials_sent = Column(Boolean, nullable=False, server_default="0")
     is_reviewer = Column(Boolean, nullable=False, server_default="0")
+    must_change_password = Column(Boolean, nullable=False, server_default="0")
     created_at = Column(
         TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
     )

@@ -20,6 +20,7 @@ import AbstractSubmissionView from "@/pages/public/AbstractSubmissionView.vue";
 import PaymentView from "@/pages/public/PaymentView.vue";
 import EventAttendanceView from "@/pages/public/EventAttendanceView.vue";
 import RegistrationView from "@/pages/public/RegistrationView.vue";
+import ChangePasswordView from "@/pages/public/ChangePasswordView.vue";
 
 // Admin Pages
 import DashboardView from "@/pages/admin/DashboardView.vue";
@@ -101,6 +102,12 @@ const routes = [
         path: "registration/:id",
         name: "Registration",
         component: RegistrationView,
+      },
+      {
+        path: "change-password",
+        name: "ChangePassword",
+        component: ChangePasswordView,
+        meta: { requiresAuth: true },
       },
     ],
   },
@@ -296,6 +303,11 @@ router.beforeEach(async (to, from, next) => {
 
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
     return next({ name: "Login" });
+  }
+
+  // Force password change before accessing any protected page
+  if (auth.isAuthenticated && auth.mustChangePassword && to.name !== "ChangePassword") {
+    return next({ name: "ChangePassword" });
   }
 
   if (to.meta.permissions) {

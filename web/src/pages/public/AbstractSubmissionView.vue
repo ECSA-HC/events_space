@@ -442,6 +442,31 @@
             </div>
           </div>
 
+          <!-- BPF Registration prompt (shown after submission) -->
+          <div v-if="submitted" class="flex items-start gap-4 bg-blue-50 border border-blue-200 rounded-xl px-5 py-4 text-sm text-blue-800">
+            <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <div class="flex-1">
+              <p class="font-semibold mb-1">Don't forget to register for the BPF Event!</p>
+              <p class="text-blue-700 text-xs leading-relaxed mb-3">
+                Submitting an abstract does not automatically register you for the conference.
+                Please complete your conference registration to attend the 16<sup>th</sup> Best Practices Forum.
+              </p>
+              <router-link
+                :to="bpfEventId ? { name: 'Register', params: { id: bpfEventId } } : { name: 'Events' }"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-full font-semibold text-white text-xs shadow transition hover:opacity-90"
+                style="background-color: #0095B6;"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+                Register for the Conference
+              </router-link>
+            </div>
+          </div>
+
           <div v-if="submitError" class="flex items-center gap-3 text-red-700 bg-red-50 border border-red-200 rounded-xl px-5 py-4 text-sm">
             <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -548,6 +573,9 @@ const form = ref({
 const submitting = ref(false)
 const submitted = ref(false)
 const submitError = ref('')
+
+// ID of the BPF event to link to after abstract submission (first event in list)
+const bpfEventId = computed(() => events.value[0]?.id ?? null)
 
 const wordCount = computed(() => {
   const text = form.value.abstract_text.trim()

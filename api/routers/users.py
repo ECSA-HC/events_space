@@ -142,6 +142,7 @@ async def add_user(
         email=user_schema.email,
         hashed_password=hashed_password,
         verified=1,
+        must_change_password=True,
     )
 
     db.add(create_user_model)
@@ -316,6 +317,7 @@ async def admin_reset_user_password(
 
     new_password = auth_dependency.generate_random_password()
     user.hashed_password = bcrypt.hash(new_password)
+    user.must_change_password = True
     db.commit()
 
     mailer_util.admin_password_reset_email(
