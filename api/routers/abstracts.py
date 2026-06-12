@@ -11,7 +11,7 @@ from core.database import get_db
 from dependencies.auth_dependency import Auth, get_current_user, get_optional_current_user
 from dependencies.dependency import Dependency
 import utils.mailer_util as mailer_util
-from models.models import Abstract, AbstractAuthor, AbstractReviewer, AbstractReview, User, UserRole, Role, EventTrack
+from models.models import Abstract, AbstractAuthor, AbstractReviewer, AbstractReview, AbstractStatus, User, UserRole, Role, EventTrack
 from datetime import datetime
 from schemas.events_space import (
     AbstractSubmitSchema, AbstractUpdateSchema,
@@ -636,6 +636,8 @@ def bulk_assign_reviewer(
             reviewer_id=schema.reviewer_id,
             assigned_by=current_user["user_id"],
         ))
+        if abstract.status == AbstractStatus.submitted:
+            abstract.status = AbstractStatus.under_review
         assigned_abstracts.append(abstract)
 
     if not assigned_abstracts:
@@ -711,6 +713,9 @@ def assign_reviewer(
         assigned_by=current_user["user_id"],
     )
     db.add(assignment)
+
+    if abstract.status == AbstractStatus.submitted:
+        abstract.status = AbstractStatus.under_review
 
     import utils.mailer_util as mailer_util
 
