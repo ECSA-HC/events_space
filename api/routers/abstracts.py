@@ -780,7 +780,7 @@ def delete_abstract(
     db: Session = Depends(get_db),
     auth_dependency: Auth = Depends(get_auth_dep),
 ):
-    auth_dependency.secure_access("MANAGE_REVIEWERS", current_user["user_id"])
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
     abstract = db.query(Abstract).filter(Abstract.id == abstract_id, Abstract.deleted_at == None).first()
     if not abstract:
         raise HTTPException(status_code=404, detail="Abstract not found")
