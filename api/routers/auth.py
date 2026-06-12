@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session, joinedload
 
@@ -178,12 +178,13 @@ async def login(
 
 @router.post("/password-reset-link", status_code=200)
 async def forgot_password(
+    request: Request,
     email_schema: EmailSchema,
     background_tasks: BackgroundTasks,
     dependency: Dependency = Depends(get_dependency),
     db: Session = Depends(get_db),
 ):
-    user = db.query(User).filter(User.email == email_schema.email).first()
+    user = db.query(User).filter(User.email == email_schema.email, User.deleted_at == None).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Email not found"
@@ -216,11 +217,11 @@ async def forgot_password(
         db.commit()
 
     dependency.log_activity(
-        user.id, "USER_RESET_PASSWORD", user.email, "127.0.0.1", email_schema.email
+        user.id, "USER_RESET_PASSWORD", user.email, dependency.request_ip(request), email_schema.email
     )
 
     mailer_util.reset_password_request_email(
-        user.email, user.firstname, reset_token, background_tasks
+        user.email, user.firstname, reset_token, background_tasks, db=db
     )
 
     return {
@@ -230,6 +231,7 @@ async def forgot_password(
 
 @router.post("/reset_password", status_code=status.HTTP_201_CREATED)
 async def reset_password(
+    request: Request,
     password_reset_schema: PasswordResetSchema,
     background_tasks: BackgroundTasks,
     dependency: Dependency = Depends(get_dependency),
@@ -262,11 +264,11 @@ async def reset_password(
         user.id,
         "RESET_PASSWORD",
         user.email,
-        "127.0.0.1",
+        dependency.request_ip(request),
         password_reset_schema.rest_token,
     )
 
-    mailer_util.password_reset_email(user.email, user.firstname, background_tasks)
+    mailer_util.password_reset_email(user.email, user.firstname, background_tasks, db=db)
 
     return {"message": "Password reset successfully"}
 

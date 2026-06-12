@@ -182,7 +182,8 @@ def new_account_email(
 
 
 def reset_password_request_email(
-    recipient_email, firstname, reset_token, background_tasks: BackgroundTasks = None
+    recipient_email, firstname, reset_token, background_tasks: BackgroundTasks = None,
+    db=None,
 ):
     subject = "Password Reset Request"
     template = templates.get_template("password_reset_request_template.html")
@@ -193,11 +194,12 @@ def reset_password_request_email(
         reset_token=reset_token,
         year=YEAR,
     )
-    send_email_backgroundable(recipient_email, subject, email_body, background_tasks)
+    send_email_backgroundable(recipient_email, subject, email_body, background_tasks,
+                              email_type="password_reset_request", db=db)
 
 
 def password_reset_email(
-    recipient_email, firstname, background_tasks: BackgroundTasks = None
+    recipient_email, firstname, background_tasks: BackgroundTasks = None, db=None,
 ):
     subject = "Your ECSA-HC Event Spaces Account password has been reset"
     template = templates.get_template("password_reset_template.html")
@@ -207,7 +209,8 @@ def password_reset_email(
         email=recipient_email,
         year=YEAR,
     )
-    send_email_backgroundable(recipient_email, subject, email_body, background_tasks)
+    send_email_backgroundable(recipient_email, subject, email_body, background_tasks,
+                              email_type="password_reset", db=db)
 
 
 def account_verification_email(
