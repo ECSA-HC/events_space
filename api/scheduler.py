@@ -3,7 +3,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy.orm import Session, joinedload
 
 from core.database import SessionLocal
-from models.models import AbstractReviewer
+from models.models import AbstractReviewer, Abstract
 import utils.mailer_util as mailer_util
 import logging
 
@@ -21,7 +21,7 @@ def send_pending_review_reminders():
             db.query(AbstractReviewer)
             .options(
                 joinedload(AbstractReviewer.reviewer),
-                joinedload(AbstractReviewer.abstract).joinedload("event"),
+                joinedload(AbstractReviewer.abstract).joinedload(Abstract.event),
             )
             .filter(
                 AbstractReviewer.assigned_at <= cutoff,
