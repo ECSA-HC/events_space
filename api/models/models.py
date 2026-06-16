@@ -740,6 +740,7 @@ class AbstractReviewer(Base):
     assigned_by = Column(Integer, ForeignKey("user.id"), nullable=False)
     assigned_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     completed = Column(Boolean, default=False)
+    reminder_sent_at = Column(TIMESTAMP(timezone=True), nullable=True)
 
     abstract = relationship("Abstract", back_populates="reviewer_assignments")
     reviewer = relationship("User", foreign_keys=[reviewer_id])

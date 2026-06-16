@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{subject}}</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        background-color: #f4f4f4;
+        margin: 0;
+        padding: 0;
+        color: #333333;
+      }
+      .email-container {
+        width: 100%;
+        max-width: 800px;
+        margin: 0 auto;
+        background-color: #ffffff;
+        padding: 40px;
+        box-sizing: border-box;
+        border-top: 6px solid #f7941d;
+      }
+      h1 { font-size: 24px; margin-bottom: 16px; color: #7a4500; }
+      h2 { font-size: 18px; color: #003f5c; margin-bottom: 8px; }
+      p { font-size: 16px; line-height: 1.5; margin-bottom: 16px; color: #444444; }
+      .reminder-banner {
+        background-color: #fff8f0;
+        border-left: 4px solid #f7941d;
+        border-radius: 0 8px 8px 0;
+        padding: 12px 20px;
+        margin: 0 0 20px 0;
+        font-size: 15px;
+        color: #7a4500;
+      }
+      .abstract-box {
+        background-color: #f0f8ff;
+        border-left: 4px solid #0095b6;
+        border-radius: 0 8px 8px 0;
+        padding: 16px 20px;
+        margin: 20px 0;
+      }
+      .abstract-box p { margin: 4px 0; font-size: 15px; }
+      .steps-box {
+        background-color: #fffbf0;
+        border: 1px solid #f0d070;
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 20px 0;
+      }
+      .steps-box ol { margin: 8px 0 0 0; padding-left: 20px; }
+      .steps-box li { font-size: 15px; line-height: 1.7; color: #555; }
+      a.button {
+        display: inline-block;
+        background-color: #f7941d;
+        color: #ffffff;
+        text-decoration: none;
+        padding: 12px 28px;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        margin-top: 16px;
+      }
+      .footer {
+        font-size: 13px;
+        color: #888888;
+        margin-top: 40px;
+        border-top: 1px solid #eaeaea;
+        padding-top: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="email-container">
+      <h1>Reminder: Abstract Review Pending</h1>
+      <p>Dear <strong>{{ firstname }}</strong>,</p>
+
+      <div class="reminder-banner">
+        This is a friendly reminder that you have a pending abstract review that has not yet been submitted.
+        The abstract was assigned to you <strong>more than 48 hours ago</strong>.
+      </div>
+
+      <p>
+        We kindly ask you to log in and complete your review at your earliest convenience so that
+        authors can receive timely feedback.
+      </p>
+
+      <div class="abstract-box">
+        <h2>Pending Review Details</h2>
+        <p><strong>Abstract Title:</strong> {{ abstract_title }}</p>
+        {% if event_name %}
+        <p><strong>Event:</strong> {{ event_name }}</p>
+        {% endif %}
+        <p><strong>Assigned:</strong> {{ assigned_at }}</p>
+      </div>
+
+      <div class="steps-box">
+        <strong>How to submit your review:</strong>
+        <ol>
+          <li>Log in at <a href="https://events.ecsahc.org/login">events.ecsahc.org</a></li>
+          <li>Go to <strong>My Account → My Reviews</strong></li>
+          <li>Find the assigned abstract and click <strong>Submit Review</strong></li>
+        </ol>
+      </div>
+
+      <a href="https://events.ecsahc.org/login" class="button">Complete Your Review Now</a>
+
+      <p style="margin-top: 28px;">
+        If you are unable to complete this review, please reply to this email so we can make alternative arrangements.
+      </p>
+
+      <p>Thank you for your valuable contribution to the scientific programme.</p>
+
+      <p>Warm regards,<br />ECSA Events Team<br />ECSA-HC Secretariat</p>
+      <div class="footer">&copy; {{ year }} ECSA-HC. All rights reserved.</div>
+    </div>
+  </body>
+</html>

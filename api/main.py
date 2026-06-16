@@ -1,6 +1,9 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+
+from scheduler import start_scheduler
 
 from routers import (
     auth,
@@ -18,8 +21,16 @@ from routers import (
     email_logs,
 )
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    scheduler = start_scheduler()
+    yield
+    scheduler.shutdown()
+
+
 app = FastAPI(
     title="ECSA Events Space API Documentation",
+    lifespan=lifespan,
     description="The ECSA Events Space API is an API for ECSA Events Management System.",
     version="0.0.1",
     terms_of_service="http://example.com/terms/",

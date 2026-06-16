@@ -396,6 +396,29 @@ def reviewer_assignment_email(
     )
 
 
+def reviewer_reminder_email(
+    recipient_email,
+    firstname,
+    abstract_title,
+    assigned_at,
+    event_name=None,
+    background_tasks: BackgroundTasks = None,
+    db=None,
+):
+    subject = f"Reminder: Your Abstract Review Is Still Pending – {abstract_title[:60]}"
+    template = templates.get_template("reviewer_reminder_template.html")
+    email_body = template.render(
+        subject=subject,
+        firstname=firstname,
+        abstract_title=abstract_title,
+        event_name=event_name,
+        assigned_at=assigned_at.strftime("%d %B %Y, %H:%M UTC"),
+        year=YEAR,
+    )
+    send_email_backgroundable(recipient_email, subject, email_body, background_tasks,
+                              email_type="reviewer_reminder", db=db)
+
+
 def reviewer_bulk_assignment_email(
     recipient_email,
     firstname,
