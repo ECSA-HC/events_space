@@ -209,6 +209,7 @@ def reset_password_request_email(
         username=recipient_email,
         firstname=firstname,
         reset_token=reset_token,
+        app_base_url=APP_BASE_URL,
         year=YEAR,
     )
     send_email_backgroundable(recipient_email, subject, email_body, background_tasks,

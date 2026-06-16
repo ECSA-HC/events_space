@@ -48,7 +48,7 @@
             <svg class="w-4 h-4 text-orange-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-            <span><a href="mailto:abstracts2019@ecsahc.org" class="underline hover:text-white">abstracts2019@ecsahc.org</a></span>
+            <span><a href="mailto:smyeni@ecsahc.org" class="underline hover:text-white">smyeni@ecsahc.org</a></span>
           </div>
         </div>
       </div>
@@ -284,7 +284,7 @@
             <p class="text-sm text-amber-700 leading-relaxed">
               Only the first author or submitter may withdraw an abstract from the program. Requests for withdrawals must
               come to the ECSA-HC 2026 in writing, by email to
-              <a href="mailto:abstracts2019@ecsahc.org" class="font-semibold underline hover:opacity-80">abstracts2019@ecsahc.org</a>.
+              <a href="mailto:smyeni@ecsahc.org" class="font-semibold underline hover:opacity-80">smyeni@ecsahc.org</a>.
             </p>
           </div>
         </div>
@@ -311,7 +311,7 @@
             <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-            For enquiries: <a href="mailto:abstracts2019@ecsahc.org" class="underline ml-1">abstracts2019@ecsahc.org</a>
+            For enquiries: <a href="mailto:smyeni@ecsahc.org" class="underline ml-1">smyeni@ecsahc.org</a>
           </div>
         </div>
 
@@ -514,7 +514,7 @@
             </button>
             <p class="text-xs text-gray-400">
               For technical support contact
-              <a href="mailto:abstracts2019@ecsahc.org" class="underline" style="color: #0095B6;">abstracts2019@ecsahc.org</a>
+              <a href="mailto:smyeni@ecsahc.org" class="underline" style="color: #0095B6;">smyeni@ecsahc.org</a>
             </p>
           </div>
         </form>
