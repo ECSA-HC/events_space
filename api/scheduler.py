@@ -40,6 +40,10 @@ def send_pending_review_reminders():
             event_name = abstract.event.event if abstract.event else None
 
             try:
+                # Claim the row first to avoid duplicate sends across workers
+                assignment.reminder_sent_at = datetime.now(timezone.utc)
+                db.commit()
+
                 mailer_util.reviewer_reminder_email(
                     recipient_email=reviewer.email,
                     firstname=reviewer.firstname,
@@ -48,8 +52,6 @@ def send_pending_review_reminders():
                     event_name=event_name,
                     db=db,
                 )
-                assignment.reminder_sent_at = datetime.now(timezone.utc)
-                db.commit()
                 logger.info("Reminder sent to %s for abstract %s", reviewer.email, abstract.id)
             except Exception as e:
                 logger.error("Failed to send reminder to %s: %s", reviewer.email, e)
