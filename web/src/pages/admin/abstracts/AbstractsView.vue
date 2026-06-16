@@ -6,11 +6,11 @@
       <div>
         <h1 class="text-2xl font-semibold text-black">Abstract Submissions</h1>
         <p v-if="!loading" class="text-sm text-gray-400 mt-0.5">
-          {{ filtered.length }} {{ filtered.length === 1 ? 'abstract' : 'abstracts' }}
-          <span v-if="filtered.length !== abstracts.length">(filtered from {{ abstracts.length }})</span>
+          {{ total }} {{ total === 1 ? 'abstract' : 'abstracts' }}
+          <span v-if="filterEvent || filterStatus || filterTrack || search"> (filtered)</span>
         </p>
       </div>
-      <button @click="exportExcel" :disabled="exporting || loading || filtered.length === 0"
+      <button @click="exportExcel" :disabled="exporting || loading || total === 0"
         class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
         style="background-color:#0095B6;">
         <svg v-if="!exporting" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -21,7 +21,7 @@
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
         </svg>
-        {{ exporting ? 'Exporting…' : `Export ${filtered.length > 0 ? filtered.length + ' ' : ''}to Excel` }}
+        {{ exporting ? 'Exporting…' : `Export${total > 0 ? ' ' + total : ''} to Excel` }}
       </button>
     </div>
 
@@ -84,7 +84,7 @@
           <span class="font-semibold text-sm">
             {{ selectedIds.size }} abstract{{ selectedIds.size !== 1 ? 's' : '' }} selected
           </span>
-          <button @click="selectedIds.clear(); selectedIds = new Set()"
+          <button @click="selectedItems = new Map()"
             class="text-white/60 hover:text-white text-xs underline ml-1">Clear</button>
         </div>
         <button @click="openBulkModal"
@@ -133,7 +133,7 @@
               <input type="checkbox" class="w-4 h-4 cursor-pointer"
                 style="accent-color:#0095B6;"
                 :checked="selectedIds.has(abs.id)"
-                @change="toggleRow(abs.id)" />
+                @change="toggleRow(abs)" />
             </td>
             <td class="px-4 py-3 font-medium text-gray-800 max-w-[200px] truncate">{{ abs.title }}</td>
             <td class="px-4 py-3 hidden lg:table-cell">
@@ -206,13 +206,27 @@
       </table>
 
       <!-- Pagination -->
-      <div v-if="filtered.length > pageSize"
-        class="flex items-center justify-between px-4 py-3 border-t text-sm text-gray-500">
-        <span>{{ filtered.length }} total</span>
-        <div class="flex gap-2">
-          <button @click="page--" :disabled="page===1" class="px-3 py-1 rounded border disabled:opacity-40">Prev</button>
-          <span class="px-2 py-1">{{ page }} / {{ totalPages }}</span>
-          <button @click="page++" :disabled="page===totalPages" class="px-3 py-1 rounded border disabled:opacity-40">Next</button>
+      <div v-if="total > pageSize"
+        class="flex items-center justify-between px-4 py-3 border-t text-sm text-gray-500 flex-wrap gap-2">
+        <span>{{ ((page - 1) * pageSize) + 1 }}–{{ Math.min(page * pageSize, total) }} of {{ total }}</span>
+        <div class="flex items-center gap-1">
+          <button @click="goToPage(1)" :disabled="page === 1"
+            class="px-2 py-1 rounded border disabled:opacity-40 text-xs">«</button>
+          <button @click="goToPage(page - 1)" :disabled="page === 1"
+            class="px-3 py-1 rounded border disabled:opacity-40">Prev</button>
+          <template v-for="p in pageNumbers" :key="p">
+            <span v-if="p === '...'" class="px-2 py-1 text-gray-400">…</span>
+            <button v-else @click="goToPage(p)"
+              class="px-3 py-1 rounded border transition"
+              :class="p === page ? 'text-white border-[#0095B6]' : 'hover:bg-gray-50'"
+              :style="p === page ? 'background-color:#0095B6;' : ''">
+              {{ p }}
+            </button>
+          </template>
+          <button @click="goToPage(page + 1)" :disabled="page === totalPages"
+            class="px-3 py-1 rounded border disabled:opacity-40">Next</button>
+          <button @click="goToPage(totalPages)" :disabled="page === totalPages"
+            class="px-2 py-1 rounded border disabled:opacity-40 text-xs">»</button>
         </div>
       </div>
     </div>
@@ -381,7 +395,7 @@
                   class="flex-shrink-0 text-xs font-medium" style="color:#0095B6;">
                   {{ abs.reviewer_assignments.length }} reviewer{{ abs.reviewer_assignments.length !== 1 ? 's' : '' }}
                 </span>
-                <button @click="selectedIds.delete(abs.id); selectedIds = new Set(selectedIds)"
+                <button @click="selectedItems = new Map([...selectedItems].filter(([k]) => k !== abs.id))"
                   class="text-gray-300 hover:text-red-400 flex-shrink-0">✕</button>
               </div>
             </div>
@@ -524,7 +538,8 @@ import api from '@/plugins/axios'
 
 const route        = useRoute()
 
-const abstracts    = ref([])
+const abstracts    = ref([])   // current page only
+const total        = ref(0)    // total matching records from server
 const events       = ref([])
 const tracks       = ref([])
 const loading      = ref(true)
@@ -534,13 +549,11 @@ const filterEvent  = ref('')
 const filterStatus = ref('')
 const filterTrack  = ref('')
 const page         = ref(1)
-const pageSize     = 15
+const pageSize     = 50
 
-// Reset to page 1 whenever any filter changes
-watch([search, filterEvent, filterStatus, filterTrack], () => { page.value = 1 })
-
-// Row selection (Set for O(1) lookup)
-let selectedIds    = ref(new Set())
+// Cross-page selection: Map<id, abstractObj>
+const selectedItems = ref(new Map())
+const selectedIds   = computed(() => new Set(selectedItems.value.keys()))
 
 const quickSearchRef = ref(null)
 
@@ -636,9 +649,7 @@ const bulkModal = ref({
 })
 const bulkDropdownOpen = ref(false)
 
-const selectedAbstracts = computed(() =>
-  abstracts.value.filter(a => selectedIds.value.has(a.id))
-)
+const selectedAbstracts = computed(() => [...selectedItems.value.values()])
 
 // Reviewers filtered for bulk-assign: match search + not already chip-selected
 const bulkFilteredReviewers = computed(() => {
@@ -671,7 +682,7 @@ function removeBulkReviewer(id) {
 }
 
 async function runBulkAssign() {
-  const abstractIds = [...selectedIds.value]
+  const abstractIds = [...selectedIds.value]  // selectedIds is now a computed Set
   const reviewers   = bulkModal.value.reviewers
   if (!abstractIds.length || !reviewers.length) return
 
@@ -702,51 +713,75 @@ async function runBulkAssign() {
     bulkModal.value.progress++
   }
 
-  // Refresh all affected abstracts in the list
-  for (const aId of abstractIds) {
-    try {
-      const fresh = await api.get(`/abstracts/${aId}`)
-      const idx = abstracts.value.findIndex(a => a.id === aId)
-      if (idx !== -1) abstracts.value[idx] = fresh.data
-    } catch (_) {}
-  }
-
   bulkModal.value.assigning = false
   bulkModal.value.done      = true
+  selectedItems.value = new Map()
+  fetchAbstracts()
 }
 
 // ── Row/page selection helpers ───────────────────────────────────────────────
-function toggleRow(id) {
-  const s = new Set(selectedIds.value)
-  s.has(id) ? s.delete(id) : s.add(id)
-  selectedIds.value = s
+function toggleRow(abs) {
+  const m = new Map(selectedItems.value)
+  m.has(abs.id) ? m.delete(abs.id) : m.set(abs.id, abs)
+  selectedItems.value = m
 }
 
 function toggleSelectAll() {
-  if (selectedIds.value.size === paginated.value.length) {
-    selectedIds.value = new Set()
+  const m = new Map(selectedItems.value)
+  const allOnPage = abstracts.value.every(a => m.has(a.id))
+  if (allOnPage) {
+    abstracts.value.forEach(a => m.delete(a.id))
   } else {
-    selectedIds.value = new Set(paginated.value.map(a => a.id))
+    abstracts.value.forEach(a => m.set(a.id, a))
   }
+  selectedItems.value = m
+}
+
+function goToPage(p) {
+  if (p < 1 || p > totalPages.value || p === page.value) return
+  page.value = p
 }
 
 // ── Data / filters ───────────────────────────────────────────────────────────
-onMounted(async () => {
-  // Pick up track_id query param from Tracks page navigation
-  if (route.query.track_id) filterTrack.value = Number(route.query.track_id)
-
+async function fetchAbstracts() {
+  loading.value = true
   try {
-    const [absRes, evRes, trackRes] = await Promise.all([
-      api.get('/abstracts/'),
-      api.get('/events/?skip=0&limit=200'),
-      api.get('/abstracts/tracks/list'),
-    ])
-    abstracts.value = absRes.data
-    events.value    = evRes.data.data || []
-    tracks.value    = trackRes.data || []
+    const params = new URLSearchParams()
+    params.set('skip',  String((page.value - 1) * pageSize))
+    params.set('limit', String(pageSize))
+    if (filterEvent.value)  params.set('event_id', filterEvent.value)
+    if (filterStatus.value) params.set('status',   filterStatus.value)
+    if (filterTrack.value)  params.set('track_id', filterTrack.value)
+    if (search.value.trim()) params.set('search',  search.value.trim())
+    const res = await api.get(`/abstracts/?${params}`)
+    abstracts.value = res.data.data  || []
+    total.value     = res.data.total ?? 0
   } finally {
     loading.value = false
   }
+}
+
+// Reset to page 1 and refetch when any filter changes
+watch([search, filterEvent, filterStatus, filterTrack], () => {
+  page.value = 1
+  fetchAbstracts()
+})
+
+watch(page, fetchAbstracts)
+
+onMounted(async () => {
+  if (route.query.track_id) filterTrack.value = Number(route.query.track_id)
+
+  try {
+    const [evRes, trackRes] = await Promise.all([
+      api.get('/events/?skip=0&limit=200'),
+      api.get('/abstracts/tracks/list'),
+    ])
+    events.value = evRes.data.data || []
+    tracks.value = trackRes.data   || []
+  } catch (_) {}
+
+  await fetchAbstracts()
 })
 
 const exportExcel = async () => {
@@ -779,19 +814,32 @@ const deleteAbstract = async (abs) => {
   try {
     await api.delete(`/abstracts/${abs.id}`)
     abstracts.value = abstracts.value.filter(a => a.id !== abs.id)
-    const s = new Set(selectedIds.value); s.delete(abs.id); selectedIds.value = s
+    total.value = Math.max(0, total.value - 1)
+    const m = new Map(selectedItems.value); m.delete(abs.id); selectedItems.value = m
   } catch (e) {
     alert(e.response?.data?.detail || 'Failed to delete abstract')
   }
 }
 
-const filtered = computed(() => {
-  let list = abstracts.value
-  if (search.value)       list = list.filter(a => a.title.toLowerCase().includes(search.value.toLowerCase()))
-  if (filterEvent.value)  list = list.filter(a => a.event_id === filterEvent.value)
-  if (filterStatus.value) list = list.filter(a => a.status === filterStatus.value)
-  if (filterTrack.value)  list = list.filter(a => a.track_id === filterTrack.value)
-  return list
+// Server already filters — paginated is just the current page from the API
+const paginated  = computed(() => abstracts.value)
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
+
+// Smart page number list: 1 … 4 5 6 … 12
+const pageNumbers = computed(() => {
+  const tp = totalPages.value
+  const p  = page.value
+  if (tp <= 7) return Array.from({ length: tp }, (_, i) => i + 1)
+  const pages = new Set([1, tp, p, p - 1, p + 1].filter(n => n >= 1 && n <= tp))
+  const sorted = [...pages].sort((a, b) => a - b)
+  const result = []
+  let prev = 0
+  for (const n of sorted) {
+    if (n - prev > 1) result.push('...')
+    result.push(n)
+    prev = n
+  }
+  return result
 })
 
 // Name of the currently active track filter (for display)
@@ -800,9 +848,6 @@ const activeTrackName = computed(() => {
   const t = tracks.value.find(t => t.id === filterTrack.value)
   return t ? `${t.code}: ${t.title}` : ''
 })
-
-const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / pageSize)))
-const paginated  = computed(() => filtered.value.slice((page.value - 1) * pageSize, page.value * pageSize))
 
 const statusClass = (s) => ({
   submitted: 'bg-blue-100 text-blue-700',

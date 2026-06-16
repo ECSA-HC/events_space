@@ -187,23 +187,49 @@ def list_abstracts(
     current_user: user_dependency,
     db: Session = Depends(get_db),
     auth_dependency: Auth = Depends(get_auth_dep),
-    event_id: int = None,
+    event_id: int = Query(None),
+    status_filter: str = Query(None, alias="status"),
+    search: str = Query(None),
+    track_id: int = Query(None),
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 50,
 ):
     auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
-    q = db.query(Abstract).options(
-        joinedload(Abstract.authors),
-        joinedload(Abstract.submitter),
-        joinedload(Abstract.event),
-        joinedload(Abstract.event_track),
-        joinedload(Abstract.reviewer_assignments).joinedload(AbstractReviewer.reviewer),
-        joinedload(Abstract.reviewer_assignments).joinedload(AbstractReviewer.review),
-    ).filter(Abstract.deleted_at == None)
+
+    # Base filter query (no eager loads — used for count)
+    q = db.query(Abstract).filter(Abstract.deleted_at == None)
     if event_id:
         q = q.filter(Abstract.event_id == event_id)
-    abstracts = q.order_by(Abstract.created_at.desc()).offset(skip).limit(limit).all()
-    return [_serialize_abstract(a) for a in abstracts]
+    if status_filter:
+        q = q.filter(Abstract.status == status_filter)
+    if track_id:
+        q = q.filter(Abstract.track_id == track_id)
+    if search:
+        q = q.filter(Abstract.title.ilike(f"%{search}%"))
+
+    total = q.count()
+
+    rows = (
+        q.options(
+            joinedload(Abstract.authors),
+            joinedload(Abstract.submitter),
+            joinedload(Abstract.event),
+            joinedload(Abstract.event_track),
+            joinedload(Abstract.reviewer_assignments).joinedload(AbstractReviewer.reviewer),
+            joinedload(Abstract.reviewer_assignments).joinedload(AbstractReviewer.review),
+        )
+        .order_by(Abstract.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    return {
+        "data": [_serialize_abstract(a) for a in rows],
+        "total": total,
+        "skip": skip,
+        "limit": limit,
+    }
 
 
 @router.get("/export")
