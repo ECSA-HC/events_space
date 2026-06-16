@@ -19,7 +19,14 @@
         </p>
 
         <!-- Status badge -->
-        <div class="mt-8 inline-flex items-center gap-3 px-6 py-3 rounded-2xl font-semibold text-sm" style="background-color: #F7941D; color: #fff;">
+        <div v-if="submissionClosed"
+          class="mt-8 inline-flex items-center gap-3 px-6 py-3 rounded-2xl font-semibold text-sm bg-red-600 text-white">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+          </svg>
+          Abstract Submission — CLOSED
+        </div>
+        <div v-else class="mt-8 inline-flex items-center gap-3 px-6 py-3 rounded-2xl font-semibold text-sm" style="background-color: #F7941D; color: #fff;">
           <span class="relative flex h-3 w-3">
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-white"></span>
             <span class="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
@@ -29,8 +36,9 @@
 
         <!-- Deadline pill -->
         <div class="mt-4 flex justify-center gap-4 flex-wrap">
-          <div class="inline-flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full text-sm">
-            <svg class="w-4 h-4 text-orange-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
+            :class="submissionClosed ? 'bg-red-500/30 text-red-100 line-through' : 'bg-white/10'">
+            <svg class="w-4 h-4" :class="submissionClosed ? 'text-red-300' : 'text-orange-300'" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
@@ -151,21 +159,28 @@
         </section>
 
         <!-- Deadline -->
-        <section class="bg-white rounded-2xl shadow-sm p-7">
+        <section :class="submissionClosed ? 'bg-red-50 border border-red-300' : 'bg-white'" class="rounded-2xl shadow-sm p-7">
           <div class="flex items-center gap-2 mb-4">
-            <div class="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background-color: #F7941D;">
+            <div class="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0"
+              :style="{ backgroundColor: submissionClosed ? '#dc2626' : '#F7941D' }">
               <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
-            <h3 class="font-bold text-gray-800">Abstract Deadline</h3>
+            <h3 class="font-bold" :class="submissionClosed ? 'text-red-800' : 'text-gray-800'">Abstract Deadline</h3>
           </div>
-          <div class="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 mb-3 text-center">
-            <p class="text-2xl font-black" style="color: #F7941D;">15<sup>th</sup> June 2026</p>
-            <p class="text-xs text-orange-600 mt-1">Strictly observed</p>
+          <div :class="submissionClosed ? 'bg-red-100 border-red-300' : 'bg-orange-50 border-orange-200'"
+            class="border rounded-xl px-4 py-3 mb-3 text-center">
+            <p class="text-2xl font-black line-through" :style="{ color: submissionClosed ? '#dc2626' : '#F7941D' }">15<sup>th</sup> June 2026</p>
+            <p class="text-xs font-bold mt-1" :class="submissionClosed ? 'text-red-700' : 'text-orange-600'">
+              {{ submissionClosed ? 'DEADLINE PASSED' : 'Strictly observed' }}
+            </p>
           </div>
-          <p class="text-xs text-gray-600 leading-relaxed">
+          <p v-if="submissionClosed" class="text-xs text-red-700 leading-relaxed font-medium">
+            The submission window closed on 15<sup>th</sup> June 2026. No further abstracts are being accepted.
+          </p>
+          <p v-else class="text-xs text-gray-600 leading-relaxed">
             Abstract deadlines are strictly observed. Only abstracts received by the published deadline (15<sup>th</sup> June 2026) are guaranteed acceptance.
             Post-deadline abstracts will not be accepted.
           </p>
@@ -276,10 +291,32 @@
       </section>
 
       <!-- ─ Submit Abstract Form ──────────────────────────────────────────────── -->
-      <section class="bg-white rounded-2xl shadow-sm p-8" id="submit">
+      <section class="rounded-2xl shadow-sm p-8" :class="submissionClosed ? 'bg-red-50 border-2 border-red-300' : 'bg-white'" id="submit">
+
+        <!-- ── Submissions closed notice ───────────────────────────────────── -->
+        <div v-if="submissionClosed" class="text-center py-8 space-y-5">
+          <div class="flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mx-auto">
+            <svg class="w-8 h-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+            </svg>
+          </div>
+          <div class="space-y-2">
+            <h2 class="text-2xl font-black text-red-700">Abstract Submissions Closed</h2>
+            <p class="text-sm text-red-600 max-w-md mx-auto leading-relaxed">
+              The submission deadline of <strong>15<sup>th</sup> June 2026</strong> has passed.
+              No further abstracts are being accepted at this time.
+            </p>
+          </div>
+          <div class="inline-flex items-center gap-2 bg-red-100 border border-red-300 text-red-700 text-sm px-5 py-3 rounded-full font-semibold">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            For enquiries: <a href="mailto:abstracts2019@ecsahc.org" class="underline ml-1">abstracts2019@ecsahc.org</a>
+          </div>
+        </div>
 
         <!-- ── Post-submission success state ───────────────────────────────── -->
-        <div v-if="submitted" class="space-y-5 text-center py-4">
+        <div v-else-if="submitted" class="space-y-5 text-center py-4">
 
           <!-- Green check -->
           <div class="flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mx-auto">
@@ -493,6 +530,9 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/plugins/axios'
 import { useAuthStore } from '@/stores/auth'
+
+const SUBMISSION_DEADLINE = new Date('2026-06-15T23:59:59')
+const submissionClosed = computed(() => new Date() > SUBMISSION_DEADLINE)
 
 const auth = useAuthStore()
 const router = useRouter()
