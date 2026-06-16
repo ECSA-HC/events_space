@@ -102,7 +102,7 @@
     <!-- Table -->
     <div class="bg-white rounded-2xl shadow overflow-hidden">
       <div v-if="loading" class="p-8 text-center text-gray-500">Loading abstracts...</div>
-      <div v-else-if="filtered.length === 0" class="p-8 text-center text-gray-400">No abstracts found.</div>
+      <div v-else-if="abstracts.length === 0" class="p-8 text-center text-gray-400">No abstracts found.</div>
 
       <table v-else class="w-full text-sm">
         <thead class="bg-gray-50 text-gray-600 text-xs uppercase">
