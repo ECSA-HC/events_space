@@ -9,9 +9,18 @@
 
     <div v-else class="space-y-4">
       <div v-for="a in assignments" :key="a.assignment_id" class="bg-white rounded-2xl shadow p-6">
-        <div class="flex items-start justify-between gap-4 flex-wrap">
-          <div class="flex-1">
-            <h2 class="font-semibold text-gray-800 text-lg">{{ a.abstract.title }}</h2>
+        <!-- Header row — clicking the chevron toggles content -->
+        <div class="flex items-start gap-4 flex-wrap">
+          <button @click="a._expanded = !a._expanded"
+            class="mt-1 flex-shrink-0 text-gray-400 hover:text-gray-600 transition-transform"
+            :class="a._expanded ? 'rotate-0' : '-rotate-90'"
+            style="transition: transform 0.2s;">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div class="flex-1 min-w-0 cursor-pointer" @click="a._expanded = !a._expanded">
+            <h2 class="font-semibold text-gray-800 text-lg leading-snug">{{ a.abstract.title }}</h2>
             <p class="text-gray-500 text-sm mt-1">{{ a.abstract.event }} &bull; {{ a.abstract.track || 'No track' }}</p>
             <p class="text-gray-400 text-xs mt-1">{{ a.abstract.word_count }} words &bull; Assigned {{ formatDate(a.assigned_at) }}</p>
           </div>
@@ -21,16 +30,19 @@
           </span>
         </div>
 
-        <!-- Authors -->
-        <div class="mt-3 flex flex-wrap gap-1">
-          <span v-for="au in a.abstract.authors" :key="au.id" class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-            {{ au.firstname }} {{ au.lastname }}<span v-if="au.affiliation"> · {{ au.affiliation }}</span>
-          </span>
-        </div>
+        <!-- Collapsible body -->
+        <div v-show="a._expanded">
 
-        <!-- Abstract text (always shown for reviewer) -->
-        <div class="mt-4 text-gray-700 text-sm leading-relaxed border-t pt-3 whitespace-pre-wrap">{{ a.abstract.abstract_text }}</div>
-        <p v-if="a.abstract.keywords" class="mt-2 text-xs text-gray-400"><strong>Keywords:</strong> {{ a.abstract.keywords }}</p>
+          <!-- Authors -->
+          <div class="mt-3 flex flex-wrap gap-1">
+            <span v-for="au in a.abstract.authors" :key="au.id" class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+              {{ au.firstname }} {{ au.lastname }}<span v-if="au.affiliation"> · {{ au.affiliation }}</span>
+            </span>
+          </div>
+
+          <!-- Abstract text -->
+          <div class="mt-4 text-gray-700 text-sm leading-relaxed border-t pt-3 whitespace-pre-wrap">{{ a.abstract.abstract_text }}</div>
+          <p v-if="a.abstract.keywords" class="mt-2 text-xs text-gray-400"><strong>Keywords:</strong> {{ a.abstract.keywords }}</p>
 
         <!-- Submitted review (view mode) -->
         <div v-if="a.review && !a._editing" class="mt-5 bg-green-50 border border-green-200 rounded-xl p-4">
@@ -67,52 +79,54 @@
           <p class="text-sm text-gray-700">{{ a.review.comments }}</p>
         </div>
 
-        <!-- Review form (new submission or edit) -->
-        <div v-else-if="!a.review || a._editing" class="mt-5 border-t pt-4">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="font-semibold text-gray-700">{{ a._editing ? 'Edit Your Review' : 'Submit Your Review' }}</h3>
-            <button v-if="a._editing" @click="a._editing = false"
-              class="text-xs text-gray-400 hover:text-gray-600 font-medium px-2 py-1 rounded-lg hover:bg-gray-100">
-              Cancel
-            </button>
-          </div>
-          <div class="grid sm:grid-cols-2 gap-4">
-            <div v-for="field in scoreFields" :key="field.key">
-              <label class="block text-sm font-medium text-gray-700 mb-1">{{ field.label }} <span class="text-gray-400 text-xs">(1–5)</span></label>
-              <div class="flex gap-2">
-                <button v-for="n in 5" :key="n"
-                  @click="a._form[field.key] = n"
-                  :class="a._form[field.key] >= n ? 'bg-bondi-blue text-white' : 'bg-gray-100 text-gray-600'"
-                  class="w-9 h-9 rounded-lg font-semibold text-sm transition">{{ n }}</button>
+          <!-- Review form (new submission or edit) -->
+          <div v-else-if="!a.review || a._editing" class="mt-5 border-t pt-4">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-semibold text-gray-700">{{ a._editing ? 'Edit Your Review' : 'Submit Your Review' }}</h3>
+              <button v-if="a._editing" @click="a._editing = false"
+                class="text-xs text-gray-400 hover:text-gray-600 font-medium px-2 py-1 rounded-lg hover:bg-gray-100">
+                Cancel
+              </button>
+            </div>
+            <div class="grid sm:grid-cols-2 gap-4">
+              <div v-for="field in scoreFields" :key="field.key">
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ field.label }} <span class="text-gray-400 text-xs">(1–5)</span></label>
+                <div class="flex gap-2">
+                  <button v-for="n in 5" :key="n"
+                    @click="a._form[field.key] = n"
+                    :class="a._form[field.key] >= n ? 'bg-bondi-blue text-white' : 'bg-gray-100 text-gray-600'"
+                    class="w-9 h-9 rounded-lg font-semibold text-sm transition">{{ n }}</button>
+                </div>
               </div>
             </div>
+            <div class="mt-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1">Recommendation <span class="text-red-500">*</span></label>
+              <select v-model="a._form.recommendation" class="input w-full sm:w-64">
+                <option value="">Select recommendation</option>
+                <option value="accept">Accept</option>
+                <option value="revision_required">Revision Required</option>
+                <option value="reject">Reject</option>
+              </select>
+            </div>
+            <div class="mt-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1">Comments to Author <span class="text-red-500">*</span></label>
+              <textarea v-model="a._form.comments" rows="4" class="input w-full" placeholder="Your review comments..."></textarea>
+            </div>
+            <div class="mt-3">
+              <label class="block text-sm font-medium text-gray-700 mb-1">Confidential Comments (to chair only)</label>
+              <textarea v-model="a._form.confidential_comments" rows="2" class="input w-full" placeholder="Optional..."></textarea>
+            </div>
+            <div class="mt-4 flex items-center gap-3">
+              <button @click="a._editing ? updateReview(a) : submitReview(a)"
+                class="px-5 py-2 bg-bondi-blue text-white rounded-lg text-sm font-semibold hover:opacity-90 transition">
+                {{ a._editing ? 'Save Changes' : 'Submit Review' }}
+              </button>
+              <span v-if="a._error" class="text-red-500 text-sm">{{ a._error }}</span>
+              <span v-if="a._success" class="text-green-600 text-sm">{{ a._success }}</span>
+            </div>
           </div>
-          <div class="mt-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Recommendation <span class="text-red-500">*</span></label>
-            <select v-model="a._form.recommendation" class="input w-full sm:w-64">
-              <option value="">Select recommendation</option>
-              <option value="accept">Accept</option>
-              <option value="revision_required">Revision Required</option>
-              <option value="reject">Reject</option>
-            </select>
-          </div>
-          <div class="mt-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Comments to Author <span class="text-red-500">*</span></label>
-            <textarea v-model="a._form.comments" rows="4" class="input w-full" placeholder="Your review comments..."></textarea>
-          </div>
-          <div class="mt-3">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Confidential Comments (to chair only)</label>
-            <textarea v-model="a._form.confidential_comments" rows="2" class="input w-full" placeholder="Optional..."></textarea>
-          </div>
-          <div class="mt-4 flex items-center gap-3">
-            <button @click="a._editing ? updateReview(a) : submitReview(a)"
-              class="px-5 py-2 bg-bondi-blue text-white rounded-lg text-sm font-semibold hover:opacity-90 transition">
-              {{ a._editing ? 'Save Changes' : 'Submit Review' }}
-            </button>
-            <span v-if="a._error" class="text-red-500 text-sm">{{ a._error }}</span>
-            <span v-if="a._success" class="text-green-600 text-sm">{{ a._success }}</span>
-          </div>
-        </div>
+
+        </div><!-- end v-show collapsible -->
       </div>
     </div>
   </div>
@@ -138,6 +152,7 @@ onMounted(async () => {
     assignments.value = res.data.map(a => ({
       ...a,
       _form: { relevance_score: 0, methodology_score: 0, originality_score: 0, overall_score: 0, recommendation: '', comments: '', confidential_comments: '' },
+      _expanded: !a.completed,
       _editing: false,
       _error: '',
       _success: '',
