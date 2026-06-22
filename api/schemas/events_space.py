@@ -215,6 +215,7 @@ class AbstractUpdateSchema(BaseModel):
     abstract_text: Optional[str] = None
     keywords: Optional[str] = None
     track: Optional[str] = None
+    track_id: Optional[int] = None
     presentation_type: Optional[str] = None
     status: Optional[str] = None
     authors: Optional[List[AbstractAuthorSchema]] = None

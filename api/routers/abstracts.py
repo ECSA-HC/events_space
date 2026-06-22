@@ -577,6 +577,7 @@ def update_abstract(
         abstract.word_count = len(schema.abstract_text.split())
     if schema.keywords is not None: abstract.keywords = schema.keywords
     if schema.track is not None: abstract.track = schema.track
+    if schema.track_id is not None: abstract.track_id = schema.track_id
     if schema.presentation_type: abstract.presentation_type = schema.presentation_type
     if schema.status: abstract.status = schema.status
 

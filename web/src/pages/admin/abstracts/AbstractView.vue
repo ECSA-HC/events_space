@@ -14,6 +14,15 @@
         class="px-3 py-1 rounded-full text-sm font-semibold capitalize flex-shrink-0">
         {{ abstract.status?.replace('_', ' ') }}
       </span>
+      <button v-if="abstract" @click="openEdit"
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition flex-shrink-0"
+        style="color:#0095B6; border-color:#b3e4f0; background-color:#e6f7fb;">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+        </svg>
+        Edit
+      </button>
       <button v-if="abstract" @click="deleteAbstract"
         class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 transition flex-shrink-0">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -311,6 +320,151 @@
       </div>
     </div>
   </div>
+
+  <!-- ── Edit Abstract Modal ────────────────────────────────────────────── -->
+  <div v-if="editModal.open"
+    class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+    @click.self="editModal.open = false">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[92vh]">
+
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b flex-shrink-0">
+        <h2 class="font-bold text-gray-800">Edit Abstract</h2>
+        <button @click="editModal.open = false" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+
+        <!-- Title -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Title <span class="text-red-500">*</span></label>
+          <input v-model="editForm.title" type="text" required
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+        </div>
+
+        <!-- Track -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Scientific Track</label>
+          <select v-model.number="editForm.track_id"
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]">
+            <option :value="null">— No track —</option>
+            <option v-for="t in allTracks" :key="t.id" :value="t.id">{{ t.code }}: {{ t.title }}</option>
+          </select>
+        </div>
+
+        <!-- Presentation type -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Presentation Type</label>
+          <div class="flex gap-4 flex-wrap">
+            <label v-for="opt in ['oral','poster','either']" :key="opt"
+              class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer capitalize">
+              <input type="radio" v-model="editForm.presentation_type" :value="opt" class="accent-[#0095B6]" />
+              {{ opt }}
+            </label>
+          </div>
+        </div>
+
+        <!-- Abstract text -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+            Abstract Body <span class="text-red-500">*</span>
+            <span class="ml-1 font-normal text-gray-400 normal-case">(max 300 words)</span>
+          </label>
+          <textarea v-model="editForm.abstract_text" rows="8" required
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6] resize-y"></textarea>
+          <p :class="editWordCount > 300 ? 'text-red-500' : 'text-gray-400'" class="text-xs mt-1 text-right">
+            {{ editWordCount }} / 300 words<span v-if="editWordCount > 300" class="ml-1 font-semibold"> — over limit!</span>
+          </p>
+        </div>
+
+        <!-- Keywords -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Keywords <span class="text-gray-400 font-normal normal-case">(comma-separated)</span></label>
+          <input v-model="editForm.keywords" type="text"
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+        </div>
+
+        <!-- Authors -->
+        <div class="border border-gray-200 rounded-xl p-4 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="font-semibold text-gray-800 text-sm">Authors & Co-Authors</h3>
+            <button type="button" @click="addEditAuthor"
+              class="text-sm text-white px-3 py-1.5 rounded-lg font-medium hover:opacity-90"
+              style="background-color:#0095B6;">+ Add Co-Author</button>
+          </div>
+          <div v-for="(author, idx) in editForm.authors" :key="idx"
+            class="bg-gray-50 rounded-xl p-4 space-y-3">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                {{ idx === 0 ? 'First Author' : `Co-Author ${idx}` }}
+              </span>
+              <button v-if="idx > 0" type="button" @click="editForm.authors.splice(idx, 1)"
+                class="text-red-400 hover:text-red-600 text-xs font-medium">Remove</button>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">First Name <span class="text-red-500">*</span></label>
+                <input v-model="author.firstname" type="text" required
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Last Name <span class="text-red-500">*</span></label>
+                <input v-model="author.lastname" type="text" required
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Email</label>
+                <input v-model="author.email" type="email"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Institution / Affiliation</label>
+                <input v-model="author.affiliation" type="text"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Country</label>
+                <input v-model="author.country" type="text"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+              </div>
+              <div class="flex items-center gap-2 pt-4">
+                <input type="checkbox" :id="`edit-presenting-${idx}`" v-model="author.is_presenting"
+                  class="accent-[#0095B6] w-4 h-4 cursor-pointer" />
+                <label :for="`edit-presenting-${idx}`" class="text-sm text-gray-600 cursor-pointer">Presenting author</label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p v-if="editModal.error" class="text-red-600 text-sm bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          {{ editModal.error }}
+        </p>
+      </div>
+
+      <!-- Footer -->
+      <div class="flex justify-end gap-3 px-6 py-4 border-t flex-shrink-0">
+        <button @click="editModal.open = false"
+          class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium">
+          Cancel
+        </button>
+        <button @click="saveEdit" :disabled="editModal.saving || editWordCount > 300"
+          class="inline-flex items-center gap-2 px-6 py-2 text-sm font-semibold text-white rounded-xl disabled:opacity-50 hover:opacity-90 transition"
+          style="background-color:#0095B6;">
+          <svg v-if="editModal.saving" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+          </svg>
+          {{ editModal.saving ? 'Saving…' : 'Save Changes' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
 </template>
 
 <script setup>
@@ -325,6 +479,67 @@ const abstract         = ref(null)
 const loading          = ref(true)
 const newStatus        = ref('')
 const statusMsg        = ref('')
+
+// ── Edit modal ────────────────────────────────────────────────────────────────
+const allTracks = ref([])
+const editModal = ref({ open: false, saving: false, error: '' })
+const editForm  = ref({ title: '', abstract_text: '', keywords: '', track_id: null, presentation_type: '', authors: [] })
+
+const editWordCount = computed(() =>
+  editForm.value.abstract_text.trim() ? editForm.value.abstract_text.trim().split(/\s+/).length : 0
+)
+
+const openEdit = async () => {
+  const a = abstract.value
+  editForm.value = {
+    title: a.title || '',
+    abstract_text: a.abstract_text || '',
+    keywords: a.keywords || '',
+    track_id: a.track_id ?? null,
+    presentation_type: a.presentation_type || 'oral',
+    authors: (a.authors || []).map(au => ({
+      firstname: au.firstname || '',
+      lastname: au.lastname || '',
+      email: au.email || '',
+      affiliation: au.affiliation || '',
+      country: au.country || '',
+      is_presenting: !!au.is_presenting,
+    })),
+  }
+  editModal.value = { open: true, saving: false, error: '' }
+  if (!allTracks.value.length && a.event_id) {
+    try {
+      const res = await api.get('/abstracts/tracks/list', { params: { event_id: a.event_id } })
+      allTracks.value = res.data || []
+    } catch (_) {}
+  }
+}
+
+const addEditAuthor = () => {
+  editForm.value.authors.push({ firstname: '', lastname: '', email: '', affiliation: '', country: '', is_presenting: false })
+}
+
+const saveEdit = async () => {
+  editModal.value.error = ''
+  if (!editForm.value.title.trim() || !editForm.value.abstract_text.trim()) {
+    editModal.value.error = 'Title and abstract body are required.'
+    return
+  }
+  if (editWordCount.value > 300) {
+    editModal.value.error = 'Abstract is over 300 words. Please shorten it.'
+    return
+  }
+  editModal.value.saving = true
+  try {
+    await api.put(`/abstracts/${route.params.id}`, editForm.value)
+    await fetchAbstract()
+    editModal.value.open = false
+  } catch (e) {
+    editModal.value.error = e.response?.data?.detail || 'Failed to save changes.'
+  } finally {
+    editModal.value.saving = false
+  }
+}
 
 // Reviewer selection
 const allUsers         = ref([])
