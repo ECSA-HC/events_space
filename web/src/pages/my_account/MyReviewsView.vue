@@ -32,9 +32,20 @@
         <div class="mt-4 text-gray-700 text-sm leading-relaxed border-t pt-3 whitespace-pre-wrap">{{ a.abstract.abstract_text }}</div>
         <p v-if="a.abstract.keywords" class="mt-2 text-xs text-gray-400"><strong>Keywords:</strong> {{ a.abstract.keywords }}</p>
 
-        <!-- Submitted review -->
-        <div v-if="a.review" class="mt-5 bg-green-50 border border-green-200 rounded-xl p-4">
-          <p class="text-sm font-semibold text-green-700 mb-3">Your Review — <span class="capitalize">{{ a.review.recommendation?.replace('_',' ') }}</span></p>
+        <!-- Submitted review (view mode) -->
+        <div v-if="a.review && !a._editing" class="mt-5 bg-green-50 border border-green-200 rounded-xl p-4">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-sm font-semibold text-green-700">Your Review — <span class="capitalize">{{ a.review.recommendation?.replace('_',' ') }}</span></p>
+            <button @click="startEdit(a)"
+              class="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition"
+              style="color:#0095B6; border-color:#b3e4f0; background-color:#e6f7fb;">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+              </svg>
+              Edit Review
+            </button>
+          </div>
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
             <div class="bg-white rounded-lg p-2 text-center border">
               <p class="text-xs text-gray-400">Relevance</p>
@@ -56,9 +67,15 @@
           <p class="text-sm text-gray-700">{{ a.review.comments }}</p>
         </div>
 
-        <!-- Review form (if not reviewed) -->
-        <div v-else class="mt-5 border-t pt-4">
-          <h3 class="font-semibold text-gray-700 mb-4">Submit Your Review</h3>
+        <!-- Review form (new submission or edit) -->
+        <div v-else-if="!a.review || a._editing" class="mt-5 border-t pt-4">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-gray-700">{{ a._editing ? 'Edit Your Review' : 'Submit Your Review' }}</h3>
+            <button v-if="a._editing" @click="a._editing = false"
+              class="text-xs text-gray-400 hover:text-gray-600 font-medium px-2 py-1 rounded-lg hover:bg-gray-100">
+              Cancel
+            </button>
+          </div>
           <div class="grid sm:grid-cols-2 gap-4">
             <div v-for="field in scoreFields" :key="field.key">
               <label class="block text-sm font-medium text-gray-700 mb-1">{{ field.label }} <span class="text-gray-400 text-xs">(1–5)</span></label>
@@ -88,7 +105,10 @@
             <textarea v-model="a._form.confidential_comments" rows="2" class="input w-full" placeholder="Optional..."></textarea>
           </div>
           <div class="mt-4 flex items-center gap-3">
-            <button @click="submitReview(a)" class="px-5 py-2 bg-bondi-blue text-white rounded-lg text-sm font-semibold hover:opacity-90 transition">Submit Review</button>
+            <button @click="a._editing ? updateReview(a) : submitReview(a)"
+              class="px-5 py-2 bg-bondi-blue text-white rounded-lg text-sm font-semibold hover:opacity-90 transition">
+              {{ a._editing ? 'Save Changes' : 'Submit Review' }}
+            </button>
             <span v-if="a._error" class="text-red-500 text-sm">{{ a._error }}</span>
             <span v-if="a._success" class="text-green-600 text-sm">{{ a._success }}</span>
           </div>
@@ -118,6 +138,7 @@ onMounted(async () => {
     assignments.value = res.data.map(a => ({
       ...a,
       _form: { relevance_score: 0, methodology_score: 0, originality_score: 0, overall_score: 0, recommendation: '', comments: '', confidential_comments: '' },
+      _editing: false,
       _error: '',
       _success: '',
     }))
@@ -127,6 +148,40 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+const startEdit = (a) => {
+  a._form = {
+    relevance_score:      a.review.relevance_score,
+    methodology_score:    a.review.methodology_score,
+    originality_score:    a.review.originality_score,
+    overall_score:        a.review.overall_score,
+    recommendation:       a.review.recommendation,
+    comments:             a.review.comments,
+    confidential_comments: a.review.confidential_comments || '',
+  }
+  a._error = ''
+  a._success = ''
+  a._editing = true
+}
+
+const updateReview = async (a) => {
+  a._error = ''
+  const f = a._form
+  if (!f.relevance_score || !f.methodology_score || !f.originality_score || !f.overall_score) {
+    a._error = 'Please score all criteria.'; return
+  }
+  if (!f.recommendation) { a._error = 'Please select a recommendation.'; return }
+  if (!f.comments.trim()) { a._error = 'Please add comments.'; return }
+  try {
+    await api.put(`/abstracts/reviews/${a.assignment_id}`, f)
+    a.review = { ...f }
+    a._editing = false
+    a._success = 'Review updated!'
+    setTimeout(() => a._success = '', 3000)
+  } catch (e) {
+    a._error = e.response?.data?.detail || 'Failed to update review.'
+  }
+}
 
 const submitReview = async (a) => {
   a._error = ''

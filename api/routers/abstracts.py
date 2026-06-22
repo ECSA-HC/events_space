@@ -913,6 +913,34 @@ def submit_review(
     return {"message": "Review submitted successfully"}
 
 
+@router.put("/reviews/{assignment_id}")
+def update_review(
+    assignment_id: int,
+    schema: AbstractReviewSchema,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+):
+    assignment = db.query(AbstractReviewer).filter(
+        AbstractReviewer.id == assignment_id,
+        AbstractReviewer.reviewer_id == current_user["user_id"],
+    ).first()
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    if not assignment.review:
+        raise HTTPException(status_code=400, detail="No review submitted yet")
+
+    review = assignment.review
+    review.relevance_score    = schema.relevance_score
+    review.methodology_score  = schema.methodology_score
+    review.originality_score  = schema.originality_score
+    review.overall_score      = schema.overall_score
+    review.recommendation     = schema.recommendation
+    review.comments           = schema.comments
+    review.confidential_comments = schema.confidential_comments
+    db.commit()
+    return {"message": "Review updated successfully"}
+
+
 @router.get("/{abstract_id}/reviews")
 def get_reviews(
     abstract_id: int,
