@@ -457,7 +457,12 @@ def export_abstracts_pdf(
         q = q.filter(Abstract.event_id == event_id)
     if status_filter:
         q = q.filter(Abstract.status == status_filter)
-    abstracts = q.order_by(Abstract.track_id.nullslast(), Abstract.title).all()
+    from sqlalchemy import case as sa_case
+    abstracts = q.order_by(
+        sa_case((Abstract.track_id == None, 1), else_=0),
+        Abstract.track_id,
+        Abstract.title,
+    ).all()
 
     event_name = abstracts[0].event.event if abstracts and abstracts[0].event else "ECSA Events"
 
