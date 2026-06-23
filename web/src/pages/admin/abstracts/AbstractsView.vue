@@ -10,19 +10,37 @@
           <span v-if="filterEvent || filterStatus || filterTrack || search"> (filtered)</span>
         </p>
       </div>
-      <button @click="exportExcel" :disabled="exporting || loading || total === 0"
-        class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-        style="background-color:#0095B6;">
-        <svg v-if="!exporting" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-        </svg>
-        <svg v-else class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-        </svg>
-        {{ exporting ? 'Exporting…' : `Export${total > 0 ? ' ' + total : ''} to Excel` }}
-      </button>
+      <div class="flex items-center gap-2">
+        <!-- PDF Book of Abstracts -->
+        <button @click="exportPdf" :disabled="exportingPdf || loading || total === 0"
+          class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition hover:opacity-90 disabled:opacity-50"
+          style="background-color:#fff; color:#0095B6; border:1.5px solid #0095B6;">
+          <svg v-if="!exportingPdf" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+          </svg>
+          <svg v-else class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+          </svg>
+          {{ exportingPdf ? 'Generating…' : 'Book of Abstracts PDF' }}
+        </button>
+
+        <!-- Excel export -->
+        <button @click="exportExcel" :disabled="exporting || loading || total === 0"
+          class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+          style="background-color:#0095B6;">
+          <svg v-if="!exporting" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          <svg v-else class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+          </svg>
+          {{ exporting ? 'Exporting…' : `Export${total > 0 ? ' ' + total : ''} to Excel` }}
+        </button>
+      </div>
     </div>
 
     <!-- Filters -->
@@ -544,6 +562,7 @@ const events       = ref([])
 const tracks       = ref([])
 const loading      = ref(true)
 const exporting    = ref(false)
+const exportingPdf = ref(false)
 const search       = ref('')
 const filterEvent  = ref('')
 const filterStatus = ref('')
@@ -806,6 +825,26 @@ const exportExcel = async () => {
     alert('Export failed. Please try again.')
   } finally {
     exporting.value = false
+  }
+}
+
+const exportPdf = async () => {
+  exportingPdf.value = true
+  try {
+    const params = new URLSearchParams()
+    if (filterEvent.value)  params.append('event_id', filterEvent.value)
+    if (filterStatus.value) params.append('status',   filterStatus.value)
+    const res = await api.get(`/abstracts/export/pdf?${params.toString()}`, { responseType: 'blob' })
+    const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `book_of_abstracts_${new Date().toISOString().slice(0, 10)}.pdf`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    alert('PDF export failed. Please try again.')
+  } finally {
+    exportingPdf.value = false
   }
 }
 

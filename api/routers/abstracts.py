@@ -427,6 +427,168 @@ def export_abstracts(
     )
 
 
+@router.get("/export/pdf")
+def export_abstracts_pdf(
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+    event_id: int = None,
+    status_filter: str = Query(None, alias="status"),
+):
+    auth_dependency.secure_access("EXPORT_ABSTRACTS", current_user["user_id"])
+
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.lib import colors
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, HRFlowable, PageBreak, KeepTogether,
+    )
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
+    from collections import defaultdict
+
+    q = db.query(Abstract).options(
+        joinedload(Abstract.authors),
+        joinedload(Abstract.submitter),
+        joinedload(Abstract.event),
+        joinedload(Abstract.event_track),
+    ).filter(Abstract.deleted_at == None)
+    if event_id:
+        q = q.filter(Abstract.event_id == event_id)
+    if status_filter:
+        q = q.filter(Abstract.status == status_filter)
+    abstracts = q.order_by(Abstract.track_id.nullslast(), Abstract.title).all()
+
+    event_name = abstracts[0].event.event if abstracts and abstracts[0].event else "ECSA Events"
+
+    # Group by track
+    groups = defaultdict(list)
+    for a in abstracts:
+        track_key = (a.track_id, a.track or "No Track Assigned")
+        groups[track_key].append(a)
+
+    # Sort groups: named tracks first (by track code/title), then untracked
+    sorted_groups = sorted(
+        groups.items(),
+        key=lambda kv: (kv[0][0] is None, kv[0][1].lower())
+    )
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=A4,
+        leftMargin=2.5 * cm,
+        rightMargin=2.5 * cm,
+        topMargin=2.5 * cm,
+        bottomMargin=2.5 * cm,
+    )
+
+    TEAL   = colors.HexColor("#0095B6")
+    DGRAY  = colors.HexColor("#374151")
+    LGRAY  = colors.HexColor("#9CA3AF")
+    BGRAY  = colors.HexColor("#F3F4F6")
+
+    styles = getSampleStyleSheet()
+
+    s_cover_title = ParagraphStyle("CoverTitle",
+        fontSize=24, textColor=TEAL, spaceAfter=8, alignment=TA_CENTER,
+        fontName="Helvetica-Bold", leading=30)
+    s_cover_sub = ParagraphStyle("CoverSub",
+        fontSize=13, textColor=DGRAY, spaceAfter=4, alignment=TA_CENTER,
+        fontName="Helvetica", leading=18)
+    s_cover_meta = ParagraphStyle("CoverMeta",
+        fontSize=10, textColor=LGRAY, alignment=TA_CENTER, fontName="Helvetica")
+
+    s_track_heading = ParagraphStyle("TrackHeading",
+        fontSize=14, textColor=colors.white, fontName="Helvetica-Bold",
+        leading=20, leftIndent=0, spaceBefore=0, spaceAfter=0)
+
+    s_abstract_title = ParagraphStyle("AbstractTitle",
+        fontSize=11, textColor=DGRAY, fontName="Helvetica-Bold",
+        leading=16, spaceBefore=6, spaceAfter=3)
+    s_authors = ParagraphStyle("Authors",
+        fontSize=9, textColor=TEAL, fontName="Helvetica-Oblique",
+        leading=14, spaceAfter=2)
+    s_meta = ParagraphStyle("Meta",
+        fontSize=8, textColor=LGRAY, fontName="Helvetica", leading=12, spaceAfter=4)
+    s_body = ParagraphStyle("Body",
+        fontSize=9, textColor=DGRAY, fontName="Helvetica",
+        leading=14, spaceAfter=3, alignment=TA_JUSTIFY)
+    s_keywords = ParagraphStyle("Keywords",
+        fontSize=8, textColor=LGRAY, fontName="Helvetica-Oblique", leading=12, spaceAfter=2)
+
+    story = []
+
+    # ── Cover page ────────────────────────────────────────────────────────────
+    story.append(Spacer(1, 3 * cm))
+    story.append(Paragraph("Book of Abstracts", s_cover_title))
+    story.append(Spacer(1, 0.4 * cm))
+    story.append(Paragraph(event_name, s_cover_sub))
+    story.append(Spacer(1, 0.3 * cm))
+    story.append(Paragraph(
+        f"{len(abstracts)} abstract{'s' if len(abstracts) != 1 else ''} &bull; "
+        f"Generated {datetime.utcnow().strftime('%d %B %Y')}",
+        s_cover_meta,
+    ))
+    story.append(PageBreak())
+
+    # ── Abstracts by track ────────────────────────────────────────────────────
+    for (track_id, track_label), track_abstracts in sorted_groups:
+        # Track header bar
+        from reportlab.platypus import Table, TableStyle
+        header_table = Table(
+            [[Paragraph(track_label, s_track_heading)]],
+            colWidths=[doc.width],
+        )
+        header_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), TEAL),
+            ("TOPPADDING",    (0, 0), (-1, -1), 8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 10),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 10),
+        ]))
+        story.append(header_table)
+        story.append(Spacer(1, 0.3 * cm))
+
+        for a in track_abstracts:
+            authors_sorted = sorted(a.authors, key=lambda x: x.author_order)
+            author_str = "; ".join(
+                f"{au.firstname} {au.lastname}" + (f" ({au.affiliation})" if au.affiliation else "")
+                for au in authors_sorted
+            )
+            presenting = next((au for au in authors_sorted if au.is_presenting), authors_sorted[0] if authors_sorted else None)
+            ptype = a.presentation_type.value.title() if a.presentation_type else ""
+            wc = f"{a.word_count} words" if a.word_count else ""
+
+            block = []
+            block.append(Paragraph(a.title, s_abstract_title))
+            if author_str:
+                block.append(Paragraph(author_str, s_authors))
+            meta_parts = [p for p in [ptype, wc] if p]
+            if meta_parts:
+                block.append(Paragraph(" &bull; ".join(meta_parts), s_meta))
+            if a.abstract_text:
+                block.append(Paragraph(a.abstract_text.replace("\n", "<br/>"), s_body))
+            if a.keywords:
+                block.append(Paragraph(f"<i>Keywords:</i> {a.keywords}", s_keywords))
+            block.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#E5E7EB"), spaceAfter=8))
+
+            story.append(KeepTogether(block))
+
+        story.append(Spacer(1, 0.5 * cm))
+
+    doc.build(story)
+    buf.seek(0)
+
+    safe_event = (event_name[:40].replace(" ", "_").replace("/", "-")) if event_name else "abstracts"
+    filename = f"book_of_abstracts_{safe_event}_{datetime.utcnow().strftime('%Y%m%d')}.pdf"
+    return StreamingResponse(
+        buf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
 @router.get("/my-submissions")
 def my_submissions(
     current_user: user_dependency,
