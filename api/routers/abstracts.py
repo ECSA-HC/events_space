@@ -585,7 +585,9 @@ def export_abstracts_pdf(
     doc.build(story)
     buf.seek(0)
 
-    safe_event = (event_name[:40].replace(" ", "_").replace("/", "-")) if event_name else "abstracts"
+    import unicodedata, re
+    safe_event = unicodedata.normalize("NFKD", event_name).encode("ascii", "ignore").decode("ascii") if event_name else "abstracts"
+    safe_event = re.sub(r"[^\w\s-]", "", safe_event).strip().replace(" ", "_")[:40] or "abstracts"
     filename = f"book_of_abstracts_{safe_event}_{datetime.utcnow().strftime('%Y%m%d')}.pdf"
     return StreamingResponse(
         buf,
