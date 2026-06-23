@@ -276,7 +276,7 @@ def export_abstracts(
     left        = Alignment(horizontal="left",   vertical="center", wrap_text=True)
 
     headers = [
-        "#", "Title", "Event", "Track", "Presentation Type", "Status",
+        "#", "Title", "Abstract Text", "Event", "Track", "Presentation Type", "Status",
         "Word Count", "Keywords", "Submitter Name", "Submitter Email",
         "First Author", "First Author Email", "First Author Affiliation",
         "First Author Country", "All Authors", "Reviewers Assigned",
@@ -311,6 +311,7 @@ def export_abstracts(
         row = [
             a.id,
             a.title,
+            a.abstract_text or "",
             a.event.event if a.event else "",
             a.track or "",
             a.presentation_type.value if a.presentation_type else "",
@@ -340,7 +341,7 @@ def export_abstracts(
             cell.alignment = left
 
     # Auto column widths
-    col_widths = [6, 40, 30, 20, 16, 16, 10, 30, 22, 28, 22, 28, 28, 16, 50, 10, 10, 12, 12, 12, 12, 14]
+    col_widths = [6, 40, 60, 30, 20, 16, 16, 10, 30, 22, 28, 22, 28, 28, 16, 50, 10, 10, 12, 12, 12, 12, 14]
     for ci, w in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(ci)].width = w
 
@@ -437,16 +438,22 @@ def export_abstracts_pdf(
 ):
     auth_dependency.secure_access("EXPORT_ABSTRACTS", current_user["user_id"])
 
+    import unicodedata, re
     from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import cm
     from reportlab.lib import colors
+    from reportlab.lib.colors import Color
     from reportlab.platypus import (
-        SimpleDocTemplate, Paragraph, Spacer, HRFlowable, PageBreak, KeepTogether,
+        BaseDocTemplate, PageTemplate, Frame,
+        Paragraph, Spacer, HRFlowable, PageBreak,
+        NextPageTemplate, KeepTogether, Table, TableStyle,
     )
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
+    from reportlab.lib.enums import TA_JUSTIFY
     from collections import defaultdict
+    from sqlalchemy import case as sa_case
 
+    # ── Fetch data ────────────────────────────────────────────────────────────
     q = db.query(Abstract).options(
         joinedload(Abstract.authors),
         joinedload(Abstract.submitter),
@@ -457,7 +464,6 @@ def export_abstracts_pdf(
         q = q.filter(Abstract.event_id == event_id)
     if status_filter:
         q = q.filter(Abstract.status == status_filter)
-    from sqlalchemy import case as sa_case
     abstracts = q.order_by(
         sa_case((Abstract.track_id == None, 1), else_=0),
         Abstract.track_id,
@@ -465,135 +471,232 @@ def export_abstracts_pdf(
     ).all()
 
     event_name = abstracts[0].event.event if abstracts and abstracts[0].event else "ECSA Events"
+    event_short = event_name if len(event_name) <= 75 else event_name[:72] + "..."
 
-    # Group by track
     groups = defaultdict(list)
     for a in abstracts:
-        track_key = (a.track_id, a.track or "No Track Assigned")
-        groups[track_key].append(a)
+        groups[(a.track_id, a.track or "No Track Assigned")].append(a)
+    sorted_groups = sorted(groups.items(), key=lambda kv: (kv[0][0] is None, kv[0][1].lower()))
 
-    # Sort groups: named tracks first (by track code/title), then untracked
-    sorted_groups = sorted(
-        groups.items(),
-        key=lambda kv: (kv[0][0] is None, kv[0][1].lower())
-    )
-
-    buf = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buf,
-        pagesize=A4,
-        leftMargin=2.5 * cm,
-        rightMargin=2.5 * cm,
-        topMargin=2.5 * cm,
-        bottomMargin=2.5 * cm,
-    )
-
+    # ── Colors ────────────────────────────────────────────────────────────────
+    NAVY   = colors.HexColor("#1B3F6E")
+    BLUE   = colors.HexColor("#1565C0")
     TEAL   = colors.HexColor("#0095B6")
+    ORANGE = colors.HexColor("#F7941D")
     DGRAY  = colors.HexColor("#374151")
     LGRAY  = colors.HexColor("#9CA3AF")
-    BGRAY  = colors.HexColor("#F3F4F6")
+    MGRAY  = colors.HexColor("#6B7280")
+    WHITE  = colors.white
 
-    styles = getSampleStyleSheet()
+    # ── Layout ────────────────────────────────────────────────────────────────
+    W, H = A4
+    LM, RM = 1.6 * cm, 1.6 * cm
+    TM, BM = 2.0 * cm, 2.0 * cm
+    content_w = W - LM - RM
+    content_h = H - TM - BM
+    col_gap = 0.45 * cm
+    col_w = (content_w - col_gap) / 2
+    eff_w = col_w - 3          # effective width inside each column frame
 
-    s_cover_title = ParagraphStyle("CoverTitle",
-        fontSize=24, textColor=TEAL, spaceAfter=8, alignment=TA_CENTER,
-        fontName="Helvetica-Bold", leading=30)
-    s_cover_sub = ParagraphStyle("CoverSub",
-        fontSize=13, textColor=DGRAY, spaceAfter=4, alignment=TA_CENTER,
-        fontName="Helvetica", leading=18)
-    s_cover_meta = ParagraphStyle("CoverMeta",
-        fontSize=10, textColor=LGRAY, alignment=TA_CENTER, fontName="Helvetica")
+    def xesc(s):
+        return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
-    s_track_heading = ParagraphStyle("TrackHeading",
-        fontSize=14, textColor=colors.white, fontName="Helvetica-Bold",
-        leading=20, leftIndent=0, spaceBefore=0, spaceAfter=0)
+    def _wrap(text, max_chars):
+        words, lines, curr = text.split(), [], ""
+        for w in words:
+            if len(curr) + len(w) + 1 <= max_chars:
+                curr = (curr + " " + w).strip()
+            else:
+                if curr:
+                    lines.append(curr)
+                curr = w
+        if curr:
+            lines.append(curr)
+        return lines
 
-    s_abstract_title = ParagraphStyle("AbstractTitle",
-        fontSize=11, textColor=DGRAY, fontName="Helvetica-Bold",
-        leading=16, spaceBefore=6, spaceAfter=3)
-    s_authors = ParagraphStyle("Authors",
-        fontSize=9, textColor=TEAL, fontName="Helvetica-Oblique",
-        leading=14, spaceAfter=2)
-    s_meta = ParagraphStyle("Meta",
-        fontSize=8, textColor=LGRAY, fontName="Helvetica", leading=12, spaceAfter=4)
-    s_body = ParagraphStyle("Body",
-        fontSize=9, textColor=DGRAY, fontName="Helvetica",
-        leading=14, spaceAfter=3, alignment=TA_JUSTIFY)
-    s_keywords = ParagraphStyle("Keywords",
-        fontSize=8, textColor=LGRAY, fontName="Helvetica-Oblique", leading=12, spaceAfter=2)
+    # ── Page callbacks ────────────────────────────────────────────────────────
+    def on_cover(c, doc):
+        c.saveState()
+        # Full navy background
+        c.setFillColor(NAVY)
+        c.rect(0, 0, W, H, fill=1, stroke=0)
+        # Top strip
+        c.setFillColor(Color(0.14, 0.26, 0.48))
+        c.rect(0, H - 3.8 * cm, W, 3.8 * cm, fill=1, stroke=0)
+        # Organisation name
+        c.setFont("Helvetica-Bold", 11)
+        c.setFillColor(WHITE)
+        c.drawCentredString(W / 2, H - 1.7 * cm, "EAST, CENTRAL AND SOUTHERN AFRICA HEALTH COMMUNITY")
+        c.setFont("Helvetica", 9)
+        c.setFillColor(Color(0.56, 0.79, 0.95))
+        c.drawCentredString(W / 2, H - 2.6 * cm, "Fostering Regional Cooperation for Better Health")
+        # Teal accent line
+        c.setStrokeColor(TEAL)
+        c.setLineWidth(2)
+        c.line(LM, H - 4.2 * cm, W - RM, H - 4.2 * cm)
+        # Event name (wrapped)
+        c.setFont("Helvetica-Bold", 17)
+        c.setFillColor(WHITE)
+        ev_lines = _wrap(event_name, 38)
+        ey = H - 6.0 * cm
+        for ln in ev_lines[:4]:
+            c.drawCentredString(W / 2, ey, ln)
+            ey -= 0.88 * cm
+        # Orange bar
+        c.setFillColor(ORANGE)
+        c.rect(LM, ey - 0.2 * cm, content_w, 0.18 * cm, fill=1, stroke=0)
+        # Blue "ABSTRACT BOOK" block
+        ab_y = H * 0.27
+        ab_h = H * 0.24
+        c.setFillColor(BLUE)
+        c.rect(0, ab_y, W * 0.70, ab_h, fill=1, stroke=0)
+        c.setFont("Helvetica-Bold", 38)
+        c.setFillColor(WHITE)
+        c.drawString(LM, ab_y + ab_h * 0.60, "ABSTRACT")
+        c.drawString(LM, ab_y + ab_h * 0.18, "BOOK")
+        # Sub info
+        c.setFont("Helvetica", 9.5)
+        c.setFillColor(Color(0.56, 0.79, 0.95))
+        n = len(abstracts)
+        c.drawString(LM, ab_y - 0.75 * cm, f"{n} Abstract{'s' if n != 1 else ''}")
+        c.drawString(LM, ab_y - 1.35 * cm, f"Generated {datetime.utcnow().strftime('%d %B %Y')}")
+        # Bottom dark bar
+        c.setFillColor(Color(0.05, 0.17, 0.37))
+        c.rect(0, 0, W, 1.0 * cm, fill=1, stroke=0)
+        c.restoreState()
 
+    def on_divider(c, doc):
+        c.saveState()
+        c.setFillColor(BLUE)
+        c.rect(0, 0, W, H, fill=1, stroke=0)
+        c.setFillColor(Color(0.10, 0.46, 0.82))
+        c.rect(0, H * 0.52, W, H * 0.48, fill=1, stroke=0)
+        # Subtle diagonal wave lines
+        c.setStrokeColor(Color(0.20, 0.60, 0.90, alpha=0.20))
+        c.setLineWidth(50)
+        c.line(-W * 0.3, H * 0.20, W * 1.4, H * 0.62)
+        c.setLineWidth(30)
+        c.line(-W * 0.2, H * 0.10, W * 1.3, H * 0.50)
+        # Text
+        c.setFont("Helvetica-Bold", 34)
+        c.setFillColor(Color(0.80, 0.90, 0.96))
+        c.drawString(2 * cm, H * 0.37, "ABSTRACTS")
+        c.restoreState()
+
+    def on_content(c, doc):
+        c.saveState()
+        fy = BM * 0.50
+        c.setStrokeColor(TEAL)
+        c.setLineWidth(0.5)
+        c.line(LM, fy + 0.32 * cm, W - RM, fy + 0.32 * cm)
+        c.setFont("Helvetica", 7)
+        c.setFillColor(MGRAY)
+        c.drawString(LM, fy, event_short)
+        c.setFont("Helvetica-Bold", 8)
+        c.setFillColor(TEAL)
+        c.drawRightString(W - RM, fy, str(doc.page))
+        c.restoreState()
+
+    # ── Frames & document ─────────────────────────────────────────────────────
+    cover_frame = Frame(LM, BM, content_w, content_h,
+                        leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0, id='c')
+    lf = Frame(LM, BM, col_w, content_h,
+               leftPadding=0, rightPadding=3, topPadding=0, bottomPadding=0, id='l')
+    rf = Frame(LM + col_w + col_gap, BM, col_w, content_h,
+               leftPadding=3, rightPadding=0, topPadding=0, bottomPadding=0, id='r')
+
+    buf = io.BytesIO()
+    doc_obj = BaseDocTemplate(buf, pagesize=A4)
+    doc_obj.addPageTemplates([
+        PageTemplate('cover',   frames=[cover_frame], onPage=on_cover),
+        PageTemplate('divider', frames=[cover_frame], onPage=on_divider),
+        PageTemplate('main',    frames=[lf, rf],      onPage=on_content),
+    ])
+
+    # ── Styles ────────────────────────────────────────────────────────────────
+    s_track_lbl = ParagraphStyle("TL", fontSize=8.5, textColor=WHITE,
+                                 fontName="Helvetica-Bold", leading=12)
+    s_title = ParagraphStyle("TI", fontSize=10, textColor=NAVY,
+                             fontName="Helvetica-Bold", leading=14,
+                             spaceBefore=8, spaceAfter=2)
+    s_authors = ParagraphStyle("AU", fontSize=8, textColor=TEAL,
+                               fontName="Helvetica-Oblique", leading=12, spaceAfter=2)
+    s_meta = ParagraphStyle("ME", fontSize=7.5, textColor=LGRAY,
+                             fontName="Helvetica", leading=11, spaceAfter=3)
+    s_body = ParagraphStyle("BO", fontSize=8.5, textColor=DGRAY,
+                             fontName="Helvetica", leading=13,
+                             spaceAfter=3, alignment=TA_JUSTIFY)
+    s_kw = ParagraphStyle("KW", fontSize=7.5, textColor=LGRAY,
+                           fontName="Helvetica-Oblique", leading=11, spaceAfter=5)
+
+    # ── Story ─────────────────────────────────────────────────────────────────
     story = []
 
-    # ── Cover page ────────────────────────────────────────────────────────────
-    story.append(Spacer(1, 3 * cm))
-    story.append(Paragraph("Book of Abstracts", s_cover_title))
-    story.append(Spacer(1, 0.4 * cm))
-    story.append(Paragraph(event_name, s_cover_sub))
-    story.append(Spacer(1, 0.3 * cm))
-    story.append(Paragraph(
-        f"{len(abstracts)} abstract{'s' if len(abstracts) != 1 else ''} &bull; "
-        f"Generated {datetime.utcnow().strftime('%d %B %Y')}",
-        s_cover_meta,
-    ))
+    # Cover: on_cover draws everything; Spacer fills the frame
+    story.append(Spacer(1, content_h))
+
+    # Blue "ABSTRACTS" divider page
+    story.append(NextPageTemplate('divider'))
+    story.append(PageBreak())
+    story.append(Spacer(1, content_h))
+
+    # Two-column abstract pages
+    story.append(NextPageTemplate('main'))
     story.append(PageBreak())
 
-    # ── Abstracts by track ────────────────────────────────────────────────────
-    for (track_id, track_label), track_abstracts in sorted_groups:
-        # Track header bar
-        from reportlab.platypus import Table, TableStyle
-        header_table = Table(
-            [[Paragraph(track_label, s_track_heading)]],
-            colWidths=[doc.width],
-        )
-        header_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), TEAL),
-            ("TOPPADDING",    (0, 0), (-1, -1), 8),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-            ("LEFTPADDING",   (0, 0), (-1, -1), 10),
-            ("RIGHTPADDING",  (0, 0), (-1, -1), 10),
+    for (track_id, track_label), track_abs in sorted_groups:
+        # Teal track header box (fits within one column)
+        th = Table([[Paragraph(xesc(track_label).upper(), s_track_lbl)]],
+                   colWidths=[eff_w])
+        th.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0), (-1, -1), TEAL),
+            ("TOPPADDING",    (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 7),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 4),
         ]))
-        story.append(header_table)
-        story.append(Spacer(1, 0.3 * cm))
+        story.append(th)
+        story.append(Spacer(1, 0.15 * cm))
 
-        for a in track_abstracts:
+        for a in track_abs:
             authors_sorted = sorted(a.authors, key=lambda x: x.author_order)
-            author_str = "; ".join(
-                f"{au.firstname} {au.lastname}" + (f" ({au.affiliation})" if au.affiliation else "")
+            author_str = " | ".join(
+                f"{au.firstname} {au.lastname}"
+                + (f", {au.affiliation}" if au.affiliation else "")
                 for au in authors_sorted
             )
-            presenting = next((au for au in authors_sorted if au.is_presenting), authors_sorted[0] if authors_sorted else None)
-            ptype = a.presentation_type.value.title() if a.presentation_type else ""
-            wc = f"{a.word_count} words" if a.word_count else ""
+            meta_parts = []
+            if a.presentation_type:
+                meta_parts.append(a.presentation_type.value.title())
+            if a.word_count:
+                meta_parts.append(f"{a.word_count} words")
 
-            block = []
-            block.append(Paragraph(a.title, s_abstract_title))
+            # Title + authors kept together (no orphaned title)
+            header_block = [Paragraph(xesc(a.title), s_title)]
             if author_str:
-                block.append(Paragraph(author_str, s_authors))
-            meta_parts = [p for p in [ptype, wc] if p]
+                header_block.append(Paragraph(f"<i>by {xesc(author_str)}</i>", s_authors))
             if meta_parts:
-                block.append(Paragraph(" &bull; ".join(meta_parts), s_meta))
+                header_block.append(Paragraph(xesc(" · ".join(meta_parts)), s_meta))
+            story.append(KeepTogether(header_block))
+
             if a.abstract_text:
-                block.append(Paragraph(a.abstract_text.replace("\n", "<br/>"), s_body))
+                safe = xesc(a.abstract_text).replace("\n\n", "<br/><br/>").replace("\n", " ")
+                story.append(Paragraph(safe, s_body))
             if a.keywords:
-                block.append(Paragraph(f"<i>Keywords:</i> {a.keywords}", s_keywords))
-            block.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#E5E7EB"), spaceAfter=8))
+                story.append(Paragraph(f"<i>Keywords: {xesc(a.keywords)}</i>", s_kw))
+            story.append(HRFlowable(width="100%", thickness=0.4,
+                                    color=colors.HexColor("#D1D5DB"), spaceAfter=5))
 
-            story.append(KeepTogether(block))
+        story.append(Spacer(1, 0.3 * cm))
 
-        story.append(Spacer(1, 0.5 * cm))
-
-    doc.build(story)
+    doc_obj.build(story)
     buf.seek(0)
 
-    import unicodedata, re
-    safe_event = unicodedata.normalize("NFKD", event_name).encode("ascii", "ignore").decode("ascii") if event_name else "abstracts"
-    safe_event = re.sub(r"[^\w\s-]", "", safe_event).strip().replace(" ", "_")[:40] or "abstracts"
-    filename = f"book_of_abstracts_{safe_event}_{datetime.utcnow().strftime('%Y%m%d')}.pdf"
-    return StreamingResponse(
-        buf,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
-    )
+    safe_e = unicodedata.normalize("NFKD", event_name).encode("ascii", "ignore").decode("ascii")
+    safe_e = re.sub(r"[^\w\s-]", "", safe_e).strip().replace(" ", "_")[:40] or "abstracts"
+    filename = f"book_of_abstracts_{safe_e}_{datetime.utcnow().strftime('%Y%m%d')}.pdf"
+    return StreamingResponse(buf, media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"})
 
 
 @router.get("/my-submissions")
