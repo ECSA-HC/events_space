@@ -454,3 +454,35 @@ def reviewer_bulk_assignment_email(
         sender_display_name=assigned_by_name,
         db=db,
     )
+
+
+def abstract_acceptance_email(
+    recipient_email,
+    firstname,
+    abstract_title,
+    presentation_type,          # "oral" | "poster"
+    event_name,
+    portal_url,
+    ppt_template_url,
+    sent_by_user_id=None,
+    background_tasks: BackgroundTasks = None,
+    db=None,
+):
+    subject = f"Congratulations! Your Abstract Has Been Accepted – {event_name}"
+    template = templates.get_template("abstract_acceptance_template.html")
+    email_body = template.render(
+        subject=subject,
+        firstname=firstname,
+        abstract_title=abstract_title,
+        presentation_type=presentation_type,
+        event_name=event_name,
+        portal_url=portal_url,
+        ppt_template_url=ppt_template_url,
+        year=YEAR,
+    )
+    send_email_backgroundable(
+        recipient_email, subject, email_body, background_tasks,
+        email_type="abstract_acceptance",
+        sent_by_user_id=sent_by_user_id,
+        db=db,
+    )

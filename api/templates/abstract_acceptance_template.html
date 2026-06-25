@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ subject }}</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        background-color: #f4f4f4;
+        margin: 0; padding: 0; color: #333333;
+      }
+      .email-container {
+        width: 100%; max-width: 800px; margin: 0 auto;
+        background-color: #ffffff; padding: 40px;
+        box-sizing: border-box; border-top: 6px solid #0095b6;
+      }
+      h1 { font-size: 24px; margin-bottom: 16px; color: #003f5c; }
+      h2 { font-size: 18px; color: #003f5c; margin-bottom: 8px; }
+      p  { font-size: 16px; line-height: 1.5; margin-bottom: 16px; color: #444444; }
+      .congrats-banner {
+        background: linear-gradient(135deg, #0095b6 0%, #1B3F6E 100%);
+        border-radius: 10px; padding: 24px 28px; margin: 0 0 28px 0; text-align: center;
+      }
+      .congrats-banner h1 { color: #ffffff; margin: 0; font-size: 26px; }
+      .congrats-banner p  { color: #d0eef5; margin: 8px 0 0 0; font-size: 15px; }
+      .abstract-box {
+        background-color: #f0f8ff; border: 1px solid #b3d9e8;
+        border-radius: 8px; padding: 20px 24px; margin: 24px 0;
+      }
+      .abstract-box p { margin: 6px 0; font-size: 15px; }
+      .type-badge {
+        display: inline-block;
+        padding: 4px 14px; border-radius: 20px; font-size: 14px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.05em;
+      }
+      .type-oral   { background-color: #d1fae5; color: #065f46; }
+      .type-poster { background-color: #ede9fe; color: #4c1d95; }
+      .steps-box {
+        background-color: #f9fafb; border: 1px solid #e5e7eb;
+        border-radius: 8px; padding: 20px 24px; margin: 24px 0;
+      }
+      .steps-box ol { margin: 8px 0; padding-left: 22px; }
+      .steps-box li { margin-bottom: 10px; font-size: 15px; color: #374151; line-height: 1.6; }
+      .notice-box {
+        background-color: #fff8ed; border-left: 4px solid #F7941D;
+        border-radius: 0 8px 8px 0; padding: 16px 20px; margin: 24px 0;
+      }
+      .notice-box p { margin: 0; color: #7a4d00; font-size: 15px; }
+      a.button {
+        display: inline-block; background-color: #0095b6;
+        color: #ffffff !important; text-decoration: none;
+        padding: 12px 28px; border-radius: 8px; font-size: 16px;
+        font-weight: 600; margin-top: 4px; margin-bottom: 4px;
+        margin-right: 8px;
+      }
+      a.button-orange { background-color: #F7941D; }
+      a.button-navy   { background-color: #1B3F6E; }
+      .footer {
+        font-size: 13px; color: #888888; margin-top: 40px;
+        border-top: 1px solid #eaeaea; padding-top: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="email-container">
+
+      <div class="congrats-banner">
+        <h1>🎉 Congratulations, {{ firstname }}!</h1>
+        <p>Your abstract has been accepted for presentation at {{ event_name }}</p>
+      </div>
+
+      <p>Dear <strong>{{ firstname }}</strong>,</p>
+      <p>
+        We are pleased to inform you that your abstract has been reviewed and
+        <strong>accepted for presentation</strong> at the
+        <strong>{{ event_name }}</strong>. This is a great achievement and we
+        look forward to your contribution to the forum.
+      </p>
+
+      <div class="abstract-box">
+        <h2>Your Abstract</h2>
+        <p><strong>Title:</strong> {{ abstract_title }}</p>
+        <p><strong>Presentation Type:</strong>
+          {% if presentation_type == 'oral' %}
+          <span class="type-badge type-oral">Oral Presentation</span>
+          {% elif presentation_type == 'poster' %}
+          <span class="type-badge type-poster">Poster Presentation</span>
+          {% else %}
+          <span class="type-badge" style="background:#e5e7eb;color:#374151;">{{ presentation_type | title }}</span>
+          {% endif %}
+        </p>
+        <p><strong>Event:</strong> {{ event_name }}</p>
+      </div>
+
+      <div class="steps-box">
+        <h2>Next Steps</h2>
+        <ol>
+          <li>
+            <strong>Register for the event</strong> — You must complete your event registration
+            and payment to secure your presentation slot.
+          </li>
+          <li>
+            <strong>Prepare your presentation</strong> — Download the official ECSA-HC
+            {% if presentation_type == 'poster' %}poster{% else %}PowerPoint{% endif %} template below
+            and use it to prepare your presentation.
+          </li>
+          <li>
+            <strong>Log in to your account</strong> — Update your profile, upload your photo,
+            and upload proof of payment on the ECSA Events Portal.
+          </li>
+        </ol>
+      </div>
+
+      <div style="margin: 28px 0;">
+        <a href="{{ portal_url }}/login" class="button">Register &amp; Pay on Portal →</a>
+        <a href="{{ ppt_template_url }}" class="button button-navy">Download Presentation Template →</a>
+      </div>
+
+      <div class="notice-box">
+        <p>
+          <strong>Important:</strong> Your presentation slot will only be confirmed once your
+          event registration and payment are complete. Please complete this as soon as possible
+          to avoid losing your slot.
+        </p>
+      </div>
+
+      <p>
+        If you have any questions regarding your presentation or registration, please do not
+        hesitate to contact us at
+        <a href="mailto:admission@cosecsa.org">admission@cosecsa.org</a>.
+      </p>
+
+      <p>
+        We look forward to welcoming you at <strong>{{ event_name }}</strong> and to hearing
+        your presentation.<br /><br />
+        Warm regards,<br />
+        <strong>ECSA-HC Secretariat</strong><br />
+        ECSA Events Team
+      </p>
+
+      <div class="footer">&copy; {{ year }} ECSA-HC. All rights reserved.</div>
+    </div>
+  </body>
+</html>

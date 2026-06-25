@@ -1336,3 +1336,130 @@ def update_track(
         Abstract.track_id == track_id, Abstract.deleted_at == None
     ).scalar() or 0
     return _serialize_track(track, cnt)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  BULK ACCEPT + NOTIFY endpoints
+# ══════════════════════════════════════════════════════════════════════════════
+
+from pydantic import BaseModel as _PydanticBase
+from typing import List as _List
+
+class BulkAcceptItem(_PydanticBase):
+    id: int
+    presentation_type: Optional[str] = None   # "oral" | "poster"
+
+class BulkAcceptSchema(_PydanticBase):
+    items: _List[BulkAcceptItem]
+
+class NotifyAcceptedSchema(_PydanticBase):
+    abstract_ids: Optional[_List[int]] = None   # None → all accepted for event
+    event_id: Optional[int] = None
+    portal_url: str = "https://events.ecsahc.org"
+    ppt_template_url: str = "https://www.ecsahc.org"
+    test_email: Optional[str] = None            # if set, all emails go here
+
+
+@router.post("/bulk-accept")
+def bulk_accept(
+    schema: BulkAcceptSchema,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+):
+    """Set status=accepted (and optionally presentation_type) for a list of abstracts."""
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+    ids = [i.id for i in schema.items]
+    abstracts = (
+        db.query(Abstract)
+        .filter(Abstract.id.in_(ids), Abstract.deleted_at == None)
+        .all()
+    )
+    id_to_type = {i.id: i.presentation_type for i in schema.items}
+    updated = []
+    not_found = list(set(ids) - {a.id for a in abstracts})
+    for a in abstracts:
+        a.status = AbstractStatus.accepted
+        if id_to_type.get(a.id):
+            a.presentation_type = id_to_type[a.id]
+        updated.append(a.id)
+    db.commit()
+    return {"updated": len(updated), "not_found": not_found}
+
+
+@router.post("/notify-acceptance")
+def notify_acceptance(
+    schema: NotifyAcceptedSchema,
+    background_tasks: BackgroundTasks,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+):
+    """Send acceptance notification emails to authors of accepted abstracts."""
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+
+    from models.models import Event, AbstractAuthor
+
+    q = db.query(Abstract).filter(
+        Abstract.status == AbstractStatus.accepted,
+        Abstract.deleted_at == None,
+    )
+    if schema.abstract_ids:
+        q = q.filter(Abstract.id.in_(schema.abstract_ids))
+    if schema.event_id:
+        q = q.filter(Abstract.event_id == schema.event_id)
+
+    abstracts = q.options(
+        joinedload(Abstract.event),
+        joinedload(Abstract.authors),
+    ).all()
+
+    if not abstracts:
+        raise HTTPException(status_code=404, detail="No accepted abstracts found matching criteria")
+
+    import utils.mailer_util as _mailer
+    sent = []
+    failed = []
+
+    for a in abstracts:
+        event_name = a.event.event if a.event else "ECSA BPF"
+        p_type = a.presentation_type.value if a.presentation_type else "oral"
+
+        # Collect recipients: first look at linked authors, fall back to submitter
+        recipients = []
+        if a.authors:
+            for au in a.authors:
+                if au.email:
+                    recipients.append((au.firstname or "Presenter", au.email))
+        # If no author email, try submitter
+        if not recipients:
+            submitter = db.query(User).filter(User.id == a.user_id).first()
+            if submitter and submitter.email:
+                firstname = submitter.firstname or submitter.email.split("@")[0]
+                recipients.append((firstname, submitter.email))
+
+        for firstname, email in recipients:
+            target = schema.test_email or email
+            try:
+                _mailer.abstract_acceptance_email(
+                    recipient_email=target,
+                    firstname=firstname,
+                    abstract_title=a.title,
+                    presentation_type=p_type,
+                    event_name=event_name,
+                    portal_url=schema.portal_url,
+                    ppt_template_url=schema.ppt_template_url,
+                    sent_by_user_id=current_user["user_id"],
+                    background_tasks=background_tasks,
+                    db=db,
+                )
+                sent.append({"abstract_id": a.id, "email": target})
+            except Exception as exc:
+                failed.append({"abstract_id": a.id, "email": target, "error": str(exc)})
+
+    return {
+        "sent": len(sent),
+        "failed": len(failed),
+        "details": sent,
+        "errors": failed,
+    }
