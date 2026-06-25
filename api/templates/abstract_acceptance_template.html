@@ -68,7 +68,7 @@
 
       <div class="congrats-banner">
         <h1>🎉 Congratulations, {{ firstname }}!</h1>
-        <p>Your abstract has been accepted for presentation at {{ event_name }}</p>
+        <p style="color:#ffffff;">Your abstract has been accepted for presentation at {{ event_name }}</p>
       </div>
 
       <p>Dear <strong>{{ firstname }}</strong>,</p>
@@ -102,8 +102,8 @@
             and payment to secure your presentation slot.
           </li>
           <li>
-            <strong>Prepare your presentation</strong> — Download the official ECSA-HC
-            {% if presentation_type == 'poster' %}poster{% else %}PowerPoint{% endif %} template below
+            <strong>Prepare your presentation</strong> — Log in to the ECSA Events Portal to access
+            the official ECSA-HC {% if presentation_type == 'poster' %}poster{% else %}PowerPoint{% endif %} template
             and use it to prepare your presentation.
           </li>
           <li>
@@ -115,7 +115,6 @@
 
       <div style="margin: 28px 0;">
         <a href="{{ portal_url }}/login" class="button">Register &amp; Pay on Portal →</a>
-        <a href="{{ ppt_template_url }}" class="button button-navy">Download Presentation Template →</a>
       </div>
 
       <div class="notice-box">
