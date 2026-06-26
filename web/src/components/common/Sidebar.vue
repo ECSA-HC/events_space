@@ -61,6 +61,16 @@
               <span v-if="!minimized" class="ml-3">Abstracts</span>
             </router-link>
           </li>
+          <li v-if="auth.hasPermission('VIEW_ABSTRACTS')" class="mb-1">
+            <router-link
+              :to="{ name: 'AdminAbstractStats' }"
+              class="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-200 hover:text-gray-800 rounded-2xl transition-colors"
+              :class="isAbstractStatsActive ? 'bg-gray-300 text-gray-900 rounded-2xl' : ''"
+            >
+              <ChartBarIcon class="w-5 h-5" />
+              <span v-if="!minimized" class="ml-3">Abstract Reports</span>
+            </router-link>
+          </li>
           <li v-if="auth.hasPermission('MANAGE_REVIEWERS')" class="mb-1">
             <router-link
               :to="{ name: 'AdminReviewers' }"
@@ -224,6 +234,7 @@ import {
   TagIcon,
   ClockIcon,
   EnvelopeIcon,
+  ChartBarIcon,
 } from '@heroicons/vue/24/outline'
 
 import { computed, ref, watch } from 'vue'
@@ -252,6 +263,7 @@ const isEventsActive = computed(() =>
 const isAbstractsActive = computed(() =>
   ['AdminAbstracts', 'AdminAbstract'].includes(String(route.name))
 )
+const isAbstractStatsActive = computed(() => route.name === 'AdminAbstractStats')
 
 const isTracksActive   = computed(() => route.name === 'AdminTracks')
 const isActivityActive   = computed(() => route.name === 'AdminActivity')
