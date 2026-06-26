@@ -1585,7 +1585,7 @@ def notify_acceptance(
                 recipients.append((au.firstname or "Presenter", au.email))
         # If no author email, try submitter
         if not recipients:
-            submitter = db.query(User).filter(User.id == a.user_id).first()
+            submitter = db.query(User).filter(User.id == a.submitted_by).first()
             if submitter and submitter.email:
                 firstname = submitter.firstname or submitter.email.split("@")[0]
                 recipients.append((firstname, submitter.email))
