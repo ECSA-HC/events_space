@@ -912,6 +912,33 @@ def abstract_stats(
         c["accepted"] for c in by_country
         if (c["country"] or "").strip().lower() in esw_names
     )
+
+    # Abstracts where reviewer consensus = reject
+    # Rule: rejected if reject_count >= 2, OR rejected by all reviewers when < 2 assigned
+    from models.models import AbstractReviewer, AbstractReview, ReviewRecommendation
+    rev_q = (
+        db.query(
+            AbstractReviewer.abstract_id,
+            sqlfunc.count(AbstractReviewer.id).label("total_reviewers"),
+            sqlfunc.sum(
+                sa_case((AbstractReview.recommendation == ReviewRecommendation.reject, 1), else_=0)
+            ).label("reject_count"),
+        )
+        .join(AbstractReview, AbstractReview.assignment_id == AbstractReviewer.id, isouter=True)
+        .join(Abstract, Abstract.id == AbstractReviewer.abstract_id)
+        .filter(Abstract.deleted_at == None)
+    )
+    if event_id:
+        rev_q = rev_q.filter(Abstract.event_id == event_id)
+    rev_rows = rev_q.group_by(AbstractReviewer.abstract_id).all()
+
+    reviewer_rejected = sum(
+        1 for r in rev_rows
+        if r.reject_count and r.total_reviewers and (
+            r.reject_count >= 2 or r.reject_count == r.total_reviewers
+        )
+    )
+
     events_list = [
         {"id": e.id, "event": e.event}
         for e in db.query(Event).filter(Event.deleted_at == None).order_by(Event.id.desc()).all()
@@ -921,6 +948,7 @@ def abstract_stats(
     return {
         "total": total_all, "total_accepted": total_accepted,
         "eswatini_accepted": eswatini_accepted,
+        "reviewer_rejected": reviewer_rejected,
         "by_status": by_status, "by_type": by_type,
         "by_track": by_track, "by_country": by_country,
         "events": events_list,

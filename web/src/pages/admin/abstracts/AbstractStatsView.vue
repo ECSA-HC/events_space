@@ -2,7 +2,7 @@
   <div class="space-y-6">
 
     <!-- KPI cards — no Eswatini card, that's shown as text in the country chart -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
       <div v-for="kpi in kpis" :key="kpi.label"
         class="bg-gray-50 rounded-2xl p-4 flex flex-col gap-1"
         :style="`border-top: 3px solid ${kpi.accent}`">
@@ -134,7 +134,7 @@ import api from '@/plugins/axios'
 
 const props = defineProps({ eventId: { type: Number, default: null } })
 
-const stats   = ref({ total: 0, total_accepted: 0, eswatini_accepted: 0, by_status: [], by_type: [], by_track: [], by_country: [] })
+const stats   = ref({ total: 0, total_accepted: 0, eswatini_accepted: 0, reviewer_rejected: 0, by_status: [], by_type: [], by_track: [], by_country: [] })
 const showAll = ref(false)
 
 const D = 140, W = 20, R = (D - W) / 2
@@ -152,10 +152,11 @@ const kpis = computed(() => {
   const oral   = s.by_type?.find(t => t.type === 'oral')?.count   || 0
   const poster = s.by_type?.find(t => t.type === 'poster')?.count || 0
   return [
-    { label: 'Total',    value: s.total,          accent: '#6b7280' },
-    { label: 'Accepted', value: s.total_accepted,  accent: '#0095B6', sub: `${pct}% acceptance rate` },
-    { label: 'Oral',     value: oral,              accent: '#1B3F6E' },
-    { label: 'Poster',   value: poster,            accent: '#F7941D' },
+    { label: 'Total',              value: s.total,             accent: '#6b7280' },
+    { label: 'Accepted',           value: s.total_accepted,    accent: '#0095B6', sub: `${pct}% acceptance rate` },
+    { label: 'Reviewer Rejected',  value: s.reviewer_rejected, accent: '#ef4444', sub: '≥2 reviewers recommended reject' },
+    { label: 'Oral',               value: oral,                accent: '#1B3F6E' },
+    { label: 'Poster',             value: poster,              accent: '#F7941D' },
   ]
 })
 
