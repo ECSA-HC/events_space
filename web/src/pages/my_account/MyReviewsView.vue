@@ -24,10 +24,16 @@
             <p class="text-gray-500 text-sm mt-1">{{ a.abstract.event }} &bull; {{ a.abstract.track || 'No track' }}</p>
             <p class="text-gray-400 text-xs mt-1">{{ a.abstract.word_count }} words &bull; Assigned {{ formatDate(a.assigned_at) }}</p>
           </div>
-          <span :class="a.completed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'"
-            class="px-3 py-1 rounded-full text-sm font-semibold flex-shrink-0">
-            {{ a.completed ? 'Reviewed' : 'Pending Review' }}
-          </span>
+          <div class="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+            <span :class="abstractStatusClass(a.abstract.status)"
+              class="px-3 py-1 rounded-full text-sm font-semibold capitalize">
+              {{ (a.abstract.status || '').replace(/_/g, ' ') }}
+            </span>
+            <span :class="a.completed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'"
+              class="px-3 py-1 rounded-full text-sm font-semibold">
+              {{ a.completed ? 'Reviewed' : 'Pending Review' }}
+            </span>
+          </div>
         </div>
 
         <!-- Collapsible body -->
@@ -217,4 +223,12 @@ const submitReview = async (a) => {
 }
 
 const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : '—'
+
+const abstractStatusClass = (s) => ({
+  accepted:         'bg-green-100 text-green-700',
+  rejected:         'bg-red-100 text-red-700',
+  under_review:     'bg-yellow-100 text-yellow-700',
+  submitted:        'bg-blue-100 text-blue-700',
+  revision_required:'bg-orange-100 text-orange-700',
+}[s] || 'bg-gray-100 text-gray-600')
 </script>
