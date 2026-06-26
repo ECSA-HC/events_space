@@ -22,6 +22,17 @@
           Reports
         </button>
 
+        <!-- Templates -->
+        <button @click="openTemplates"
+          class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition hover:opacity-90"
+          style="background-color:#fff; color:#065f46; border:1.5px solid #6ee7b7;">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Templates
+        </button>
+
         <!-- Notify Accepted Authors -->
         <button @click="notifyModal.open = true"
           class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition hover:opacity-90"
@@ -619,6 +630,107 @@
     </transition>
 
     <!-- ═══════════════════════════════════════════════════════════════════════
+         TEMPLATES MODAL
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div v-if="tmplModal.open"
+      class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+      @click.self="tmplModal.open = false">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
+
+        <div class="flex items-center justify-between px-5 py-4 border-b flex-shrink-0">
+          <div>
+            <p class="font-bold text-gray-800 text-sm">Presentation Templates</p>
+            <p class="text-xs text-gray-400 mt-0.5">Templates available to accepted &amp; paid authors</p>
+          </div>
+          <button @click="tmplModal.open = false" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="p-5 space-y-4 overflow-y-auto flex-1">
+
+          <!-- Upload form -->
+          <div class="bg-gray-50 rounded-xl p-4 space-y-3">
+            <p class="text-xs font-semibold text-gray-500 uppercase tracking-widest">Upload New Template</p>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">Template Name <span class="text-red-500">*</span></label>
+              <input v-model="tmplModal.name" type="text" class="input w-full" placeholder="e.g. ECSA-HC PowerPoint Template 2026" />
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Event (optional)</label>
+                <select v-model.number="tmplModal.eventId" class="input w-full">
+                  <option :value="null">All Events</option>
+                  <option v-for="e in events" :key="e.id" :value="e.id">{{ e.event }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Type (optional)</label>
+                <select v-model="tmplModal.ptype" class="input w-full">
+                  <option value="">All Types</option>
+                  <option value="oral">Oral</option>
+                  <option value="poster">Poster</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">File <span class="text-red-500">*</span></label>
+              <input type="file" @change="tmplModal.file = $event.target.files[0]"
+                accept=".pptx,.ppt,.pdf,.potx"
+                class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#e6f7fb] file:text-[#006f87] hover:file:opacity-80" />
+            </div>
+            <p v-if="tmplModal.error" class="text-red-500 text-xs">{{ tmplModal.error }}</p>
+            <button @click="uploadTemplate" :disabled="tmplModal.uploading || !tmplModal.file || !tmplModal.name"
+              class="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-xl disabled:opacity-50 transition hover:opacity-90"
+              style="background-color:#0095B6;">
+              <svg v-if="tmplModal.uploading" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+              {{ tmplModal.uploading ? 'Uploading…' : 'Upload Template' }}
+            </button>
+          </div>
+
+          <!-- Existing templates -->
+          <div>
+            <p class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Uploaded Templates</p>
+            <div v-if="tmplModal.loading" class="text-xs text-gray-400 py-4 text-center">Loading…</div>
+            <div v-else-if="tmplModal.templates.length === 0" class="text-xs text-gray-400 py-4 text-center">No templates uploaded yet.</div>
+            <div v-else class="space-y-2">
+              <div v-for="t in tmplModal.templates" :key="t.id"
+                class="flex items-center gap-3 px-3 py-2.5 bg-gray-50 rounded-xl">
+                <svg class="w-5 h-5 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-gray-700 truncate">{{ t.name }}</p>
+                  <p class="text-xs text-gray-400">
+                    {{ t.event_id ? events.find(e => e.id === t.event_id)?.event || 'Unknown event' : 'All events' }}
+                    <span v-if="t.presentation_type"> · {{ t.presentation_type }}</span>
+                  </p>
+                </div>
+                <a :href="t.url" target="_blank"
+                  class="text-xs font-medium px-2 py-1 rounded-lg border transition flex-shrink-0"
+                  style="color:#0095B6; border-color:#b3e4f0; background:#e6f7fb;">
+                  Download
+                </a>
+                <button @click="deleteTemplate(t)" class="text-red-400 hover:text-red-600 flex-shrink-0">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
          NOTIFY ACCEPTED AUTHORS MODAL
     ════════════════════════════════════════════════════════════════════════ -->
     <div v-if="notifyModal.open"
@@ -1066,6 +1178,51 @@ const statusClass = (s) => ({
   rejected: 'bg-red-100 text-red-700',
   revision_required: 'bg-orange-100 text-orange-700',
 }[s] || 'bg-gray-100 text-gray-600')
+
+// ── Templates modal ──────────────────────────────────────────────────────────
+const tmplModal = ref({
+  open: false, loading: false, uploading: false,
+  name: '', eventId: null, ptype: '', file: null, error: '',
+  templates: [],
+})
+
+const openTemplates = async () => {
+  tmplModal.value.open = true
+  tmplModal.value.loading = true
+  try {
+    const res = await api.get('/events/templates')
+    tmplModal.value.templates = res.data
+  } catch (_) {}
+  finally { tmplModal.value.loading = false }
+}
+
+const uploadTemplate = async () => {
+  const m = tmplModal.value
+  m.error = ''
+  m.uploading = true
+  try {
+    const fd = new FormData()
+    fd.append('file', m.file)
+    fd.append('name', m.name)
+    if (m.eventId) fd.append('event_id', m.eventId)
+    if (m.ptype)   fd.append('presentation_type', m.ptype)
+    const res = await api.post('/events/templates/upload', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    m.templates.unshift(res.data)
+    m.name = ''; m.file = null; m.ptype = ''; m.eventId = null
+  } catch (e) {
+    m.error = e.response?.data?.detail || 'Upload failed'
+  } finally { m.uploading = false }
+}
+
+const deleteTemplate = async (t) => {
+  if (!confirm(`Delete "${t.name}"?`)) return
+  try {
+    await api.delete(`/events/templates/${t.id}`)
+    tmplModal.value.templates = tmplModal.value.templates.filter(x => x.id !== t.id)
+  } catch (_) {}
+}
 
 // ── Reports slide-over ───────────────────────────────────────────────────────
 const reportsOpen    = ref(false)

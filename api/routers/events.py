@@ -1903,3 +1903,151 @@ async def admin_add_participant(
             f"{' Invitation email sent.' if email_sent else ''}"
         ),
     }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  EVENT TEMPLATES  (PPT / poster templates downloadable by accepted+paid users)
+# ══════════════════════════════════════════════════════════════════════════════
+
+TEMPLATE_DIR = "uploads/templates"
+if not os.path.exists(TEMPLATE_DIR):
+    os.makedirs(TEMPLATE_DIR)
+
+
+@router.post("/templates/upload", status_code=201)
+async def upload_event_template(
+    file: UploadFile = File(...),
+    event_id: int = Form(None),
+    name: str = Form(...),
+    presentation_type: str = Form(None),
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(lambda db=Depends(get_db): Auth(db)),
+):
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+    from models.models import EventTemplate
+    ext = os.path.splitext(file.filename)[1]
+    unique_name = f"{uuid.uuid4().hex}{ext}"
+    file_path = os.path.join(TEMPLATE_DIR, unique_name)
+    with open(file_path, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    t = EventTemplate(
+        event_id=event_id or None,
+        name=name,
+        file_path=file_path,
+        presentation_type=presentation_type or None,
+        uploaded_by=current_user["user_id"],
+    )
+    db.add(t)
+    db.commit()
+    db.refresh(t)
+    return _serialize_template(t)
+
+
+@router.get("/templates")
+def list_templates(
+    event_id: int = Query(None),
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(lambda db=Depends(get_db): Auth(db)),
+):
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+    from models.models import EventTemplate
+    q = db.query(EventTemplate)
+    if event_id:
+        q = q.filter(
+            (EventTemplate.event_id == event_id) | (EventTemplate.event_id == None)
+        )
+    return [_serialize_template(t) for t in q.order_by(EventTemplate.uploaded_at.desc()).all()]
+
+
+@router.delete("/templates/{template_id}", status_code=204)
+def delete_template(
+    template_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(lambda db=Depends(get_db): Auth(db)),
+):
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+    from models.models import EventTemplate
+    t = db.query(EventTemplate).filter(EventTemplate.id == template_id).first()
+    if not t:
+        raise HTTPException(status_code=404, detail="Template not found")
+    if os.path.exists(t.file_path):
+        os.remove(t.file_path)
+    db.delete(t)
+    db.commit()
+
+
+@router.get("/templates/for-me")
+def my_templates(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return templates accessible to this user (accepted abstract + paid registration)."""
+    from models.models import EventTemplate, Abstract, AbstractStatus, Registration
+    user_id = current_user["user_id"]
+
+    # Find event IDs where user has a paid registration
+    paid_event_ids = {
+        r.event_id for r in
+        db.query(Registration).filter(
+            Registration.user_id == user_id, Registration.paid == True
+        ).all()
+    }
+
+    # Find event IDs where user has an accepted abstract (submitted_by OR as author)
+    from models.models import AbstractAuthor
+    from sqlalchemy import or_
+    accepted_abstracts = db.query(Abstract).filter(
+        Abstract.status == AbstractStatus.accepted,
+        Abstract.deleted_at == None,
+        or_(
+            Abstract.submitted_by == user_id,
+            Abstract.id.in_(
+                db.query(AbstractAuthor.abstract_id)
+                .join(User, User.email == AbstractAuthor.email)
+                .filter(User.id == user_id)
+            )
+        )
+    ).all()
+    accepted_event_ids = {a.event_id for a in accepted_abstracts}
+
+    # Eligible = paid AND accepted
+    eligible_event_ids = paid_event_ids & accepted_event_ids
+
+    if not eligible_event_ids:
+        return []
+
+    from models.models import EventTemplate
+    templates = db.query(EventTemplate).filter(
+        (EventTemplate.event_id.in_(eligible_event_ids)) |
+        (EventTemplate.event_id == None)
+    ).order_by(EventTemplate.uploaded_at.desc()).all()
+
+    # Also attach presentation_type from the user's abstract
+    abs_type_by_event = {}
+    for a in accepted_abstracts:
+        abs_type_by_event[a.event_id] = a.presentation_type.value if a.presentation_type else None
+
+    result = []
+    for t in templates:
+        p_type = abs_type_by_event.get(t.event_id) if t.event_id else None
+        # Only show template if ptype matches user's abstract type (or template has no type restriction)
+        if t.presentation_type and p_type and t.presentation_type != p_type:
+            continue
+        result.append(_serialize_template(t))
+    return result
+
+
+def _serialize_template(t):
+    from models.models import Event as _Event
+    return {
+        "id": t.id,
+        "event_id": t.event_id,
+        "name": t.name,
+        "file_path": t.file_path,
+        "url": f"/uploads/templates/{os.path.basename(t.file_path)}",
+        "presentation_type": t.presentation_type,
+        "uploaded_at": t.uploaded_at,
+    }

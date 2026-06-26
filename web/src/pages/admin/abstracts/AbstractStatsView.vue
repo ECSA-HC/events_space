@@ -106,8 +106,8 @@
     <div v-if="trackBars.length" class="bg-gray-50 rounded-2xl p-5">
       <h3 class="font-semibold text-gray-700 mb-4 text-sm">By Track</h3>
       <div class="space-y-2">
-        <div v-for="t in trackBars" :key="t.label" class="flex items-center gap-3">
-          <span class="w-48 text-xs text-gray-500 truncate flex-shrink-0" :title="t.label">{{ t.label }}</span>
+        <div v-for="t in trackBars" :key="t.track" class="flex items-center gap-3">
+          <span class="w-48 text-xs text-gray-500 truncate flex-shrink-0" :title="t.track">{{ t.track }}</span>
           <div class="flex-1 flex rounded-full overflow-hidden h-4 bg-white">
             <div class="h-4 transition-all duration-500"
               :style="{ width: (t.accepted / t.total * 100) + '%', backgroundColor: '#0095B6', minWidth: t.accepted ? '1.2rem' : '0' }">

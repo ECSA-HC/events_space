@@ -42,6 +42,23 @@
           </div>
         </div>
 
+        <!-- Template download (accepted + paid) -->
+        <div v-if="abs.status === 'accepted' && templatesForAbstract(abs).length" class="mt-4 border-t pt-4">
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Presentation Templates</p>
+          <div class="flex flex-wrap gap-2">
+            <a v-for="t in templatesForAbstract(abs)" :key="t.id"
+              :href="t.url" target="_blank"
+              class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90"
+              style="background-color:#0095B6;">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+              </svg>
+              {{ t.name }}
+            </a>
+          </div>
+        </div>
+
         <!-- Reviewer comments (visible when accepted) -->
         <div v-if="abs.status === 'accepted' && reviewComments(abs).length" class="mt-4 border-t pt-4">
           <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Reviewer Feedback</p>
@@ -76,19 +93,30 @@
 import { ref, onMounted } from 'vue'
 import api from '@/plugins/axios'
 
-const abstracts = ref([])
-const loading = ref(true)
+const abstracts  = ref([])
+const templates  = ref([])
+const loading    = ref(true)
 
 onMounted(async () => {
   try {
-    const res = await api.get('/abstracts/my-submissions')
-    abstracts.value = res.data.map(a => ({ ...a, _expanded: false }))
+    const [absRes, tmplRes] = await Promise.all([
+      api.get('/abstracts/my-submissions'),
+      api.get('/events/templates/for-me').catch(() => ({ data: [] })),
+    ])
+    abstracts.value = absRes.data.map(a => ({ ...a, _expanded: false }))
+    templates.value = tmplRes.data
   } catch (e) {
     console.error('Failed to load abstracts', e)
   } finally {
     loading.value = false
   }
 })
+
+const templatesForAbstract = (abs) =>
+  templates.value.filter(t =>
+    (!t.event_id || t.event_id === abs.event_id) &&
+    (!t.presentation_type || t.presentation_type === abs.presentation_type)
+  )
 
 const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : '—'
 const statusClass = (s) => ({ submitted:'bg-blue-100 text-blue-700', under_review:'bg-yellow-100 text-yellow-700', accepted:'bg-green-100 text-green-700', rejected:'bg-red-100 text-red-700', revision_required:'bg-orange-100 text-orange-700' }[s] || 'bg-gray-100 text-gray-600')

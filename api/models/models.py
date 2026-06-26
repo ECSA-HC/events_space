@@ -990,3 +990,18 @@ class EmailLog(Base):
 
     def __repr__(self):
         return f"<EmailLog id={self.id} to={self.recipient_email} type={self.email_type}>"
+
+
+class EventTemplate(Base):
+    __tablename__ = "event_template"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    event_id    = Column(Integer, ForeignKey("event.id", ondelete="CASCADE"), nullable=True)
+    name        = Column(String(300), nullable=False)
+    file_path   = Column(Text, nullable=False)
+    presentation_type = Column(String(50), nullable=True)   # oral | poster | None = all
+    uploaded_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    uploaded_by = Column(Integer, ForeignKey("user.id"), nullable=True)
+
+    event      = relationship("Event")
+    uploader   = relationship("User", foreign_keys=[uploaded_by])
