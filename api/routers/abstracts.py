@@ -51,6 +51,7 @@ def _serialize_abstract(a: Abstract):
         "submitted_by": a.submitted_by,
         "submitter_name": f"{a.submitter.firstname} {a.submitter.lastname}" if a.submitter else (f"{a.authors[0].firstname} {a.authors[0].lastname}" if a.authors else None),
         "submitter_email": a.submitter.email if a.submitter else (a.authors[0].email if a.authors else None),
+        "acceptance_notified_at": a.acceptance_notified_at,
         "created_at": a.created_at,
         "updated_at": a.updated_at,
         "authors": [
@@ -1606,9 +1607,14 @@ def notify_acceptance(
                     db=db,
                 )
                 sent.append({"abstract_id": a.id, "email": target})
+                if not schema.test_email:
+                    from datetime import datetime, timezone
+                    a.acceptance_notified_at = datetime.now(timezone.utc)
+                    db.add(a)
             except Exception as exc:
                 failed.append({"abstract_id": a.id, "email": target, "error": str(exc)})
 
+    db.commit()
     return {
         "sent": len(sent),
         "failed": len(failed),

@@ -251,15 +251,20 @@
                   </svg>
                   Assign
                 </button>
-                <button v-if="abs.status === 'accepted'" @click.stop="openNotifySingle(abs)"
+                <button v-if="abs.status === 'accepted'"
+                  @click.stop="!abs.acceptance_notified_at && openNotifySingle(abs)"
+                  :disabled="!!abs.acceptance_notified_at"
                   class="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-lg border transition"
-                  style="color:#059669; border-color:#6ee7b7; background:#f0fdf4;"
-                  title="Send acceptance notification">
+                  :class="abs.acceptance_notified_at
+                    ? 'cursor-not-allowed opacity-50 border-gray-200 text-gray-400 bg-gray-50'
+                    : 'border-green-200 bg-green-50'"
+                  :style="abs.acceptance_notified_at ? '' : 'color:#059669;'"
+                  :title="abs.acceptance_notified_at ? 'Notified on ' + formatDate(abs.acceptance_notified_at) : 'Send acceptance notification'">
                   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                   </svg>
-                  Notify
+                  {{ abs.acceptance_notified_at ? 'Notified' : 'Notify' }}
                 </button>
                 <router-link :to="{ name: 'AdminAbstract', params: { id: abs.id } }"
                   class="text-bondi-blue hover:underline text-xs font-medium">View</router-link>
@@ -1281,6 +1286,8 @@ const openNotifySingle = (abs) => {
   m.open = true
 }
 
+const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
+
 const runNotifyAccepted = async () => {
   const m = notifyModal.value
   m.sending = true
@@ -1296,6 +1303,10 @@ const runNotifyAccepted = async () => {
     const res = await api.post('/abstracts/notify-acceptance', payload)
     m.result = { sent: res.data.sent, failed: res.data.failed }
     m.done = true
+    // Disable the notify button immediately for the notified abstract
+    if (m.singleAbstract && !m.testEmail) {
+      m.singleAbstract.acceptance_notified_at = new Date().toISOString()
+    }
   } catch (e) {
     m.error = e.response?.data?.detail || 'Failed to send notifications. Please try again.'
   } finally {
