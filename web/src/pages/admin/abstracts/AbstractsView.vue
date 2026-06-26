@@ -34,7 +34,7 @@
         </button>
 
         <!-- Notify Accepted Authors -->
-        <button @click="notifyModal.open = true"
+        <button @click="notifyModal.singleAbstract = null; notifyModal.done = false; notifyModal.error = ''; notifyModal.open = true"
           class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition hover:opacity-90"
           style="background-color:#d1fae5; color:#065f46; border:1.5px solid #6ee7b7;">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -250,6 +250,16 @@
                       d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
                   </svg>
                   Assign
+                </button>
+                <button v-if="abs.status === 'accepted'" @click.stop="openNotifySingle(abs)"
+                  class="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-lg border transition"
+                  style="color:#059669; border-color:#6ee7b7; background:#f0fdf4;"
+                  title="Send acceptance notification">
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                  </svg>
+                  Notify
                 </button>
                 <router-link :to="{ name: 'AdminAbstract', params: { id: abs.id } }"
                   class="text-bondi-blue hover:underline text-xs font-medium">View</router-link>
@@ -748,8 +758,12 @@
               </svg>
             </div>
             <div>
-              <p class="font-bold text-gray-800 text-sm">Notify Accepted Authors</p>
-              <p class="text-xs text-gray-400 mt-0.5">Send acceptance notification emails to accepted abstract authors</p>
+              <p class="font-bold text-gray-800 text-sm">
+                {{ notifyModal.singleAbstract ? 'Notify Author' : 'Notify Accepted Authors' }}
+              </p>
+              <p class="text-xs text-gray-400 mt-0.5">
+                {{ notifyModal.singleAbstract ? 'Send acceptance notification to this author' : 'Send acceptance notification emails to all accepted abstract authors' }}
+              </p>
             </div>
           </div>
           <button @click="notifyModal.open = false" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
@@ -761,8 +775,25 @@
 
         <div class="p-5 space-y-4 overflow-y-auto flex-1">
 
-          <!-- Event filter -->
-          <div>
+          <!-- Single-author banner -->
+          <div v-if="notifyModal.singleAbstract"
+            class="flex items-start gap-3 px-4 py-3 rounded-xl text-sm"
+            style="background:#e6f7fb; border:1px solid #b3e4f0;">
+            <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:#0095B6;">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+            </svg>
+            <div class="min-w-0">
+              <p class="font-semibold text-gray-800 truncate">{{ notifyModal.singleAbstract.title }}</p>
+              <p class="text-xs text-gray-500 mt-0.5 capitalize">
+                {{ notifyModal.singleAbstract.presentation_type || 'oral' }} ·
+                {{ notifyModal.singleAbstract.authors?.[0] ? notifyModal.singleAbstract.authors[0].firstname + ' ' + notifyModal.singleAbstract.authors[0].lastname : '—' }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Event filter (bulk only) -->
+          <div v-if="!notifyModal.singleAbstract">
             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Event (optional)</label>
             <select v-model.number="notifyModal.eventId" class="input w-full">
               <option :value="null">All Events</option>
@@ -775,13 +806,6 @@
           <div>
             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Portal URL</label>
             <input v-model="notifyModal.portalUrl" type="url" class="input w-full" placeholder="https://events.ecsahc.org" />
-          </div>
-
-          <!-- PPT Template URL -->
-          <div>
-            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">ECSA PPT Template URL</label>
-            <input v-model="notifyModal.pptUrl" type="url" class="input w-full" placeholder="https://www.ecsahc.org/..." />
-            <p class="text-xs text-gray-400 mt-1">Link authors will use to download the ECSA PowerPoint template.</p>
           </div>
 
           <!-- Test email -->
@@ -820,7 +844,7 @@
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
             </svg>
-            {{ notifyModal.sending ? 'Sending…' : (notifyModal.testEmail ? 'Send Test Email' : 'Send Notifications') }}
+            {{ notifyModal.sending ? 'Sending…' : (notifyModal.testEmail ? 'Send Test Email' : (notifyModal.singleAbstract ? 'Send Notification' : 'Send All Notifications')) }}
           </button>
         </div>
       </div>
@@ -1236,9 +1260,9 @@ const openReports = () => {
 // ── Notify Accepted Authors ──────────────────────────────────────────────────
 const notifyModal = ref({
   open: false,
+  singleAbstract: null,   // set when notifying one specific abstract
   eventId: null,
   portalUrl: 'https://events.ecsahc.org',
-  pptUrl: 'https://www.ecsahc.org',
   testEmail: '',
   sending: false,
   done: false,
@@ -1246,16 +1270,28 @@ const notifyModal = ref({
   error: '',
 })
 
+const openNotifySingle = (abs) => {
+  const m = notifyModal.value
+  m.singleAbstract = abs
+  m.eventId = null
+  m.testEmail = ''
+  m.done = false
+  m.error = ''
+  m.result = { sent: 0, failed: 0 }
+  m.open = true
+}
+
 const runNotifyAccepted = async () => {
   const m = notifyModal.value
   m.sending = true
   m.error = ''
   try {
-    const payload = {
-      portal_url: m.portalUrl,
-      ppt_template_url: m.pptUrl,
+    const payload = { portal_url: m.portalUrl }
+    if (m.singleAbstract) {
+      payload.abstract_ids = [m.singleAbstract.id]
+    } else {
+      if (m.eventId) payload.event_id = m.eventId
     }
-    if (m.eventId) payload.event_id = m.eventId
     if (m.testEmail) payload.test_email = m.testEmail
     const res = await api.post('/abstracts/notify-acceptance', payload)
     m.result = { sent: res.data.sent, failed: res.data.failed }

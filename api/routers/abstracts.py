@@ -1498,7 +1498,6 @@ class NotifyAcceptedSchema(_PydanticBase):
     abstract_ids: Optional[_List[int]] = None   # None → all accepted for event
     event_id: Optional[int] = None
     portal_url: str = "https://events.ecsahc.org"
-    ppt_template_url: str = "https://www.ecsahc.org"
     test_email: Optional[str] = None            # if set, all emails go here
 
 
@@ -1598,7 +1597,7 @@ def notify_acceptance(
                     presentation_type=p_type,
                     event_name=event_name,
                     portal_url=schema.portal_url,
-                    ppt_template_url=schema.ppt_template_url,
+                    ppt_template_url="",
                     is_eswatini=is_eswatini,
                     sent_by_user_id=current_user["user_id"],
                     background_tasks=background_tasks,
