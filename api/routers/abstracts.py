@@ -1575,15 +1575,11 @@ def notify_acceptance(
         )
 
         # Collect recipients: first look at linked authors, fall back to submitter
-        single_mode = bool(schema.abstract_ids and len(schema.abstract_ids) == 1)
         recipients = []
         if a.authors:
-            if single_mode:
-                # Single-abstract notify → presenting author only
-                presenting = [au for au in a.authors if au.is_presenting and au.email]
-                targets = presenting or [au for au in a.authors if au.email][:1]
-            else:
-                targets = [au for au in a.authors if au.email]
+            # Always notify presenting author only; fall back to first author with email
+            presenting = [au for au in a.authors if au.is_presenting and au.email]
+            targets = presenting or [au for au in a.authors if au.email][:1]
             for au in targets:
                 recipients.append((au.firstname or "Presenter", au.email))
         # If no author email, try submitter
