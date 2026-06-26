@@ -885,10 +885,26 @@ def abstract_stats(
                 AbstractAuthor.country != None, AbstractAuthor.country != "")
         .group_by(AbstractAuthor.country).all()
     )
-    accepted_by_country = {r.country: r.accepted for r in country_accepted_rows}
+    def _norm_country(c):
+        return (c or "").strip().rstrip(".,;").strip()
+
+    # Merge accepted counts using normalised country name as key
+    accepted_by_norm = {}
+    for r in country_accepted_rows:
+        key = _norm_country(r.country)
+        accepted_by_norm[key] = accepted_by_norm.get(key, 0) + r.accepted
+
+    # Merge totals using normalised country name; pick the most-common spelling for display
+    totals_by_norm: dict = {}
+    for r in country_total_rows:
+        key = _norm_country(r.country)
+        if key not in totals_by_norm:
+            totals_by_norm[key] = {"country": r.country, "total": 0}
+        totals_by_norm[key]["total"] += r.total
+
     by_country = [
-        {"country": r.country, "total": r.total, "accepted": accepted_by_country.get(r.country, 0)}
-        for r in country_total_rows
+        {"country": v["country"], "total": v["total"], "accepted": accepted_by_norm.get(k, 0)}
+        for k, v in sorted(totals_by_norm.items(), key=lambda x: -x[1]["total"])
     ]
 
     esw_names = {"eswatini", "swaziland"}
