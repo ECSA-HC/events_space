@@ -1560,65 +1560,115 @@ def notify_acceptance(
         raise HTTPException(status_code=404, detail="No accepted abstracts found matching criteria")
 
     import utils.mailer_util as _mailer
-    sent = []
-    failed = []
+    import smtplib, os, time
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    from datetime import datetime, timezone
 
     _eswatini_names = {"eswatini", "swaziland"}
 
+    # Build the full job list before touching SMTP
+    jobs = []
     for a in abstracts:
         event_name = a.event.event if a.event else "ECSA BPF"
         p_type = a.presentation_type.value if a.presentation_type else "oral"
-
-        # Detect if any author is from Eswatini
         is_eswatini = any(
             (au.country or "").strip().lower() in _eswatini_names
             for au in (a.authors or [])
         )
-
-        # Collect recipients: first look at linked authors, fall back to submitter
         recipients = []
         if a.authors:
-            # Always notify presenting author only; fall back to first author with email
             presenting = [au for au in a.authors if au.is_presenting and au.email]
             targets = presenting or [au for au in a.authors if au.email][:1]
             for au in targets:
                 recipients.append((au.firstname or "Presenter", au.email))
-        # If no author email, try submitter
         if not recipients:
             submitter = db.query(User).filter(User.id == a.submitted_by).first()
             if submitter and submitter.email:
-                firstname = submitter.firstname or submitter.email.split("@")[0]
-                recipients.append((firstname, submitter.email))
-
+                recipients.append((submitter.firstname or submitter.email.split("@")[0], submitter.email))
         for firstname, email in recipients:
-            target = schema.test_email or email
-            try:
-                _mailer.abstract_acceptance_email(
-                    recipient_email=target,
-                    firstname=firstname,
-                    abstract_title=a.title,
-                    presentation_type=p_type,
-                    event_name=event_name,
-                    portal_url=schema.portal_url,
-                    ppt_template_url="",
-                    is_eswatini=is_eswatini,
-                    sent_by_user_id=current_user["user_id"],
-                    background_tasks=background_tasks,
-                    db=db,
-                )
-                sent.append({"abstract_id": a.id, "email": target})
-                if not schema.test_email:
-                    from datetime import datetime, timezone
-                    a.acceptance_notified_at = datetime.now(timezone.utc)
-                    db.add(a)
-            except Exception as exc:
-                failed.append({"abstract_id": a.id, "email": target, "error": str(exc)})
+            jobs.append({
+                "abstract": a, "firstname": firstname,
+                "email": schema.test_email or email,
+                "real_email": email,
+                "event_name": event_name, "p_type": p_type, "is_eswatini": is_eswatini,
+            })
 
-    db.commit()
+    sent = []
+    failed = []
+
+    def _send_all(jobs, portal_url, sent_by_user_id, test_email, db_session):
+        smtp_host     = os.getenv("SMTP_HOST", "")
+        smtp_port     = int(os.getenv("SMTP_PORT", "587"))
+        smtp_username = os.getenv("SMTP_USERNAME", "")
+        smtp_password = os.getenv("SMTP_PASSWORD", "")
+        from_email    = os.getenv("SMTP_FROM_EMAIL", smtp_username)
+        templates     = _mailer.templates
+
+        try:
+            server = smtplib.SMTP(smtp_host, smtp_port)
+            server.starttls()
+            server.login(smtp_username, smtp_password)
+        except Exception as e:
+            for j in jobs:
+                failed.append({"abstract_id": j["abstract"].id, "email": j["email"], "error": str(e)})
+            return
+
+        for j in jobs:
+            try:
+                subject = f"Congratulations! Your Abstract Has Been Accepted – {j['event_name']}"
+                tmpl = templates.get_template("abstract_acceptance_template.html")
+                body = tmpl.render(
+                    subject=subject, firstname=j["firstname"],
+                    abstract_title=j["abstract"].title,
+                    presentation_type=j["p_type"],
+                    event_name=j["event_name"],
+                    portal_url=portal_url,
+                    ppt_template_url="",
+                    is_eswatini=j["is_eswatini"],
+                    year=_mailer.YEAR,
+                )
+                msg = MIMEMultipart()
+                msg["From"]    = f"{_mailer.FROM_NAME} <{from_email}>"
+                msg["To"]      = j["email"]
+                msg["Subject"] = subject
+                msg.attach(MIMEText(body, "html"))
+                server.sendmail(smtp_username, j["email"], msg.as_string())
+                sent.append({"abstract_id": j["abstract"].id, "email": j["email"]})
+                _mailer._create_email_log(db_session, j["email"], subject,
+                                          "abstract_acceptance", sent_by_user_id, None, body)
+                if not test_email:
+                    j["abstract"].acceptance_notified_at = datetime.now(timezone.utc)
+                    db_session.add(j["abstract"])
+                time.sleep(0.3)   # 300 ms gap — stay within Gmail's rate limit
+            except smtplib.SMTPServerDisconnected:
+                # Reconnect once on dropped connection
+                try:
+                    server = smtplib.SMTP(smtp_host, smtp_port)
+                    server.starttls()
+                    server.login(smtp_username, smtp_password)
+                    server.sendmail(smtp_username, j["email"], msg.as_string())
+                    sent.append({"abstract_id": j["abstract"].id, "email": j["email"]})
+                except Exception as retry_e:
+                    failed.append({"abstract_id": j["abstract"].id, "email": j["email"], "error": str(retry_e)})
+            except Exception as exc:
+                failed.append({"abstract_id": j["abstract"].id, "email": j["email"], "error": str(exc)})
+
+        try:
+            server.quit()
+        except Exception:
+            pass
+        db_session.commit()
+
+    background_tasks.add_task(
+        _send_all, jobs, schema.portal_url,
+        current_user["user_id"], schema.test_email, db,
+    )
+
     return {
-        "sent": len(sent),
-        "failed": len(failed),
-        "details": sent,
+        "sent": len(jobs),   # optimistic count returned immediately
+        "failed": 0,
+        "details": [],
         "errors": failed,
     }
 
