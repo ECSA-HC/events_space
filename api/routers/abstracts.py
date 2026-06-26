@@ -1500,6 +1500,7 @@ class NotifyAcceptedSchema(_PydanticBase):
     event_id: Optional[int] = None
     portal_url: str = "https://events.ecsahc.org"
     test_email: Optional[str] = None            # if set, all emails go here
+    skip_notified: bool = True                  # skip abstracts already notified
 
 
 @router.post("/bulk-accept")
@@ -1548,8 +1549,11 @@ def notify_acceptance(
     )
     if schema.abstract_ids:
         q = q.filter(Abstract.id.in_(schema.abstract_ids))
-    if schema.event_id:
-        q = q.filter(Abstract.event_id == schema.event_id)
+    else:
+        if schema.skip_notified:
+            q = q.filter(Abstract.acceptance_notified_at == None)
+        if schema.event_id:
+            q = q.filter(Abstract.event_id == schema.event_id)
 
     abstracts = q.options(
         joinedload(Abstract.event),

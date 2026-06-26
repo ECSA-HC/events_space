@@ -813,6 +813,16 @@
             <input v-model="notifyModal.portalUrl" type="url" class="input w-full" placeholder="https://events.ecsahc.org" />
           </div>
 
+          <!-- Skip already notified (bulk only) -->
+          <div v-if="!notifyModal.singleAbstract" class="flex items-start gap-3">
+            <input type="checkbox" id="skipNotified" v-model="notifyModal.skipNotified"
+              class="mt-0.5 w-4 h-4 cursor-pointer rounded" style="accent-color:#0095B6;" />
+            <label for="skipNotified" class="text-sm text-gray-700 cursor-pointer">
+              Skip already notified
+              <span class="block text-xs text-gray-400 mt-0.5">Only send to accepted authors who haven't received this email yet.</span>
+            </label>
+          </div>
+
           <!-- Test email -->
           <div>
             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Test Email (optional)</label>
@@ -823,11 +833,9 @@
           <!-- Results -->
           <div v-if="notifyModal.done" class="bg-green-50 border border-green-200 rounded-xl p-4">
             <p class="font-semibold text-green-700 text-sm mb-1">
-              ✅ {{ notifyModal.result.sent }} email{{ notifyModal.result.sent !== 1 ? 's' : '' }} sent
+              ✅ {{ notifyModal.result.sent }} email{{ notifyModal.result.sent !== 1 ? 's' : '' }} queued
             </p>
-            <p v-if="notifyModal.result.failed" class="text-sm text-red-600">
-              ⚠️ {{ notifyModal.result.failed }} failed
-            </p>
+            <p class="text-xs text-gray-500 mt-1">Sending in the background — check Email Logs to confirm delivery.</p>
           </div>
 
           <p v-if="notifyModal.error" class="text-red-500 text-sm">{{ notifyModal.error }}</p>
@@ -1265,9 +1273,10 @@ const openReports = () => {
 // ── Notify Accepted Authors ──────────────────────────────────────────────────
 const notifyModal = ref({
   open: false,
-  singleAbstract: null,   // set when notifying one specific abstract
+  singleAbstract: null,
   eventId: null,
   portalUrl: 'https://events.ecsahc.org',
+  skipNotified: true,
   testEmail: '',
   sending: false,
   done: false,
@@ -1298,6 +1307,7 @@ const runNotifyAccepted = async () => {
       payload.abstract_ids = [m.singleAbstract.id]
     } else {
       if (m.eventId) payload.event_id = m.eventId
+      payload.skip_notified = m.skipNotified
     }
     if (m.testEmail) payload.test_email = m.testEmail
     const res = await api.post('/abstracts/notify-acceptance', payload)
