@@ -1639,8 +1639,10 @@ def notify_acceptance(
                 msg.attach(MIMEText(body, "html"))
                 server.sendmail(smtp_username, j["email"], msg.as_string())
                 sent.append({"abstract_id": j["abstract"].id, "email": j["email"]})
-                _mailer._create_email_log(db_session, j["email"], subject,
-                                          "abstract_acceptance", sent_by_user_id, None, body)
+                log_id = _mailer._create_email_log(db_session, j["email"], subject,
+                                                   "abstract_acceptance", sent_by_user_id, None, body)
+                if log_id:
+                    _mailer._update_email_log(db_session, log_id, "sent")
                 if not test_email:
                     j["abstract"].acceptance_notified_at = datetime.now(timezone.utc)
                     db_session.add(j["abstract"])
