@@ -332,12 +332,12 @@
               </div>
             </div>
 
-            <!-- Payment choice notice -->
+            <!-- Payment notice -->
             <div class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              <p class="font-semibold mb-1">Payment required for full access</p>
+              <p class="font-semibold mb-1">Payment required to secure your slot</p>
               <p class="text-xs leading-relaxed">
-                You can complete registration now and pay later, or proceed directly to payment.
-                Your login credentials will be emailed to you either way.
+                Registration must be completed with payment. You will be redirected to the
+                payment portal immediately after registering.
                 Access to event materials and sessions is available to paid participants only.
               </p>
             </div>
@@ -349,19 +349,7 @@
               Back
             </button>
             <div class="flex flex-col sm:flex-row gap-3">
-              <!-- Pay later -->
-              <button type="button" :disabled="isSubmitting" @click="handleRegister(false)"
-                class="flex items-center justify-center gap-2 px-6 py-3 rounded-full font-semibold text-sm border-2 border-[#0095B6] text-[#0095B6] transition hover:bg-blue-50 disabled:opacity-60">
-                <svg v-if="isSubmitting && !payNow" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-                </svg>
-                <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                {{ isSubmitting && !payNow ? 'Registering…' : 'Register & Pay Later' }}
-              </button>
-              <!-- Pay now -->
+              <!-- Pay now (only option) -->
               <button type="button" :disabled="isSubmitting" @click="handleRegister(true)"
                 class="flex items-center justify-center gap-2 px-6 py-3 rounded-full font-semibold text-white text-sm shadow-lg transition hover:opacity-90 disabled:opacity-60"
                 style="background-color:#0095B6;">
@@ -408,8 +396,8 @@
             </p>
           </div>
 
-          <!-- Pay Now path: redirecting notice -->
-          <div v-if="payNow" class="rounded-xl border border-blue-200 bg-blue-50 p-5 text-sm text-blue-800 text-left max-w-md mx-auto">
+          <!-- Redirecting to payment notice -->
+          <div class="rounded-xl border border-blue-200 bg-blue-50 p-5 text-sm text-blue-800 text-left max-w-md mx-auto">
             <p class="font-semibold mb-2 flex items-center gap-2">
               <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -422,23 +410,6 @@
               <a href="https://ecsahc.org/payment_bpf2026/" target="_blank" rel="noopener"
                 class="font-semibold underline" style="color:#0095B6;">click here to pay now</a>.
             </p>
-          </div>
-
-          <!-- Pay Later path: payment reminder -->
-          <div v-else class="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800 text-left max-w-md mx-auto">
-            <p class="font-semibold mb-2">⚠ Payment Required for Full Access</p>
-            <p class="text-xs leading-relaxed mb-3">
-              Full access to event materials and sessions is available to paid participants only.
-              Complete your payment using the link below:
-            </p>
-            <a href="https://ecsahc.org/payment_bpf2026/" target="_blank" rel="noopener"
-              class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold text-white text-sm shadow transition hover:opacity-90"
-              style="background-color:#F7941D;">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
-              </svg>
-              Pay Now
-            </a>
           </div>
 
           <!-- Also update profile notice -->

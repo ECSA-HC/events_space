@@ -464,6 +464,7 @@ def abstract_acceptance_email(
     event_name,
     portal_url,
     ppt_template_url,
+    is_eswatini=False,
     sent_by_user_id=None,
     background_tasks: BackgroundTasks = None,
     db=None,
@@ -478,6 +479,7 @@ def abstract_acceptance_email(
         event_name=event_name,
         portal_url=portal_url,
         ppt_template_url=ppt_template_url,
+        is_eswatini=is_eswatini,
         year=YEAR,
     )
     send_email_backgroundable(

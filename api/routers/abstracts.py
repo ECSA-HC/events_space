@@ -1421,9 +1421,17 @@ def notify_acceptance(
     sent = []
     failed = []
 
+    _eswatini_names = {"eswatini", "swaziland"}
+
     for a in abstracts:
         event_name = a.event.event if a.event else "ECSA BPF"
         p_type = a.presentation_type.value if a.presentation_type else "oral"
+
+        # Detect if any author is from Eswatini
+        is_eswatini = any(
+            (au.country or "").strip().lower() in _eswatini_names
+            for au in (a.authors or [])
+        )
 
         # Collect recipients: first look at linked authors, fall back to submitter
         recipients = []
@@ -1449,6 +1457,7 @@ def notify_acceptance(
                     event_name=event_name,
                     portal_url=schema.portal_url,
                     ppt_template_url=schema.ppt_template_url,
+                    is_eswatini=is_eswatini,
                     sent_by_user_id=current_user["user_id"],
                     background_tasks=background_tasks,
                     db=db,
