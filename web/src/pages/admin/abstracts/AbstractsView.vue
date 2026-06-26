@@ -11,6 +11,17 @@
         </p>
       </div>
       <div class="flex items-center gap-2">
+        <!-- Abstract Reports -->
+        <button @click="openReports"
+          class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition hover:opacity-90"
+          style="background-color:#fff; color:#1B3F6E; border:1.5px solid #1B3F6E;">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+          Reports
+        </button>
+
         <!-- Notify Accepted Authors -->
         <button @click="notifyModal.open = true"
           class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition hover:opacity-90"
@@ -563,6 +574,51 @@
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════════════════
+         REPORTS SLIDE-OVER
+    ════════════════════════════════════════════════════════════════════════ -->
+    <transition
+      enter-active-class="transition duration-300 ease-out"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="transition duration-200 ease-in"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0">
+      <div v-if="reportsOpen" class="fixed inset-0 bg-black/50 z-50" @click.self="reportsOpen = false">
+        <div class="absolute right-0 top-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col
+                    transition-transform duration-300"
+          :class="reportsOpen ? 'translate-x-0' : 'translate-x-full'">
+
+          <!-- Header -->
+          <div class="flex items-center justify-between px-6 py-4 border-b flex-shrink-0">
+            <div class="flex items-center gap-3">
+              <svg class="w-5 h-5" style="color:#1B3F6E;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+              </svg>
+              <h2 class="font-bold text-gray-800">Abstract Reports</h2>
+            </div>
+            <div class="flex items-center gap-3">
+              <select v-model.number="reportsEventId" class="input text-sm w-48">
+                <option :value="null">All Events</option>
+                <option v-for="e in events" :key="e.id" :value="e.id">{{ e.event }}</option>
+              </select>
+              <button @click="reportsOpen = false" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Scrollable content -->
+          <div class="flex-1 overflow-y-auto px-6 py-5">
+            <AbstractStatsPanel :event-id="reportsEventId" />
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
          NOTIFY ACCEPTED AUTHORS MODAL
     ════════════════════════════════════════════════════════════════════════ -->
     <div v-if="notifyModal.open"
@@ -664,6 +720,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import AbstractStatsPanel from './AbstractStatsView.vue'
 import api from '@/plugins/axios'
 
 const route        = useRoute()
@@ -1009,6 +1066,15 @@ const statusClass = (s) => ({
   rejected: 'bg-red-100 text-red-700',
   revision_required: 'bg-orange-100 text-orange-700',
 }[s] || 'bg-gray-100 text-gray-600')
+
+// ── Reports slide-over ───────────────────────────────────────────────────────
+const reportsOpen    = ref(false)
+const reportsEventId = ref(null)
+
+const openReports = () => {
+  reportsEventId.value = filterEvent.value ? Number(filterEvent.value) : null
+  reportsOpen.value = true
+}
 
 // ── Notify Accepted Authors ──────────────────────────────────────────────────
 const notifyModal = ref({

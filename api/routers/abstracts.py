@@ -816,6 +816,101 @@ def list_reviewers(
     return list(reviewers.values())
 
 
+@router.get("/stats")
+def abstract_stats(
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+    event_id: int = Query(None),
+):
+    """Aggregated stats for the abstract dashboard."""
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+
+    from sqlalchemy import func as sqlfunc, case as sa_case
+    from models.models import AbstractAuthor, Event
+
+    base = db.query(Abstract).filter(Abstract.deleted_at == None)
+    if event_id:
+        base = base.filter(Abstract.event_id == event_id)
+
+    by_status_rows = (
+        base.with_entities(Abstract.status, sqlfunc.count().label("n"))
+        .group_by(Abstract.status).all()
+    )
+    by_status = [{"status": r.status.value if r.status else "unknown", "count": r.n}
+                 for r in by_status_rows]
+
+    by_type_rows = (
+        base.with_entities(Abstract.presentation_type, sqlfunc.count().label("n"))
+        .group_by(Abstract.presentation_type).all()
+    )
+    by_type = [{"type": r.presentation_type.value if r.presentation_type else "unspecified", "count": r.n}
+               for r in by_type_rows]
+
+    by_track_rows = (
+        base.with_entities(
+            Abstract.track, Abstract.track_id,
+            sqlfunc.count().label("total"),
+            sqlfunc.sum(sa_case((Abstract.status == AbstractStatus.accepted, 1), else_=0)).label("accepted"),
+        )
+        .group_by(Abstract.track, Abstract.track_id)
+        .order_by(sqlfunc.count().desc()).all()
+    )
+    by_track = [
+        {"track": r.track or "Untracked", "track_id": r.track_id,
+         "total": r.total, "accepted": int(r.accepted or 0)}
+        for r in by_track_rows
+    ]
+
+    country_total_q = (
+        db.query(AbstractAuthor.country, sqlfunc.count(sqlfunc.distinct(AbstractAuthor.abstract_id)).label("total"))
+        .join(Abstract, Abstract.id == AbstractAuthor.abstract_id)
+        .filter(Abstract.deleted_at == None, AbstractAuthor.country != None, AbstractAuthor.country != "")
+    )
+    if event_id:
+        country_total_q = country_total_q.filter(Abstract.event_id == event_id)
+    country_total_rows = (
+        country_total_q.group_by(AbstractAuthor.country)
+        .order_by(sqlfunc.count(sqlfunc.distinct(AbstractAuthor.abstract_id)).desc()).all()
+    )
+
+    accepted_id_q = db.query(Abstract.id).filter(
+        Abstract.status == AbstractStatus.accepted,
+        Abstract.deleted_at == None,
+        *([Abstract.event_id == event_id] if event_id else [])
+    )
+    country_accepted_rows = (
+        db.query(AbstractAuthor.country, sqlfunc.count(sqlfunc.distinct(AbstractAuthor.abstract_id)).label("accepted"))
+        .filter(AbstractAuthor.abstract_id.in_(accepted_id_q),
+                AbstractAuthor.country != None, AbstractAuthor.country != "")
+        .group_by(AbstractAuthor.country).all()
+    )
+    accepted_by_country = {r.country: r.accepted for r in country_accepted_rows}
+    by_country = [
+        {"country": r.country, "total": r.total, "accepted": accepted_by_country.get(r.country, 0)}
+        for r in country_total_rows
+    ]
+
+    esw_names = {"eswatini", "swaziland"}
+    eswatini_accepted = sum(
+        c["accepted"] for c in by_country
+        if (c["country"] or "").strip().lower() in esw_names
+    )
+    events_list = [
+        {"id": e.id, "event": e.event}
+        for e in db.query(Event).filter(Event.deleted_at == None).order_by(Event.id.desc()).all()
+    ]
+    total_all = sum(r["count"] for r in by_status)
+    total_accepted = next((r["count"] for r in by_status if r["status"] == "accepted"), 0)
+    return {
+        "total": total_all, "total_accepted": total_accepted,
+        "eswatini_accepted": eswatini_accepted,
+        "by_status": by_status, "by_type": by_type,
+        "by_track": by_track, "by_country": by_country,
+        "events": events_list,
+    }
+
+
 @router.get("/{abstract_id}")
 def get_abstract(
     abstract_id: int,
@@ -1476,131 +1571,3 @@ def notify_acceptance(
         "errors": failed,
     }
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  STATS endpoint
-# ══════════════════════════════════════════════════════════════════════════════
-
-@router.get("/stats")
-def abstract_stats(
-    current_user: user_dependency,
-    db: Session = Depends(get_db),
-    auth_dependency: Auth = Depends(get_auth_dep),
-    event_id: int = Query(None),
-):
-    """Aggregated stats for the abstract dashboard."""
-    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
-
-    from sqlalchemy import func as sqlfunc, case as sa_case
-    from models.models import AbstractAuthor, Event
-
-    base = db.query(Abstract).filter(Abstract.deleted_at == None)
-    if event_id:
-        base = base.filter(Abstract.event_id == event_id)
-
-    # ── totals by status ───────────────────────────────────────────────────
-    by_status_rows = (
-        base.with_entities(Abstract.status, sqlfunc.count().label("n"))
-        .group_by(Abstract.status)
-        .all()
-    )
-    by_status = [{"status": r.status.value if r.status else "unknown", "count": r.n}
-                 for r in by_status_rows]
-
-    # ── totals by presentation type ────────────────────────────────────────
-    by_type_rows = (
-        base.with_entities(Abstract.presentation_type, sqlfunc.count().label("n"))
-        .group_by(Abstract.presentation_type)
-        .all()
-    )
-    by_type = [{"type": r.presentation_type.value if r.presentation_type else "unspecified", "count": r.n}
-               for r in by_type_rows]
-
-    # ── by track ───────────────────────────────────────────────────────────
-    by_track_rows = (
-        base.with_entities(
-            Abstract.track,
-            Abstract.track_id,
-            sqlfunc.count().label("total"),
-            sqlfunc.sum(
-                sa_case((Abstract.status == AbstractStatus.accepted, 1), else_=0)
-            ).label("accepted"),
-        )
-        .group_by(Abstract.track, Abstract.track_id)
-        .order_by(sqlfunc.count().desc())
-        .all()
-    )
-    by_track = [
-        {"track": r.track or "Untracked", "track_id": r.track_id,
-         "total": r.total, "accepted": int(r.accepted or 0)}
-        for r in by_track_rows
-    ]
-
-    # ── by country (from AbstractAuthor.country) ──────────────────────────
-    accepted_ids = (
-        base.filter(Abstract.status == AbstractStatus.accepted)
-        .with_entities(Abstract.id)
-        .subquery()
-    )
-
-    country_total_rows = (
-        db.query(AbstractAuthor.country, sqlfunc.count(sqlfunc.distinct(AbstractAuthor.abstract_id)).label("total"))
-        .join(Abstract, Abstract.id == AbstractAuthor.abstract_id)
-        .filter(Abstract.deleted_at == None)
-        .filter(AbstractAuthor.country != None, AbstractAuthor.country != "")
-    )
-    if event_id:
-        country_total_rows = country_total_rows.filter(Abstract.event_id == event_id)
-    country_total_rows = (
-        country_total_rows.group_by(AbstractAuthor.country)
-        .order_by(sqlfunc.count(sqlfunc.distinct(AbstractAuthor.abstract_id)).desc())
-        .all()
-    )
-
-    country_accepted_rows = (
-        db.query(AbstractAuthor.country, sqlfunc.count(sqlfunc.distinct(AbstractAuthor.abstract_id)).label("accepted"))
-        .filter(AbstractAuthor.abstract_id.in_(
-            db.query(Abstract.id).filter(
-                Abstract.status == AbstractStatus.accepted,
-                Abstract.deleted_at == None,
-                *([Abstract.event_id == event_id] if event_id else [])
-            )
-        ))
-        .filter(AbstractAuthor.country != None, AbstractAuthor.country != "")
-        .group_by(AbstractAuthor.country)
-        .all()
-    )
-    accepted_by_country = {r.country: r.accepted for r in country_accepted_rows}
-
-    by_country = [
-        {"country": r.country, "total": r.total,
-         "accepted": accepted_by_country.get(r.country, 0)}
-        for r in country_total_rows
-    ]
-
-    # ── Eswatini highlight ─────────────────────────────────────────────────
-    esw_names = {"eswatini", "swaziland"}
-    eswatini_accepted = sum(
-        c["accepted"] for c in by_country
-        if (c["country"] or "").strip().lower() in esw_names
-    )
-
-    # ── events list for filter ────────────────────────────────────────────
-    events_list = [
-        {"id": e.id, "event": e.event}
-        for e in db.query(Event).filter(Event.deleted_at == None).order_by(Event.id.desc()).all()
-    ]
-
-    total_all = sum(r["count"] for r in by_status)
-    total_accepted = next((r["count"] for r in by_status if r["status"] == "accepted"), 0)
-
-    return {
-        "total": total_all,
-        "total_accepted": total_accepted,
-        "eswatini_accepted": eswatini_accepted,
-        "by_status": by_status,
-        "by_type": by_type,
-        "by_track": by_track,
-        "by_country": by_country,
-        "events": events_list,
-    }

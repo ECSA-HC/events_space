@@ -48,7 +48,6 @@ import MyEventsView from "@/pages/my_account/MyEventsView.vue";
 import MyEventView from "@/pages/my_account/MyEventView.vue";
 import AbstractsView from "@/pages/admin/abstracts/AbstractsView.vue";
 import AbstractView from "@/pages/admin/abstracts/AbstractView.vue";
-import AbstractStatsView from "@/pages/admin/abstracts/AbstractStatsView.vue";
 import TracksView from "@/pages/admin/tracks/TracksView.vue";
 import ActivityView from "@/pages/admin/activity/ActivityView.vue";
 import EmailLogsView from "@/pages/admin/settings/EmailLogsView.vue";
@@ -269,7 +268,6 @@ const routes = [
         meta: { requiresAuth: true, permissions: ["VIEW_USER"] },
       },
       { path: "abstracts", name: "AdminAbstracts", component: AbstractsView, meta: { requiresAuth: true, permissions: ["VIEW_ABSTRACTS"] } },
-      { path: "abstracts/stats", name: "AdminAbstractStats", component: AbstractStatsView, meta: { requiresAuth: true, permissions: ["VIEW_ABSTRACTS"] } },
       { path: "abstracts/:id", name: "AdminAbstract", component: AbstractView, meta: { requiresAuth: true, permissions: ["VIEW_ABSTRACTS"] } },
       { path: "tracks", name: "AdminTracks", component: TracksView, meta: { requiresAuth: true, permissions: ["VIEW_ABSTRACTS"] } },
       { path: "reviewers", name: "AdminReviewers", component: ReviewersView, meta: { requiresAuth: true, permissions: ["MANAGE_REVIEWERS"] } },
