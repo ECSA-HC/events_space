@@ -7,7 +7,7 @@
         <h1 class="text-2xl font-semibold text-black">Abstract Submissions</h1>
         <p v-if="!loading" class="text-sm text-gray-400 mt-0.5">
           {{ total }} {{ total === 1 ? 'abstract' : 'abstracts' }}
-          <span v-if="filterEvent || filterStatus || filterTrack || search"> (filtered)</span>
+          <span v-if="filterEvent || filterStatus || filterTrack || filterType || search"> (filtered)</span>
         </p>
       </div>
       <div class="flex items-center gap-2">
@@ -73,6 +73,11 @@
       <select v-model.number="filterTrack" class="input w-44">
         <option value="">All Tracks</option>
         <option v-for="t in tracks" :key="t.id" :value="t.id">{{ t.code }}</option>
+      </select>
+      <select v-model="filterType" class="input w-40">
+        <option value="">All Types</option>
+        <option value="oral">Oral</option>
+        <option value="poster">Poster</option>
       </select>
     </div>
 
@@ -674,6 +679,7 @@ const search       = ref('')
 const filterEvent  = ref('')
 const filterStatus = ref('')
 const filterTrack  = ref('')
+const filterType   = ref('')
 const page         = ref(1)
 const pageSize     = 50
 
@@ -875,10 +881,11 @@ async function fetchAbstracts() {
     const params = new URLSearchParams()
     params.set('skip',  String((page.value - 1) * pageSize))
     params.set('limit', String(pageSize))
-    if (filterEvent.value)  params.set('event_id', filterEvent.value)
-    if (filterStatus.value) params.set('status',   filterStatus.value)
-    if (filterTrack.value)  params.set('track_id', filterTrack.value)
-    if (search.value.trim()) params.set('search',  search.value.trim())
+    if (filterEvent.value)  params.set('event_id',          filterEvent.value)
+    if (filterStatus.value) params.set('status',            filterStatus.value)
+    if (filterTrack.value)  params.set('track_id',          filterTrack.value)
+    if (filterType.value)   params.set('presentation_type', filterType.value)
+    if (search.value.trim()) params.set('search',           search.value.trim())
     const res = await api.get(`/abstracts/?${params}`)
     abstracts.value = res.data.data  || []
     total.value     = res.data.total ?? 0
@@ -888,7 +895,7 @@ async function fetchAbstracts() {
 }
 
 // Reset to page 1 and refetch when any filter changes
-watch([search, filterEvent, filterStatus, filterTrack], () => {
+watch([search, filterEvent, filterStatus, filterTrack, filterType], () => {
   page.value = 1
   fetchAbstracts()
 })

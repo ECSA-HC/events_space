@@ -191,6 +191,7 @@ def list_abstracts(
     status_filter: str = Query(None, alias="status"),
     search: str = Query(None),
     track_id: int = Query(None),
+    presentation_type: str = Query(None),
     skip: int = 0,
     limit: int = 50,
 ):
@@ -204,6 +205,8 @@ def list_abstracts(
         q = q.filter(Abstract.status == status_filter)
     if track_id:
         q = q.filter(Abstract.track_id == track_id)
+    if presentation_type:
+        q = q.filter(Abstract.presentation_type == presentation_type)
     if search:
         q = q.filter(Abstract.title.ilike(f"%{search}%"))
 

@@ -41,6 +41,32 @@
             <p v-if="abs.keywords" class="mt-3 text-xs text-gray-400"><strong>Keywords:</strong> {{ abs.keywords }}</p>
           </div>
         </div>
+
+        <!-- Reviewer comments (visible when accepted) -->
+        <div v-if="abs.status === 'accepted' && reviewComments(abs).length" class="mt-4 border-t pt-4">
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Reviewer Feedback</p>
+          <div v-for="(r, i) in reviewComments(abs)" :key="i"
+            class="mb-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+            <div class="flex items-center gap-3 mb-2 flex-wrap">
+              <span class="text-xs font-semibold text-gray-600">Reviewer {{ i + 1 }}</span>
+              <span class="text-xs px-2 py-0.5 rounded-full font-medium capitalize"
+                :class="{
+                  'bg-green-100 text-green-700': r.recommendation === 'accept',
+                  'bg-yellow-100 text-yellow-700': r.recommendation === 'revision_required',
+                  'bg-red-100 text-red-700': r.recommendation === 'reject',
+                }">
+                {{ r.recommendation?.replace('_', ' ') }}
+              </span>
+              <div class="flex gap-2 ml-auto flex-wrap">
+                <span v-for="s in scoreFields" :key="s.key"
+                  class="text-xs text-gray-400">
+                  {{ s.label }}: <strong class="text-gray-700">{{ r[s.key] }}/5</strong>
+                </span>
+              </div>
+            </div>
+            <p class="text-sm text-gray-700 leading-relaxed">{{ r.comments }}</p>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -66,4 +92,16 @@ onMounted(async () => {
 
 const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : '—'
 const statusClass = (s) => ({ submitted:'bg-blue-100 text-blue-700', under_review:'bg-yellow-100 text-yellow-700', accepted:'bg-green-100 text-green-700', rejected:'bg-red-100 text-red-700', revision_required:'bg-orange-100 text-orange-700' }[s] || 'bg-gray-100 text-gray-600')
+
+const scoreFields = [
+  { key: 'relevance_score',    label: 'Relevance' },
+  { key: 'methodology_score',  label: 'Methodology' },
+  { key: 'originality_score',  label: 'Originality' },
+  { key: 'overall_score',      label: 'Overall' },
+]
+
+const reviewComments = (abs) =>
+  (abs.reviewer_assignments || [])
+    .map(ra => ra.review)
+    .filter(r => r && r.comments)
 </script>
