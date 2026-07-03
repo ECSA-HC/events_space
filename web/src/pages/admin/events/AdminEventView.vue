@@ -65,6 +65,69 @@
         <TabPanels class="pt-4">
           <!-- Participants -->
           <TabPanel>
+
+            <!-- ── Visual Report ────────────────────────────────────────── -->
+            <div v-if="!loading && participants.length" class="mb-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <!-- Total -->
+              <div class="bg-white rounded-2xl px-4 py-3 shadow-sm border border-gray-100 flex flex-col gap-0.5">
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Total</p>
+                <p class="text-2xl font-bold text-gray-700">{{ participants.length }}</p>
+              </div>
+              <!-- Paid -->
+              <div class="bg-white rounded-2xl px-4 py-3 shadow-sm border border-gray-100 flex flex-col gap-0.5">
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Paid</p>
+                <p class="text-2xl font-bold" style="color:#0095B6">{{ participants.filter(p => p.paid).length }}</p>
+                <div class="w-full bg-gray-100 rounded-full h-1.5 mt-1">
+                  <div class="h-1.5 rounded-full transition-all" style="background:#0095B6"
+                    :style="{ width: (participants.filter(p=>p.paid).length / participants.length * 100) + '%' }"></div>
+                </div>
+              </div>
+              <!-- Unpaid -->
+              <div class="bg-white rounded-2xl px-4 py-3 shadow-sm border border-gray-100 flex flex-col gap-0.5">
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Unpaid</p>
+                <p class="text-2xl font-bold text-orange-500">{{ participants.filter(p => !p.paid).length }}</p>
+                <div class="w-full bg-gray-100 rounded-full h-1.5 mt-1">
+                  <div class="h-1.5 rounded-full bg-orange-400 transition-all"
+                    :style="{ width: (participants.filter(p=>!p.paid).length / participants.length * 100) + '%' }"></div>
+                </div>
+              </div>
+              <!-- Attendance -->
+              <div class="bg-white rounded-2xl px-4 py-3 shadow-sm border border-gray-100 flex flex-col gap-0.5">
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Checked In</p>
+                <p class="text-2xl font-bold text-green-600">{{ attendance.length }}</p>
+                <p class="text-xs text-gray-400 mt-0.5">
+                  {{ participants.length ? Math.round(attendance.length / participants.length * 100) : 0 }}% of total
+                </p>
+              </div>
+            </div>
+
+            <!-- Role breakdown -->
+            <div v-if="!loading && participants.length" class="mb-4 bg-white rounded-2xl shadow-sm border border-gray-100 px-4 py-3">
+              <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">By Role</p>
+              <div class="flex flex-wrap gap-2">
+                <span v-for="(count, role) in roleBreakdown" :key="role"
+                  class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-50 border border-gray-200 text-gray-700 capitalize">
+                  {{ role.replace('_', ' ') }}
+                  <span class="ml-1 px-1.5 py-0.5 rounded-full text-white text-xs font-bold" style="background:#0095B6;">{{ count }}</span>
+                </span>
+              </div>
+            </div>
+
+            <!-- Search bar -->
+            <div class="mb-3 relative">
+              <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
+              <input v-model="participantSearch" type="text" placeholder="Search by name, email or country…"
+                class="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+              <button v-if="participantSearch" @click="participantSearch = ''"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+
             <div class="flex justify-end mb-3 gap-2 flex-wrap">
               <!-- Add Participant -->
               <button
@@ -184,7 +247,12 @@
                   </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                  <tr v-for="(p, idx) in participants" :key="p.id"
+                  <tr v-if="filteredParticipants.length === 0">
+                    <td colspan="8" class="text-center py-6 text-gray-400 italic text-sm">
+                      {{ participantSearch ? 'No participants match your search.' : 'No participants yet.' }}
+                    </td>
+                  </tr>
+                  <tr v-for="(p, idx) in filteredParticipants" :key="p.id"
                     :class="selectedUnpaid.includes(p.id) ? 'bg-orange-50' : p.reminder_sent_at && !p.paid ? 'bg-blue-50/40' : ''">
                     <!-- Checkbox — only for unpaid AND not yet reminded -->
                     <td class="px-3 py-2">
@@ -216,7 +284,7 @@
                       <span v-else class="text-xs text-gray-300">—</span>
                     </td>
                     <td class="px-4 py-2">
-                      <div class="flex items-center gap-1.5">
+                      <div class="flex items-center gap-1.5 flex-wrap">
                         <!-- Badge viewer -->
                         <button class="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 transition"
                           @click="viewParticipant(p)" title="View badge">
@@ -230,14 +298,23 @@
                           :title="p.paid ? 'View payment proof (verified)' : 'View payment proof (pending verification)'">
                           <DocumentTextIcon class="w-4 h-4" />
                         </button>
-                        <!-- Verify button -->
+                        <!-- Mark Paid (no proof required) -->
                         <button
-                          v-if="!p.paid && p.payment_proof"
+                          v-if="!p.paid"
                           class="text-green-600 hover:text-green-800 text-xs font-semibold px-2 py-1 bg-green-50 border border-green-300 rounded-lg transition"
                           @click="verifyPayment(p)"
-                          title="Verify payment"
+                          title="Mark as paid"
                         >
-                          ✓ Verify
+                          ✓ Mark Paid
+                        </button>
+                        <!-- Unmark Payment -->
+                        <button
+                          v-if="p.paid"
+                          class="text-orange-500 hover:text-orange-700 text-xs font-semibold px-2 py-1 bg-orange-50 border border-orange-200 rounded-lg transition"
+                          @click="unmarkPayment(p)"
+                          title="Mark as unpaid"
+                        >
+                          ✕ Unmark
                         </button>
                         <!-- Deregister -->
                         <button class="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition"
@@ -777,6 +854,24 @@ const sendingReminders = ref(false)
 const reminderMessage = ref('')
 const reminderError = ref(false)
 const selectedUnpaid = ref([])
+const participantSearch = ref('')
+
+const filteredParticipants = computed(() => {
+  const q = participantSearch.value.toLowerCase().trim()
+  if (!q) return participants.value
+  return participants.value.filter(p =>
+    `${p.firstname} ${p.lastname} ${p.email} ${p.country}`.toLowerCase().includes(q)
+  )
+})
+
+const roleBreakdown = computed(() => {
+  const counts = {}
+  for (const p of participants.value) {
+    const role = (typeof p.participation_role === 'object' ? p.participation_role?.name : p.participation_role) || 'unknown'
+    counts[role] = (counts[role] || 0) + 1
+  }
+  return counts
+})
 
 // Pending = unpaid AND not yet reminded — these are the ones eligible for a new reminder
 const unpaidParticipants = computed(() =>
@@ -895,13 +990,22 @@ async function deregisterParticipant(p) {
 }
 
 async function verifyPayment(p) {
-  if (!confirm(`Verify payment for ${p.firstname} ${p.lastname}? This will grant them full access.`)) return
+  if (!confirm(`Mark ${p.firstname} ${p.lastname} as paid? This will grant them full access.`)) return
   try {
     await api.put(`/events/verify_payment/${p.id}`)
-    alert(`Payment verified for ${p.firstname} ${p.lastname}.`)
-    await loadEventData()
+    p.paid = true
   } catch (err) {
-    alert('Failed to verify payment: ' + (err.response?.data?.detail || err.message))
+    alert('Failed to mark as paid: ' + (err.response?.data?.detail || err.message))
+  }
+}
+
+async function unmarkPayment(p) {
+  if (!confirm(`Mark ${p.firstname} ${p.lastname} as unpaid?`)) return
+  try {
+    await api.put(`/events/unverify_payment/${p.id}`)
+    p.paid = false
+  } catch (err) {
+    alert('Failed to mark as unpaid: ' + (err.response?.data?.detail || err.message))
   }
 }
 

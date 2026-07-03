@@ -790,6 +790,36 @@ async def verify_payment(
     return {"detail": "Payment verified successfully"}
 
 
+@router.put("/unverify_payment/{registration_id}")
+async def unverify_payment(
+    request: Request,
+    registration_id: int,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    dependency: Dependency = Depends(get_dependency),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    """Admin marks a participant's payment as unpaid."""
+    auth_dependency.secure_access("ADMIN_DASHBOARD", current_user["user_id"])
+
+    registration = db.query(Registration).filter(Registration.id == registration_id).first()
+    if not registration:
+        raise HTTPException(status_code=404, detail="Registration not found")
+
+    registration.paid = False
+    db.commit()
+
+    client_ip = dependency.request_ip(request)
+    dependency.log_activity(
+        current_user["user_id"],
+        "UNVERIFY_PAYMENT",
+        current_user["username"],
+        client_ip,
+        f"Marked payment as unpaid for registration ID {registration_id}",
+    )
+    return {"detail": "Payment marked as unpaid"}
+
+
 @router.post("/upload_document/")
 async def upload_document(
     user: user_dependency,
