@@ -286,7 +286,12 @@ const updateProfile = async () => {
     fetchUser()
   } catch (err) {
     console.error('Update error:', err)
-    errorMessage.value = 'An error occurred while updating your profile.'
+    const detail = err?.response?.data?.detail
+    if (Array.isArray(detail)) {
+      errorMessage.value = detail.map(e => e.msg || JSON.stringify(e)).join('; ')
+    } else {
+      errorMessage.value = detail || err?.message || 'An error occurred while updating your profile.'
+    }
   }
 }
 

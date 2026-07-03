@@ -8,13 +8,15 @@ import re
 class UserSchema(BaseModel):
     firstname: str
     lastname: str
-    phone: str
+    phone: Optional[str] = None
     email: EmailStr
     event_name: Optional[str] = None
     abstract_id: Optional[int] = None
 
     @field_validator("phone")
     def validate_phone(cls, value):
+        if not value:
+            return value
         phone_regex = r"^\+?\d{1,4}?[-.\s]?\(?\d{1,3}?\)?[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}$"
         if not re.match(phone_regex, value):
             raise ValueError("Invalid phone number format")
