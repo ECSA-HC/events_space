@@ -109,9 +109,9 @@
             </div>
           </template>
 
-          <!-- ── QR code  top=80%, width=17.1% centred ─────────────────── -->
+          <!-- ── QR code  top=77%, width=17.1% centred ─────────────────── -->
           <div class="absolute flex flex-col items-center"
-               style="top:80%;left:50%;transform:translateX(-50%);width:17.1%;">
+               style="top:77%;left:50%;transform:translateX(-50%);width:17.1%;">
             <img :src="qrUrl" alt="QR" class="w-full h-auto" />
             <span class="text-center mt-0.5" style="font-size:1.4cqw;color:#666;white-space:nowrap;">
               Scan to confirm attendance
