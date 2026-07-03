@@ -118,16 +118,10 @@
             </span>
           </div>
 
-          <!-- ── Flag strip  top=91.9%, two rows ───────────────────────── -->
-          <div class="absolute w-full flex justify-center items-center gap-px"
-               style="top:91.9%;height:3.7%;">
-            <img v-for="code in flagCodes.slice(0,5)" :key="code"
-                 :src="`https://flagcdn.com/40x30/${code}.png`"
-                 :alt="code" class="h-full w-auto object-contain" />
-          </div>
-          <div class="absolute w-full flex justify-center items-center gap-px"
-               style="top:95.6%;height:3.7%;">
-            <img v-for="code in flagCodes.slice(5)" :key="code"
+          <!-- ── Flag strip  top=92%, single row ─────────────────────── -->
+          <div class="absolute w-full flex justify-center items-center gap-px px-1"
+               style="top:92%;height:7%;">
+            <img v-for="code in flagCodes" :key="code"
                  :src="`https://flagcdn.com/40x30/${code}.png`"
                  :alt="code" class="h-full w-auto object-contain" />
           </div>
