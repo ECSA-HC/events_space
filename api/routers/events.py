@@ -1598,6 +1598,105 @@ async def get_event_attendance(
     return {"total": len(result), "data": result}
 
 
+@router.delete("/{event_id}/attendance")
+async def reset_event_attendance(
+    event_id: int,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    """Admin: delete all attendance records for an event."""
+    auth_dependency.secure_access("VIEW_EVENT", current_user["user_id"])
+
+    from models.models import EventAttendance
+    records = (
+        db.query(EventAttendance)
+        .join(Registration, EventAttendance.registration_id == Registration.id)
+        .filter(Registration.event_id == event_id)
+        .all()
+    )
+    count = len(records)
+    for r in records:
+        db.delete(r)
+    db.commit()
+    return {"detail": f"Deleted {count} attendance record(s)"}
+
+
+@router.get("/{event_id}/attendance/export")
+async def export_event_attendance(
+    event_id: int,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    """Admin: export attendance records as Excel."""
+    auth_dependency.secure_access("VIEW_EVENT", current_user["user_id"])
+
+    from models.models import EventAttendance
+    from io import BytesIO
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from fastapi.responses import StreamingResponse
+
+    records = (
+        db.query(EventAttendance)
+        .join(Registration, EventAttendance.registration_id == Registration.id)
+        .filter(Registration.event_id == event_id)
+        .order_by(EventAttendance.attendance_date.asc())
+        .all()
+    )
+
+    event = db.query(Event).filter(Event.id == event_id).first()
+    event_name = event.event if event else f"Event {event_id}"
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Attendance"
+
+    headers = ["#", "First Name", "Last Name", "Email", "Organisation", "Country", "Role", "Check-in Time", "Payment"]
+    header_fill = PatternFill("solid", fgColor="1B3F6E")
+    header_font = Font(bold=True, color="FFFFFF")
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center")
+
+    for i, a in enumerate(records, 1):
+        reg = a.registration
+        user = reg.user if reg else None
+        profile = user.user_profile[0] if user and user.user_profile else None
+        checkin = a.attendance_date
+        checkin_str = checkin.strftime("%Y-%m-%d %H:%M") if checkin else ""
+        ws.append([
+            i,
+            user.firstname if user else "",
+            user.lastname if user else "",
+            user.email if user else "",
+            profile.organisation if profile else "",
+            profile.country.country if profile and profile.country else "",
+            reg.participation_role.name if reg else "",
+            checkin_str,
+            "Paid" if (reg.paid if reg else False) else "Unpaid",
+        ])
+
+    col_widths = [4, 16, 16, 28, 26, 18, 16, 20, 10]
+    for col, width in enumerate(col_widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = width
+
+    stream = BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+
+    safe_name = "".join(c if c.isalnum() or c in "-_ " else "_" for c in event_name)[:40]
+    filename = f"attendance_{safe_name}.xlsx"
+    return StreamingResponse(
+        stream,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
 class PaymentReminderSchema(BaseModel):
     registration_ids: list[int] = []  # empty = send to ALL unpaid
 
@@ -1646,7 +1745,7 @@ async def send_payment_reminders(
                 recipient_email=user.email,
                 firstname=user.firstname or "Participant",
                 event_name=event.event,
-                payment_url="https://ecsahc.org/payment_bpf2026/",
+                payment_url="https://ecsahc.org/payment/",
                 portal_url="https://events.ecsahc.org",
                 background_tasks=background_tasks,
                 db=db,
@@ -1702,7 +1801,7 @@ class AdminAddParticipantSchema(BaseModel):
     lastname: str = ""
     participation_role: str
     send_invitation: bool = True
-    payment_url: str = "https://ecsahc.org/payment_bpf2026/"
+    payment_url: str = "https://ecsahc.org/payment/"
     portal_url: str = "https://events.ecsahc.org"
 
 

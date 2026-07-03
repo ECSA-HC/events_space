@@ -254,11 +254,36 @@
 
           <!-- Attendance -->
           <TabPanel>
-            <div class="flex justify-between items-center mb-3">
+            <div class="flex flex-wrap justify-between items-center mb-3 gap-2">
               <p class="text-sm text-gray-500">
                 Showing <span class="font-semibold text-gray-700">{{ attendance.length }}</span> check-in record(s).
               </p>
-              <button @click="loadAttendance" class="text-xs text-bondi-blue hover:underline">↻ Refresh</button>
+              <div class="flex gap-2 flex-wrap">
+                <button @click="loadAttendance" class="text-xs text-bondi-blue hover:underline">↻ Refresh</button>
+                <button
+                  @click="exportAttendance"
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white transition hover:opacity-90"
+                  style="background-color:#1B3F6E;"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                  </svg>
+                  Export Excel
+                </button>
+                <button
+                  @click="resetAllAttendance"
+                  :disabled="attendance.length === 0"
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-40"
+                  style="background-color:#ef4444;"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                  Reset All
+                </button>
+              </div>
             </div>
 
             <div v-if="loadingAttendance" class="flex justify-center py-8">
@@ -276,11 +301,12 @@
                     <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Role</th>
                     <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Checked In</th>
                     <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Payment</th>
+                    <th class="px-4 py-2"></th>
                   </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                   <tr v-if="attendance.length === 0">
-                    <td colspan="7" class="text-center py-6 text-gray-400 italic text-sm">No attendance records yet.</td>
+                    <td colspan="8" class="text-center py-6 text-gray-400 italic text-sm">No attendance records yet.</td>
                   </tr>
                   <tr v-for="(a, idx) in attendance" :key="a.id" class="hover:bg-gray-50">
                     <td class="px-4 py-2 text-xs text-gray-400 font-mono">{{ idx + 1 }}</td>
@@ -292,6 +318,15 @@
                     <td class="px-4 py-2">
                       <span v-if="a.paid" class="inline-block px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full">✅ Paid</span>
                       <span v-else class="inline-block px-2 py-0.5 text-xs bg-gray-100 text-gray-500 rounded-full">Unpaid</span>
+                    </td>
+                    <td class="px-4 py-2">
+                      <button
+                        @click="resetSingleAttendance(a)"
+                        class="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition"
+                        title="Reset attendance"
+                      >
+                        <TrashIcon class="w-4 h-4" />
+                      </button>
                     </td>
                   </tr>
                 </tbody>
@@ -920,6 +955,43 @@ async function loadAttendance() {
     console.error('Failed to load attendance:', err)
   } finally {
     loadingAttendance.value = false
+  }
+}
+
+async function resetSingleAttendance(a) {
+  if (!confirm(`Remove check-in record for ${a.firstname} ${a.lastname}?`)) return
+  try {
+    await api.delete(`/events/attendance/${a.id}`)
+    attendance.value = attendance.value.filter(r => r.id !== a.id)
+  } catch (err) {
+    alert('Failed to reset attendance: ' + (err.response?.data?.detail || err.message))
+  }
+}
+
+async function resetAllAttendance() {
+  if (!confirm(`Reset ALL ${attendance.value.length} attendance record(s) for this event? This cannot be undone.`)) return
+  try {
+    await api.delete(`/events/${eventId}/attendance`)
+    attendance.value = []
+  } catch (err) {
+    alert('Failed to reset attendance: ' + (err.response?.data?.detail || err.message))
+  }
+}
+
+async function exportAttendance() {
+  try {
+    const res = await api.get(`/events/${eventId}/attendance/export`, { responseType: 'blob' })
+    const cd = res.headers['content-disposition'] || ''
+    const match = cd.match(/filename=([^;]+)/)
+    const filename = match ? match[1].trim() : `attendance_event_${eventId}.xlsx`
+    const blob = new Blob([res.data], { type: res.headers['content-type'] })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = filename
+    link.click()
+    URL.revokeObjectURL(link.href)
+  } catch (err) {
+    alert('Failed to export attendance: ' + (err.response?.data?.detail || err.message))
   }
 }
 

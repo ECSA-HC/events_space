@@ -407,7 +407,7 @@
             </p>
             <p class="text-xs leading-relaxed">
               You will be redirected to the payment portal shortly. If nothing happens,
-              <a href="https://ecsahc.org/payment_bpf2026/" target="_blank" rel="noopener"
+              <a href="https://ecsahc.org/payment/" target="_blank" rel="noopener"
                 class="font-semibold underline" style="color:#0095B6;">click here to pay now</a>.
             </p>
           </div>
@@ -582,7 +582,7 @@ const handleRegister = async (proceedToPayment) => {
       registrationDone.value = true
       payNow.value = true
       // Redirect to external payment portal after short delay so success screen shows
-      setTimeout(() => { window.location.href = 'https://ecsahc.org/payment_bpf2026/' }, 1800)
+      setTimeout(() => { window.location.href = 'https://ecsahc.org/payment/' }, 1800)
     } else {
       registrationDone.value = true
     }
