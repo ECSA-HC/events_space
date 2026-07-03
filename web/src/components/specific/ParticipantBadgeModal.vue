@@ -288,7 +288,7 @@ const qrUrl = computed(() => {
 })
 
 // ── ECSA member-state flags ───────────────────────────────────────────────────
-const flagCodes = ['sz', 'ke', 'ls', 'mw', 'mu', 'tz', 'ug', 'zm', 'zw']
+const flagCodes = ['sz', 'ke', 'ls', 'mw', 'mu', 'mz', 'st', 'tz', 'ug', 'zm', 'zw']
 
 // ── PDF download — calls the backend which generates a proper A6 PDF ─────────
 async function downloadPDF() {
