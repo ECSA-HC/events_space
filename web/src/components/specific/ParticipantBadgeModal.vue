@@ -118,12 +118,12 @@
             </span>
           </div>
 
-          <!-- ── Flag strip  top=92%, single row ─────────────────────── -->
-          <div class="absolute w-full flex justify-center items-center gap-px px-1"
-               style="top:92%;height:7%;">
+          <!-- ── Flag strip  top=93%, single row ─────────────────────── -->
+          <div class="absolute flex justify-center items-center"
+               style="top:93%;left:4%;right:4%;height:5%;gap:0.4cqw;overflow:hidden;">
             <img v-for="code in flagCodes" :key="code"
                  :src="`https://flagcdn.com/40x30/${code}.png`"
-                 :alt="code" class="h-full w-auto object-contain" />
+                 :alt="code" style="height:100%;width:auto;object-fit:contain;flex-shrink:1;min-width:0;" />
           </div>
 
         </div>
