@@ -202,6 +202,10 @@ const loadData = async () => {
 
 const handlePayment = async () => {
   paymentError.value = null
+  if (!proof_file.value) {
+    paymentError.value = 'Please attach a photo or screenshot of your payment receipt before submitting.'
+    return
+  }
   isSubmitting.value = true
   try {
     const fd = new FormData()

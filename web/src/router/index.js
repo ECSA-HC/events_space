@@ -33,6 +33,7 @@ import AddEventView from "@/pages/admin/events/AddEventView.vue";
 import EditEventView from "@/pages/admin/events/EditEventView.vue";
 // import MyEventsView from "@/pages/admin/events/MyEventsView.vue";
 import AdminEventView from "@/pages/admin/events/AdminEventView.vue";
+import AdminEventReport from "@/pages/admin/events/AdminEventReport.vue";
 import UsersView from "@/pages/admin/users/UsersView.vue";
 import AddUserView from "@/pages/admin/users/AddUserView.vue";
 import UserView from "@/pages/admin/users/UserView.vue";
@@ -206,6 +207,12 @@ const routes = [
         path: "admin-events/:id",
         name: "AdminEvent",
         component: AdminEventView,
+        meta: { requiresAuth: true, permissions: ["VIEW_EVENT"] },
+      },
+      {
+        path: "admin-events/:id/report",
+        name: "AdminEventReport",
+        component: AdminEventReport,
         meta: { requiresAuth: true, permissions: ["VIEW_EVENT"] },
       },
       {

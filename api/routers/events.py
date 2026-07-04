@@ -409,6 +409,9 @@ async def get_event(
                     ),
                     "paid": getattr(r, "paid", None),
                     "payment_proof": getattr(r, "payment_proof", None),
+                    "payment_method": r.payment.payment_method.value if r.payment and r.payment.payment_method else None,
+                    "payment_amount": r.payment.payment_amount if r.payment else None,
+                    "payment_date": r.payment.payment_date if r.payment else None,
                     "registered_at": r.registered_at,
                     "reminder_sent_at": getattr(r, "reminder_sent_at", None),
                 }
