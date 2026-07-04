@@ -2075,6 +2075,17 @@ async def admin_add_participant(
         db.commit()
         db.refresh(user)
         is_new_user = True
+    else:
+        # Update name if the admin supplied different values
+        changed = False
+        if body.firstname and body.firstname != user.firstname:
+            user.firstname = body.firstname
+            changed = True
+        if body.lastname and body.lastname != user.lastname:
+            user.lastname = body.lastname
+            changed = True
+        if changed:
+            db.commit()
 
     # ── 2. Register (or update role if already registered) ────────────────────
     # Roles that are exempt from payment — mark as paid automatically
