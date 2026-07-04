@@ -128,7 +128,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/plugins/axios'
 import { useAuthStore } from '@/stores/auth'
@@ -141,7 +141,6 @@ const selectedEventId = ref(null)
 
 const router = useRouter()
 const auth = useAuthStore()
-let paymentPopup = null
 
 const events = ref([])
 const loading = ref(false)
@@ -224,34 +223,14 @@ async function deregisterEvent(event) {
 }
 
 function payEvent(event) {
-  const returnUrl = `${window.location.origin}/payment/${event.id}/${event.registration_id}?popup=true`
   const paymentBase = window.location.hostname === 'localhost'
     ? 'http://localhost/payment/'
     : 'https://ecsahc.org/payment/'
-  paymentPopup = window.open(
-    `${paymentBase}?return_url=${encodeURIComponent(returnUrl)}`,
-    'ecsa_payment',
-    'width=980,height=700,scrollbars=yes,resizable=yes'
-  )
-}
-
-function onPaymentMessage(e) {
-  if (e.origin !== window.location.origin) return
-  if (e.data?.type !== 'ecsa_payment_complete') return
-  paymentPopup?.close()
-  paymentPopup = null
-  router.push({
-    path: `/payment/${e.data.event_id}/${e.data.registration_id}`,
-    query: { ref: e.data.ref, method: e.data.method },
-  })
+  window.open(paymentBase, '_blank', 'noopener')
+  router.push(`/payment/${event.id}/${event.registration_id}`)
 }
 
 onMounted(() => {
-  window.addEventListener('message', onPaymentMessage)
   fetchEvents()
-})
-
-onUnmounted(() => {
-  window.removeEventListener('message', onPaymentMessage)
 })
 </script>

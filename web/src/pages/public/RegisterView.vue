@@ -445,7 +445,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/plugins/axios'
 import DataLoadingSpinner from '@/components/common/DataLoadingSpinner.vue'
@@ -462,7 +462,6 @@ const isSubmitting = ref(false)
 const registrationDone = ref(false)
 const payNow = ref(false)
 const paymentUrl = ref('https://ecsahc.org/payment/')
-const paymentPopup = ref(null)
 const loading = ref(true)
 const error = ref(null)
 
@@ -583,18 +582,12 @@ const handleRegister = async (proceedToPayment) => {
     const registrationId = eventRes.data?.registration_id
 
     if (proceedToPayment) {
-      const returnUrl = `${window.location.origin}/payment/${eventId}/${registrationId}?popup=true`
       const paymentBase = window.location.hostname === 'localhost'
         ? 'http://localhost/payment/'
         : 'https://ecsahc.org/payment/'
-      paymentUrl.value = `${paymentBase}?return_url=${encodeURIComponent(returnUrl)}`
-      registrationDone.value = true
-      payNow.value = true
-      paymentPopup.value = window.open(
-        paymentUrl.value,
-        'ecsa_payment',
-        'width=980,height=700,scrollbars=yes,resizable=yes'
-      )
+      paymentUrl.value = paymentBase
+      window.open(paymentBase, '_blank', 'noopener')
+      router.push(`/payment/${eventId}/${registrationId}`)
     } else {
       registrationDone.value = true
     }
@@ -606,19 +599,7 @@ const handleRegister = async (proceedToPayment) => {
   }
 }
 
-function onPaymentMessage(e) {
-  if (e.origin !== window.location.origin) return
-  if (e.data?.type !== 'ecsa_payment_complete') return
-  paymentPopup.value?.close()
-  paymentPopup.value = null
-  router.push({
-    path: `/payment/${e.data.event_id}/${e.data.registration_id}`,
-    query: { ref: e.data.ref, method: e.data.method },
-  })
-}
-
 onMounted(async () => {
-  window.addEventListener('message', onPaymentMessage)
   loadEventData()
   try {
     const res = await api.get('/countries', { params: { limit: 300 } })
@@ -629,10 +610,6 @@ onMounted(async () => {
   if (route.query.firstname) firstName.value = route.query.firstname
   if (route.query.lastname) lastName.value = route.query.lastname
   if (route.query.email) email.value = route.query.email
-})
-
-onUnmounted(() => {
-  window.removeEventListener('message', onPaymentMessage)
 })
 </script>
 

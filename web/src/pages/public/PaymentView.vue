@@ -24,8 +24,9 @@
         <div v-if="!registration.paid && route.query.method === 'card'" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative text-center">
           Your card payment has been received. Please confirm your payment details below.
         </div>
-        <div v-else-if="!registration.paid" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative text-center">
-          Your registration was successful. Please submit your payment details to complete registration.
+        <div v-else-if="!registration.paid" class="bg-blue-50 border border-blue-300 text-blue-800 px-4 py-4 rounded relative text-sm">
+          <p class="font-semibold mb-1">Complete payment in the tab we just opened</p>
+          <p>Once you have paid, come back to this tab and enter your payment reference number below so our team can verify it.</p>
         </div>
         <div v-else class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative text-center">
           Payment has already been completed. You can now <router-link to="/login" class="text-bondi-blue underline">log in</router-link>.
@@ -161,23 +162,7 @@ const handlePayment = async () => {
   }
 }
 
-onMounted(() => {
-  // When Cybersource redirects back into a popup, relay completion to the parent window and close.
-  if (route.query.popup === 'true' && window.opener && route.query.ref) {
-    try {
-      window.opener.postMessage({
-        type: 'ecsa_payment_complete',
-        ref: route.query.ref,
-        method: route.query.method || '',
-        event_id: route.params.event_id,
-        registration_id: route.params.registration_id,
-      }, window.location.origin)
-    } catch (_) {}
-    window.close()
-    return
-  }
-  loadData()
-})
+onMounted(loadData)
 </script>
 
 <style scoped>
