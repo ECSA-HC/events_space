@@ -752,6 +752,63 @@ def my_reviews(
     ]
 
 
+@router.get("/submissions-for/{user_id}")
+def submissions_for_user(
+    user_id: int,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+):
+    """Admin: get all abstracts submitted by a specific user."""
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+    abstracts = db.query(Abstract).options(
+        joinedload(Abstract.authors),
+        joinedload(Abstract.event),
+        joinedload(Abstract.reviewer_assignments),
+    ).filter(
+        Abstract.submitted_by == user_id,
+        Abstract.deleted_at == None,
+    ).order_by(Abstract.created_at.desc()).all()
+    return [_serialize_abstract(a) for a in abstracts]
+
+
+@router.get("/reviews-for/{user_id}")
+def reviews_for_user(
+    user_id: int,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+):
+    """Admin: get all review assignments for a specific user."""
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+    assignments = db.query(AbstractReviewer).options(
+        joinedload(AbstractReviewer.abstract).joinedload(Abstract.authors),
+        joinedload(AbstractReviewer.abstract).joinedload(Abstract.event),
+        joinedload(AbstractReviewer.review),
+    ).filter(
+        AbstractReviewer.reviewer_id == user_id,
+    ).all()
+    return [
+        {
+            "assignment_id": a.id,
+            "assigned_at": a.assigned_at,
+            "completed": a.completed,
+            "abstract": _serialize_abstract(a.abstract),
+            "review": {
+                "id": a.review.id,
+                "relevance_score": a.review.relevance_score,
+                "methodology_score": a.review.methodology_score,
+                "originality_score": a.review.originality_score,
+                "overall_score": a.review.overall_score,
+                "recommendation": a.review.recommendation.value,
+                "comments": a.review.comments,
+                "submitted_at": a.review.submitted_at,
+            } if a.review else None,
+        }
+        for a in assignments
+    ]
+
+
 @router.get("/reviewers/candidates")
 def list_reviewer_candidates(
     current_user: user_dependency,

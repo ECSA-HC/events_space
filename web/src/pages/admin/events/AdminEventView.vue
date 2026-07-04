@@ -262,7 +262,12 @@
                         @change="toggleParticipant(p.id)" />
                     </td>
                     <td class="px-4 py-2 text-gray-500 text-xs">{{ idx + 1 }}</td>
-                    <td class="px-4 py-2 font-medium">{{ p.firstname }} {{ p.lastname }}</td>
+                    <td class="px-4 py-2 font-medium">
+                      <router-link
+                        :to="{ name: 'AdminUserPerspective', params: { id: p.user_id } }"
+                        class="hover:underline hover:text-[#0095B6] transition-colors"
+                      >{{ p.firstname }} {{ p.lastname }}</router-link>
+                    </td>
                     <td class="px-4 py-2 text-sm text-gray-600">{{ p.country }}</td>
                     <td class="px-4 py-2 text-sm text-gray-600">{{ p.email }}</td>
                     <td class="px-4 py-2">

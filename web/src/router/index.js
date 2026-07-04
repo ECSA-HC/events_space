@@ -37,6 +37,7 @@ import UsersView from "@/pages/admin/users/UsersView.vue";
 import AddUserView from "@/pages/admin/users/AddUserView.vue";
 import UserView from "@/pages/admin/users/UserView.vue";
 import EditUserView from "@/pages/admin/users/EditUserView.vue";
+import AdminUserPerspectiveView from "@/pages/admin/users/AdminUserPerspectiveView.vue";
 import RolesView from "@/pages/admin/roles/RolesView.vue";
 import AddRoleView from "@/pages/admin/roles/AddRoleView.vue";
 import RoleView from "@/pages/admin/roles/RoleView.vue";
@@ -236,6 +237,12 @@ const routes = [
         name: "EditUser",
         component: EditUserView,
         meta: { requiresAuth: true, permissions: ["UPDATE_USER"] },
+      },
+      {
+        path: "users/:id/perspective",
+        name: "AdminUserPerspective",
+        component: AdminUserPerspectiveView,
+        meta: { requiresAuth: true, permissions: ["VIEW_USER"] },
       },
       {
         path: "roles",
