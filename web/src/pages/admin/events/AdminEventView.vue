@@ -276,9 +276,18 @@
             </div>
 
             <!-- Pagination -->
-            <div v-if="totalPages > 1" class="flex items-center justify-between mt-4 text-sm text-gray-600">
-              <span>Showing {{ (currentPage - 1) * pageSize + 1 }}–{{ Math.min(currentPage * pageSize, filteredParticipants.length) }} of {{ filteredParticipants.length }}</span>
-              <div class="flex items-center gap-1">
+            <div class="flex flex-wrap items-center justify-between mt-4 gap-3 text-sm text-gray-600">
+              <div class="flex items-center gap-2">
+                <span>Show</span>
+                <select v-model="pageSize" @change="currentPage = 1"
+                  class="border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]">
+                  <option :value="25">25</option>
+                  <option :value="50">50</option>
+                  <option :value="100">100</option>
+                </select>
+                <span>per page &middot; {{ filteredParticipants.length }} total</span>
+              </div>
+              <div v-if="totalPages > 1" class="flex items-center gap-1">
                 <button @click="currentPage--" :disabled="currentPage === 1"
                   class="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">
                   ← Prev
@@ -674,7 +683,7 @@ const error = ref(null)
 
 // Pagination
 const currentPage = ref(1)
-const pageSize = 25
+const pageSize = ref(25)
 
 // Three-dots menu
 const openMenuId = ref(null)
@@ -693,11 +702,11 @@ const filteredParticipants = computed(() => {
   )
 })
 
-const totalPages = computed(() => Math.ceil(filteredParticipants.value.length / pageSize))
+const totalPages = computed(() => Math.ceil(filteredParticipants.value.length / pageSize.value))
 
 const paginatedParticipants = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  return filteredParticipants.value.slice(start, start + pageSize)
+  const start = (currentPage.value - 1) * pageSize.value
+  return filteredParticipants.value.slice(start, start + pageSize.value)
 })
 
 const pageRange = computed(() => {

@@ -8,6 +8,17 @@
       <span class="text-sm text-gray-700">Report</span>
     </AdminBar>
 
+    <!-- Back button -->
+    <div class="px-4 pt-4">
+      <router-link :to="{ name: 'AdminEvent', params: { id: eventId } }"
+        class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition font-medium">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+        </svg>
+        Back to Participant List
+      </router-link>
+    </div>
+
     <div class="px-4 pt-4 pb-10 space-y-6">
 
       <!-- Loading -->
