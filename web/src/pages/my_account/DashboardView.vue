@@ -20,6 +20,7 @@
         :src="user.pictureUrl || defaultAvatar"
         alt="Profile Picture"
         class="w-28 h-28 rounded-full object-cover border border-gray-300"
+        @error="$event.target.src = defaultAvatar"
       />
       <div>
         <h2 class="text-xl font-semibold text-black mb-2">{{ user.name }}</h2>

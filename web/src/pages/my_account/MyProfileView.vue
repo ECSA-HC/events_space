@@ -18,6 +18,7 @@
           :src="profilePicture || defaultAvatarImg"
           alt="Profile Picture"
           class="w-full h-full object-cover"
+          @error="$event.target.src = defaultAvatarImg"
         />
         <div v-if="!profilePicture" class="absolute inset-0 flex items-end justify-center pb-2 bg-black bg-opacity-0 hover:bg-opacity-20 transition">
           <span class="text-white text-xs font-medium opacity-0 hover:opacity-100 select-none">Change</span>
