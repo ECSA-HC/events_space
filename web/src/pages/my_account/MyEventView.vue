@@ -220,8 +220,6 @@ const route = useRoute()
 const router = useRouter()
 const eventId = route.params.id
 const auth = useAuthStore()
-const auth_user = auth.user
-
 const event = ref({})
 const participants = ref([])
 const documents = ref([])
@@ -230,7 +228,7 @@ const errorMessage = ref('')
 
 // Find logged-in user's participation (if any)
 const userParticipant = computed(() => {
-  return participants.value.find((p) => p.user_id === auth_user.id)
+  return participants.value.find((p) => p.user_id === auth.user?.id)
 })
 
 // Fetch data

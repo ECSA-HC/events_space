@@ -110,10 +110,12 @@ function logout() {
 }
 
 const canViewAdminDashboard = computed(() =>
-  auth.hasPermission("ADMIN_DASHBOARD") ||
-  auth.hasPermission("VIEW_STATS") ||
-  auth.hasPermission("VIEW_ABSTRACTS") ||
-  auth.hasPermission("VIEW_REGISTRATIONS") ||
-  auth.hasPermission("MANAGE_REVIEWERS")
+  !auth.isImpersonating && (
+    auth.hasPermission("ADMIN_DASHBOARD") ||
+    auth.hasPermission("VIEW_STATS") ||
+    auth.hasPermission("VIEW_ABSTRACTS") ||
+    auth.hasPermission("VIEW_REGISTRATIONS") ||
+    auth.hasPermission("MANAGE_REVIEWERS")
+  )
 );
 </script>

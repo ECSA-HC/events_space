@@ -35,6 +35,7 @@ export const useAuthStore = defineStore("auth", {
     },
 
     loadFromStorage() {
+      if (this.impersonating) return;
       const token = localStorage.getItem("token");
       const user = localStorage.getItem("user");
       const permissions = localStorage.getItem("permissions");

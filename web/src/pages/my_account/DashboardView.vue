@@ -63,27 +63,15 @@
       <p v-else class="text-gray-500 italic">You haven’t registered for any events yet.</p>
     </div>
   </div>
-    <PayEventModal
-  :visible="showPaymentModal"
-  :event="selectedEvent"
-  @close="showPaymentModal = false"
-  @paid="handlePaid"
-/>
-</template>
+  </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import api from '@/plugins/axios'
 import { useAuthStore } from '@/stores/auth'
-import PayEventModal from '@/components/specific/PayEventModal.vue'
 import defaultAvatarImg from '@/assets/default-avatar.svg'
 
-const showPaymentModal = ref(false)
-const selectedEvent = ref(null) // ← this was missing!
-
-
 const auth = useAuthStore()
-const auth_user = auth.user
 
 const user = ref({
   name: '',
@@ -102,7 +90,7 @@ const fetchUser = async () => {
   loading.value = true
   error.value = null
   try {
-    const res = await api.get(`/users/${auth_user.id}`)
+    const res = await api.get(`/users/${auth.user?.id}`)
     const data = res.data
 
     // Add paid status defaulting to false if missing
@@ -136,11 +124,6 @@ const isUpcoming = (startDate) => {
   return eventStart > now
 }
 
-// Construct a payment URL (customize to your app's payment page or route)
-const payLink = (eventId) => {
-  return `/payment?event_id=${eventId}` // Update as needed
-}
-
 const formatDate = (isoDate) => {
   if (!isoDate) return ''
   const date = new Date(isoDate)
@@ -151,14 +134,8 @@ const formatDate = (isoDate) => {
   })
 }
 
-function payEvent(event) {
-  selectedEvent.value = event
-  showPaymentModal.value = true
-}
-
-function handlePaid(eventId) {
-  showSuccess('Payment completed successfully.')
-  fetchEvents()
+function payEvent() {
+  window.open('https://ecsahc.org/payment/', '_blank')
 }
 
 onMounted(() => {

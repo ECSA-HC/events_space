@@ -114,15 +114,9 @@
 <RegisterEventModal
   :visible="showRegisterModal"
   :event="selectedEvent"
-  :user-id="auth_user.id"
+  :user-id="auth.user?.id"
   @close="showRegisterModal = false"
   @registered="handleRegistered"
-/>
-  <PayEventModal
-  :visible="showPaymentModal"
-  :event="selectedEvent"
-  @close="showPaymentModal = false"
-  @paid="handlePaid"
 />
 <ParticipantBadgeModal
   :visible="showBadgeModal"
@@ -138,17 +132,13 @@ import { ref, onMounted } from 'vue'
 import api from '@/plugins/axios'
 import { useAuthStore } from '@/stores/auth'
 import RegisterEventModal from '@/components/specific/RegisterEventModal.vue'
-import PayEventModal from '@/components/specific/PayEventModal.vue'
 import ParticipantBadgeModal from '@/components/specific/ParticipantBadgeModal.vue'
 
 const showBadgeModal = ref(false)
 const selectedUserId = ref(null)
 const selectedEventId = ref(null)
 
-const showPaymentModal = ref(false)
-
 const auth = useAuthStore()
-const auth_user = auth.user
 
 const events = ref([])
 const loading = ref(false)
@@ -178,7 +168,7 @@ const fetchEvents = async () => {
   loading.value = true
   error.value = null
   try {
-    const res = await api.get(`/events/with-registration/${auth_user.id}`)
+    const res = await api.get(`/events/with-registration/${auth.user?.id}`)
     const apiData = res.data
 
     events.value = apiData.map((item) => ({
@@ -210,7 +200,7 @@ function handleRegistered({ registration_id, event_id }) {
 }
 
 function viewBadge(event) {
-  selectedUserId.value = auth_user.id
+  selectedUserId.value = auth.user?.id
   selectedEventId.value = event.id
   showBadgeModal.value = true
 }
@@ -230,14 +220,8 @@ async function deregisterEvent(event) {
   }
 }
 
-function payEvent(event) {
-  selectedEvent.value = event
-  showPaymentModal.value = true
-}
-
-function handlePaid(eventId) {
-  showSuccess('Payment completed successfully.')
-  fetchEvents()
+function payEvent() {
+  window.open('https://ecsahc.org/payment/', '_blank')
 }
 
 onMounted(() => {

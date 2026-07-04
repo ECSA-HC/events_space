@@ -155,7 +155,6 @@ import CountrySelect from '@/components/common/CountrySelect.vue'
 import defaultAvatarImg from '@/assets/default-avatar.svg'
 
 const auth = useAuthStore()
-const auth_user = auth.user
 
 const profilePicture = ref(null)
 const profileFile = ref(null)
@@ -214,7 +213,7 @@ function processFile(file) {
 
 const fetchUser = async () => {
   try {
-    const res = await api.get(`/users/${auth_user.id}`)
+    const res = await api.get(`/users/${auth.user?.id}`)
     const data = res.data
 
     title.value = data.profile?.title || ''
