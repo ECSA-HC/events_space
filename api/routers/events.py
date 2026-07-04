@@ -341,6 +341,21 @@ async def get_event(
                 else:
                     user_access = "unpaid"
 
+        # Fetch payment data via raw SQL to avoid ORM enum conversion errors on legacy data
+        from sqlalchemy import text as _sql_text
+        _reg_ids = [r.id for r in registrations]
+        if _reg_ids:
+            _placeholders = ",".join(str(rid) for rid in _reg_ids)
+            _payment_rows = db.execute(
+                _sql_text(
+                    f"SELECT registration_id, payment_method, payment_amount, payment_date"
+                    f" FROM payment WHERE registration_id IN ({_placeholders})"
+                )
+            ).fetchall()
+            payment_by_reg = {row.registration_id: row for row in _payment_rows}
+        else:
+            payment_by_reg = {}
+
         return {
             "event": {
                 "id": event.id,
@@ -409,9 +424,9 @@ async def get_event(
                     ),
                     "paid": getattr(r, "paid", None),
                     "payment_proof": getattr(r, "payment_proof", None),
-                    "payment_method": r.payment.payment_method.value if r.payment and r.payment.payment_method else None,
-                    "payment_amount": r.payment.payment_amount if r.payment else None,
-                    "payment_date": r.payment.payment_date if r.payment else None,
+                    "payment_method": payment_by_reg[r.id].payment_method if r.id in payment_by_reg else None,
+                    "payment_amount": float(payment_by_reg[r.id].payment_amount) if r.id in payment_by_reg and payment_by_reg[r.id].payment_amount else None,
+                    "payment_date": str(payment_by_reg[r.id].payment_date) if r.id in payment_by_reg and payment_by_reg[r.id].payment_date else None,
                     "registered_at": r.registered_at,
                     "reminder_sent_at": getattr(r, "reminder_sent_at", None),
                 }
@@ -590,9 +605,11 @@ async def submit_payment(
     payment_method: str = Form(...),
     payment_amount: float = Form(...),
     proof_file: Optional[UploadFile] = File(None),
+    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
 ):
     from models.models import PaymentMethod, PaymentStatus
+    from utils.mailer_util import proof_of_payment_received_email
 
     registration = get_object(registration_id, db, Registration)
 
@@ -625,6 +642,18 @@ async def submit_payment(
             registration.payment_proof = proof_path
         db.commit()
         db.refresh(existing)
+        try:
+            ev = db.query(Event).filter(Event.id == event_id).first()
+            if registration.user and registration.user.email:
+                proof_of_payment_received_email(
+                    recipient_email=registration.user.email,
+                    firstname=registration.user.firstname or "Participant",
+                    event_name=ev.event if ev else "the event",
+                    background_tasks=background_tasks,
+                    db=db,
+                )
+        except Exception:
+            pass
         return {"message": "Payment details updated", "payment_id": existing.id}
 
     new_payment = Payment(
@@ -640,6 +669,18 @@ async def submit_payment(
         registration.payment_proof = proof_path
     db.commit()
     db.refresh(new_payment)
+    try:
+        ev = db.query(Event).filter(Event.id == event_id).first()
+        if registration.user and registration.user.email:
+            proof_of_payment_received_email(
+                recipient_email=registration.user.email,
+                firstname=registration.user.firstname or "Participant",
+                event_name=ev.event if ev else "the event",
+                background_tasks=background_tasks,
+                db=db,
+            )
+    except Exception:
+        pass
     return {"message": "Payment submitted successfully", "payment_id": new_payment.id}
 
 
@@ -651,10 +692,12 @@ async def register_with_payment(
     payment_method: str = Form(...),
     payment_amount: float = Form(...),
     proof_file: UploadFile = File(...),
+    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
 ):
     """Create registration + payment record together, only after proof is uploaded."""
     from models.models import PaymentMethod, PaymentStatus, ParticipationRole
+    from utils.mailer_util import proof_of_payment_received_email
 
     # Prevent duplicate registration
     existing = db.query(Registration).filter(
@@ -709,6 +752,19 @@ async def register_with_payment(
         db.add(new_payment)
         db.commit()
         db.refresh(new_registration)
+        try:
+            _user = db.query(User).filter(User.id == user_id).first()
+            ev = db.query(Event).filter(Event.id == event_id).first()
+            if _user and _user.email:
+                proof_of_payment_received_email(
+                    recipient_email=_user.email,
+                    firstname=_user.firstname or "Participant",
+                    event_name=ev.event if ev else "the event",
+                    background_tasks=background_tasks,
+                    db=db,
+                )
+        except Exception:
+            pass
         return {"message": "Registration and payment proof submitted successfully", "registration_id": new_registration.id}
     except Exception as e:
         db.rollback()

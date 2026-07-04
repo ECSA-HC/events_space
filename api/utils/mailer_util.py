@@ -456,6 +456,26 @@ def reviewer_bulk_assignment_email(
     )
 
 
+def proof_of_payment_received_email(
+    recipient_email,
+    firstname,
+    event_name,
+    background_tasks: BackgroundTasks = None,
+    db=None,
+    sent_by_user_id=None,
+):
+    subject = f"Proof of Payment Received – {event_name}"
+    template = templates.get_template("proof_received_template.html")
+    email_body = template.render(
+        subject=subject,
+        firstname=firstname,
+        event_name=event_name,
+        year=YEAR,
+    )
+    send_email_backgroundable(recipient_email, subject, email_body, background_tasks,
+                              email_type="proof_received", sent_by_user_id=sent_by_user_id, db=db)
+
+
 def abstract_acceptance_email(
     recipient_email,
     firstname,
