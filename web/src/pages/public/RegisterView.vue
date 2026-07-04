@@ -582,11 +582,6 @@ const handleRegister = async (proceedToPayment) => {
     const registrationId = eventRes.data?.registration_id
 
     if (proceedToPayment) {
-      const paymentBase = window.location.hostname === 'localhost'
-        ? 'http://localhost/payment/'
-        : 'https://ecsahc.org/payment/'
-      paymentUrl.value = paymentBase
-      window.open(paymentBase, '_blank', 'noopener')
       router.push(`/payment/${eventId}/${registrationId}`)
     } else {
       registrationDone.value = true

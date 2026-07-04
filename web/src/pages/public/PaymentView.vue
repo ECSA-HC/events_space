@@ -1,99 +1,136 @@
 <template>
-  <div class="bg-gray-50 text-gray-800 font-sans">
+  <div class="bg-gray-50 text-gray-800 font-sans min-h-screen">
+
     <!-- Header -->
-    <section class="bg-bondi-blue text-white py-12 px-6 text-center" v-if="event">
-      <div class="max-w-4xl mx-auto space-y-4">
+    <section v-if="event" class="bg-bondi-blue text-white py-12 px-6 text-center">
+      <div class="max-w-4xl mx-auto space-y-2">
         <h1 class="text-3xl font-bold">Payment for {{ event.event }}</h1>
-        <p class="text-lg">
+        <p class="text-lg opacity-90">
           {{ formatDate(event.start_date) }} – {{ formatDate(event.end_date) }} · {{ event.location }}
         </p>
       </div>
     </section>
 
-    <!-- Loading/Error -->
-    <section v-if="loading" class="text-center py-10">
+    <!-- Loading -->
+    <section v-if="loading" class="text-center py-16">
       <DataLoadingSpinner />
     </section>
-    <section v-if="error" class="text-center py-10 text-red-600">
-      {{ error }}
-    </section>
 
-    <!-- Payment Form -->
-    <section v-if="event && registration" class="max-w-3xl mx-auto px-4 py-10 space-y-6">
-      <template v-if="!paymentSubmitted">
-        <div v-if="!registration.paid && route.query.method === 'card'" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative text-center">
-          Your card payment has been received. Please confirm your payment details below.
-        </div>
-        <div v-else-if="!registration.paid" class="bg-blue-50 border border-blue-300 text-blue-800 px-4 py-4 rounded relative text-sm">
-          <p class="font-semibold mb-1">Complete payment in the tab we just opened</p>
-          <p>Once you have paid, come back to this tab and enter your payment reference number below so our team can verify it.</p>
-        </div>
-        <div v-else class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative text-center">
-          Payment has already been completed. You can now <router-link to="/login" class="text-bondi-blue underline">log in</router-link>.
-        </div>
-      </template>
+    <!-- Error -->
+    <section v-if="error" class="text-center py-10 text-red-600">{{ error }}</section>
 
-      <!-- Success state after submission -->
-      <div v-if="paymentSubmitted" class="text-center space-y-4 py-6">
-        <div class="text-5xl">✅</div>
-        <h2 class="text-2xl font-semibold text-green-700">Payment Details Submitted</h2>
-        <p class="text-gray-600">Your payment details have been received. An administrator will verify your payment shortly.</p>
-        <p class="text-sm text-gray-500">Reference: <strong>{{ payment_reference }}</strong></p>
+    <!-- Main content -->
+    <section v-if="event && registration" class="max-w-2xl mx-auto px-4 py-10 space-y-6">
+
+      <!-- Already verified -->
+      <div v-if="registration.paid"
+        class="bg-blue-50 border border-blue-300 text-blue-800 px-5 py-4 rounded-2xl text-center space-y-2">
+        <p class="font-semibold text-lg">Your payment has already been verified ✅</p>
+        <p class="text-sm">You are fully registered for this event.</p>
         <router-link to="/login"
-          class="inline-block mt-4 px-6 py-2 rounded-2xl text-white font-semibold bg-bondi-blue hover:bg-bondi-blue/90 transition">
+          class="inline-block mt-2 px-6 py-2 rounded-full text-white text-sm font-semibold bg-bondi-blue">
           Log In to Your Account
         </router-link>
       </div>
 
-      <div v-else-if="!registration.paid">
-        <h2 class="text-2xl font-semibold text-bondi-blue text-center">Make Payment</h2>
+      <!-- Success after proof submission -->
+      <div v-else-if="paymentSubmitted" class="bg-white rounded-2xl shadow-sm p-10 text-center space-y-4">
+        <div class="text-6xl">✅</div>
+        <h2 class="text-2xl font-bold text-green-700">Proof of Payment Uploaded</h2>
+        <p class="text-gray-600 leading-relaxed max-w-md mx-auto">
+          Your proof of payment has been uploaded and you have been registered for the event.
+          The secretariat will verify your payment and then update your payment status.
+        </p>
+        <p class="text-sm text-gray-500">Reference: <strong>{{ payment_reference }}</strong></p>
+        <router-link to="/login"
+          class="inline-block mt-2 px-6 py-2 rounded-full text-white font-semibold bg-bondi-blue hover:bg-bondi-blue/90 transition">
+          Log In to Your Account
+        </router-link>
+      </div>
 
-        <div v-if="paymentError" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
-          {{ paymentError }}
+      <!-- Payment flow -->
+      <template v-else>
+
+        <!-- Countdown / redirect banner -->
+        <div class="bg-amber-50 border border-amber-300 rounded-2xl p-6 text-center space-y-3">
+          <template v-if="countdown > 0">
+            <p class="text-amber-900 font-semibold text-base leading-relaxed">
+              In <span class="text-3xl font-bold text-amber-600">{{ countdown }}</span>
+              second{{ countdown !== 1 ? 's' : '' }}, the payment page will open in a new tab.
+            </p>
+            <p class="text-sm text-amber-700">
+              Kindly complete your payment and return to this page to upload your proof of payment.
+            </p>
+            <div class="w-full bg-amber-200 rounded-full h-2 mt-1">
+              <div class="bg-amber-500 h-2 rounded-full transition-all duration-1000"
+                :style="{ width: ((10 - countdown) / 10 * 100) + '%' }">
+              </div>
+            </div>
+            <button @click="openPaymentNow" class="text-sm text-amber-700 underline hover:text-amber-900">
+              Open payment page now →
+            </button>
+          </template>
+          <template v-else>
+            <p class="text-amber-900 font-semibold">Payment page opened in a new tab.</p>
+            <p class="text-sm text-amber-700">Complete your payment there, then come back and fill in your proof details below.</p>
+            <a :href="paymentBase" target="_blank" rel="noopener"
+              class="text-sm text-amber-700 underline hover:text-amber-900">
+              Didn't open? Click here to open it again
+            </a>
+          </template>
         </div>
 
-        <form @submit.prevent="handlePayment" class="space-y-4">
-          <!-- Method -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Payment Method *</label>
-            <select v-model="payment_method" required class="input-style">
-              <option disabled value="">Select method</option>
-              <option value="Bank Transfer">Bank Transfer</option>
-              <option value="Mpesa">Mobile Money (Mpesa)</option>
-              <option value="Card">Credit/Debit Card</option>
-              <option value="Cash">Cash</option>
-            </select>
+        <!-- Proof of payment form -->
+        <div class="bg-white rounded-2xl shadow-sm p-7 space-y-5">
+          <h2 class="text-xl font-bold text-gray-800">Upload Proof of Payment</h2>
+          <p class="text-sm text-gray-500">Once you have completed your payment, enter your transaction details below.</p>
+
+          <div v-if="paymentError"
+            class="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-xl text-sm">
+            {{ paymentError }}
           </div>
 
-          <!-- Reference -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Payment Reference *</label>
-            <input v-model="payment_reference" required class="input-style" placeholder="Transaction ID / Receipt No." />
-          </div>
+          <form @submit.prevent="handlePayment" class="space-y-4">
 
-          <!-- Amount -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Amount (USD) *</label>
-            <input v-model="payment_amount" type="number" required class="input-style" />
-          </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Payment Method <span class="text-red-400">*</span></label>
+              <select v-model="payment_method" required class="input-style">
+                <option disabled value="">Select method</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Mpesa">Mobile Money (Mpesa)</option>
+                <option value="Card">Credit/Debit Card</option>
+                <option value="Cash">Cash</option>
+              </select>
+            </div>
 
-          <!-- Submit -->
-          <button
-            type="submit"
-            :disabled="isSubmitting"
-            class="w-full bg-bondi-blue text-white py-3 rounded-2xl font-semibold hover:bg-bondi-blue/90 transition"
-          >
-            <span v-if="isSubmitting">Processing...</span>
-            <span v-else>Submit Payment</span>
-          </button>
-        </form>
-      </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Payment Reference / Transaction ID <span class="text-red-400">*</span></label>
+              <input v-model="payment_reference" required class="input-style"
+                placeholder="e.g. TXN123456789" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Amount Paid (USD) <span class="text-red-400">*</span></label>
+              <input v-model="payment_amount" type="number" min="0" step="0.01" required
+                class="input-style" placeholder="0.00" />
+            </div>
+
+            <button type="submit" :disabled="isSubmitting"
+              class="w-full bg-bondi-blue text-white py-3 rounded-2xl font-semibold hover:bg-bondi-blue/90 transition disabled:opacity-60">
+              <span v-if="isSubmitting">Uploading…</span>
+              <span v-else>Upload Proof of Payment</span>
+            </button>
+
+          </form>
+        </div>
+
+      </template>
     </section>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/plugins/axios'
 import DataLoadingSpinner from '@/components/common/DataLoadingSpinner.vue'
@@ -102,7 +139,6 @@ const route = useRoute()
 const eventId = Number(route.params.event_id)
 const registrationId = Number(route.params.registration_id)
 
-// Reactive state
 const event = ref(null)
 const registration = ref(null)
 const loading = ref(true)
@@ -110,19 +146,40 @@ const error = ref(null)
 const paymentError = ref(null)
 const isSubmitting = ref(false)
 const paymentSubmitted = ref(false)
+const countdown = ref(10)
 
 const payment_method = ref(route.query.method === 'card' ? 'Card' : '')
 const payment_reference = ref(route.query.ref ? String(route.query.ref) : '')
-const payment_amount = ref(0)
+const payment_amount = ref('')
 
-// Format date nicely
+const paymentBase = window.location.hostname === 'localhost'
+  ? 'http://localhost/payment/'
+  : 'https://ecsahc.org/payment/'
+
+let countdownTimer = null
+
 const formatDate = (dateStr) => {
   if (!dateStr) return ''
-  const options = { year: 'numeric', month: 'long', day: 'numeric' }
-  return new Date(dateStr).toLocaleDateString(undefined, options)
+  return new Date(dateStr).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
-// Load event & registration details
+function openPaymentNow() {
+  clearInterval(countdownTimer)
+  countdown.value = 0
+  window.open(paymentBase, '_blank', 'noopener')
+}
+
+function startCountdown() {
+  countdownTimer = setInterval(() => {
+    countdown.value--
+    if (countdown.value <= 0) {
+      clearInterval(countdownTimer)
+      countdown.value = 0
+      window.open(paymentBase, '_blank', 'noopener')
+    }
+  }, 1000)
+}
+
 const loadData = async () => {
   loading.value = true
   try {
@@ -132,7 +189,9 @@ const loadData = async () => {
     ])
     event.value = eventRes.data.event
     registration.value = regRes.data.registration
-    payment_amount.value = registration.value.amount || 0
+    if (!registration.value.paid) {
+      startCountdown()
+    }
   } catch (err) {
     console.error(err)
     error.value = err.response?.data?.detail || 'Failed to load data'
@@ -141,7 +200,6 @@ const loadData = async () => {
   }
 }
 
-// Submit payment
 const handlePayment = async () => {
   paymentError.value = null
   isSubmitting.value = true
@@ -151,28 +209,25 @@ const handlePayment = async () => {
       event_id: eventId,
       payment_method: payment_method.value,
       payment_reference: payment_reference.value,
-      payment_amount: payment_amount.value
+      payment_amount: Number(payment_amount.value),
     })
     paymentSubmitted.value = true
   } catch (err) {
     console.error(err)
-    paymentError.value = err.response?.data?.detail || 'Payment failed. Please try again.'
+    paymentError.value = err.response?.data?.detail || 'Failed to submit. Please try again.'
   } finally {
     isSubmitting.value = false
   }
 }
 
 onMounted(loadData)
+onUnmounted(() => clearInterval(countdownTimer))
 </script>
 
 <style scoped>
 .input-style {
-  @apply w-full border border-gray-300 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-bondi-blue focus:border-transparent;
+  @apply w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-bondi-blue focus:border-transparent;
 }
-.text-bondi-blue {
-  color: #0095b6;
-}
-.bg-bondi-blue {
-  background-color: #0095b6;
-}
+.text-bondi-blue { color: #0095b6; }
+.bg-bondi-blue { background-color: #0095b6; }
 </style>

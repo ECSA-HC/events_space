@@ -223,10 +223,6 @@ async function deregisterEvent(event) {
 }
 
 function payEvent(event) {
-  const paymentBase = window.location.hostname === 'localhost'
-    ? 'http://localhost/payment/'
-    : 'https://ecsahc.org/payment/'
-  window.open(paymentBase, '_blank', 'noopener')
   router.push(`/payment/${event.id}/${event.registration_id}`)
 }
 
