@@ -161,7 +161,23 @@ const handlePayment = async () => {
   }
 }
 
-onMounted(loadData)
+onMounted(() => {
+  // When Cybersource redirects back into a popup, relay completion to the parent window and close.
+  if (route.query.popup === 'true' && window.opener && route.query.ref) {
+    try {
+      window.opener.postMessage({
+        type: 'ecsa_payment_complete',
+        ref: route.query.ref,
+        method: route.query.method || '',
+        event_id: route.params.event_id,
+        registration_id: route.params.registration_id,
+      }, window.location.origin)
+    } catch (_) {}
+    window.close()
+    return
+  }
+  loadData()
+})
 </script>
 
 <style scoped>

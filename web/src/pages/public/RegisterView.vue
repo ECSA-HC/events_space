@@ -396,19 +396,20 @@
             </p>
           </div>
 
-          <!-- Redirecting to payment notice -->
+          <!-- Payment popup notice -->
           <div class="rounded-xl border border-blue-200 bg-blue-50 p-5 text-sm text-blue-800 text-left max-w-md mx-auto">
             <p class="font-semibold mb-2 flex items-center gap-2">
-              <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
               </svg>
-              Redirecting you to payment…
+              Payment window opened
             </p>
             <p class="text-xs leading-relaxed">
-              You will be redirected to the payment portal shortly. If nothing happens,
+              Complete your payment in the popup window. Once done, you will be automatically
+              brought back here to confirm your details.<br/><br/>
+              If the popup was blocked,
               <a :href="paymentUrl" target="_blank" rel="noopener"
-                class="font-semibold underline" style="color:#0095B6;">click here to pay now</a>.
+                class="font-semibold underline" style="color:#0095B6;">click here to open it</a>.
             </p>
           </div>
 
@@ -444,7 +445,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/plugins/axios'
 import DataLoadingSpinner from '@/components/common/DataLoadingSpinner.vue'
@@ -461,6 +462,7 @@ const isSubmitting = ref(false)
 const registrationDone = ref(false)
 const payNow = ref(false)
 const paymentUrl = ref('https://ecsahc.org/payment/')
+const paymentPopup = ref(null)
 const loading = ref(true)
 const error = ref(null)
 
@@ -581,16 +583,18 @@ const handleRegister = async (proceedToPayment) => {
     const registrationId = eventRes.data?.registration_id
 
     if (proceedToPayment) {
-      const returnUrl = `${window.location.origin}/payment/${eventId}/${registrationId}`
+      const returnUrl = `${window.location.origin}/payment/${eventId}/${registrationId}?popup=true`
       const paymentBase = window.location.hostname === 'localhost'
         ? 'http://localhost/payment/'
         : 'https://ecsahc.org/payment/'
       paymentUrl.value = `${paymentBase}?return_url=${encodeURIComponent(returnUrl)}`
       registrationDone.value = true
       payNow.value = true
-      setTimeout(() => {
-        window.location.href = paymentUrl.value
-      }, 1800)
+      paymentPopup.value = window.open(
+        paymentUrl.value,
+        'ecsa_payment',
+        'width=980,height=700,scrollbars=yes,resizable=yes'
+      )
     } else {
       registrationDone.value = true
     }
@@ -602,7 +606,19 @@ const handleRegister = async (proceedToPayment) => {
   }
 }
 
+function onPaymentMessage(e) {
+  if (e.origin !== window.location.origin) return
+  if (e.data?.type !== 'ecsa_payment_complete') return
+  paymentPopup.value?.close()
+  paymentPopup.value = null
+  router.push({
+    path: `/payment/${e.data.event_id}/${e.data.registration_id}`,
+    query: { ref: e.data.ref, method: e.data.method },
+  })
+}
+
 onMounted(async () => {
+  window.addEventListener('message', onPaymentMessage)
   loadEventData()
   try {
     const res = await api.get('/countries', { params: { limit: 300 } })
@@ -613,6 +629,10 @@ onMounted(async () => {
   if (route.query.firstname) firstName.value = route.query.firstname
   if (route.query.lastname) lastName.value = route.query.lastname
   if (route.query.email) email.value = route.query.email
+})
+
+onUnmounted(() => {
+  window.removeEventListener('message', onPaymentMessage)
 })
 </script>
 
