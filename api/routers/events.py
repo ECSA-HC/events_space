@@ -711,7 +711,12 @@ async def event_deregistration(
     )
 
     try:
-        # First: delete any payment (if exists)
+        from models.models import EventAttendance
+        db.query(EventAttendance).filter(
+            EventAttendance.registration_id == existing_registration.id
+        ).delete(synchronize_session=False)
+        db.flush()
+
         existing_payment = (
             db.query(Payment)
             .filter(Payment.registration_id == existing_registration.id)
@@ -719,9 +724,8 @@ async def event_deregistration(
         )
         if existing_payment:
             db.delete(existing_payment)
-            db.flush()  # flush ensures DB sees the delete before the next delete
+            db.flush()
 
-        # Now delete the registration
         db.delete(existing_registration)
         db.commit()
 
@@ -755,6 +759,12 @@ async def admin_deregister_participant(
         raise HTTPException(status_code=404, detail="Registration not found")
 
     try:
+        from models.models import EventAttendance
+        db.query(EventAttendance).filter(
+            EventAttendance.registration_id == registration.id
+        ).delete(synchronize_session=False)
+        db.flush()
+
         existing_payment = (
             db.query(Payment).filter(Payment.registration_id == registration.id).first()
         )
