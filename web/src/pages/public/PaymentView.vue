@@ -20,15 +20,31 @@
 
     <!-- Payment Form -->
     <section v-if="event && registration" class="max-w-3xl mx-auto px-4 py-10 space-y-6">
-      <div v-if="!registration.paid" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative text-center">
-        Your registration was successful. Please make payment to complete your registration.
+      <template v-if="!paymentSubmitted">
+        <div v-if="!registration.paid && route.query.method === 'card'" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative text-center">
+          Your card payment has been received. Please confirm your payment details below.
+        </div>
+        <div v-else-if="!registration.paid" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative text-center">
+          Your registration was successful. Please submit your payment details to complete registration.
+        </div>
+        <div v-else class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative text-center">
+          Payment has already been completed. You can now <router-link to="/login" class="text-bondi-blue underline">log in</router-link>.
+        </div>
+      </template>
+
+      <!-- Success state after submission -->
+      <div v-if="paymentSubmitted" class="text-center space-y-4 py-6">
+        <div class="text-5xl">✅</div>
+        <h2 class="text-2xl font-semibold text-green-700">Payment Details Submitted</h2>
+        <p class="text-gray-600">Your payment details have been received. An administrator will verify your payment shortly.</p>
+        <p class="text-sm text-gray-500">Reference: <strong>{{ payment_reference }}</strong></p>
+        <router-link to="/login"
+          class="inline-block mt-4 px-6 py-2 rounded-2xl text-white font-semibold bg-bondi-blue hover:bg-bondi-blue/90 transition">
+          Log In to Your Account
+        </router-link>
       </div>
 
-      <div v-else class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative text-center">
-        Payment has already been completed. You can now <router-link to="/login" class="text-bondi-blue underline">log in</router-link>.
-      </div>
-
-      <div v-if="!registration.paid">
+      <div v-else-if="!registration.paid">
         <h2 class="text-2xl font-semibold text-bondi-blue text-center">Make Payment</h2>
 
         <div v-if="paymentError" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
@@ -41,10 +57,10 @@
             <label class="block text-sm font-medium text-gray-700 mb-1">Payment Method *</label>
             <select v-model="payment_method" required class="input-style">
               <option disabled value="">Select method</option>
-              <option>Bank Transfer</option>
-              <option>Mobile Money</option>
-              <option>Credit Card</option>
-              <option>Cash</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+              <option value="Mpesa">Mobile Money (Mpesa)</option>
+              <option value="Card">Credit/Debit Card</option>
+              <option value="Cash">Cash</option>
             </select>
           </div>
 
@@ -77,12 +93,11 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import api from '@/plugins/axios'
 import DataLoadingSpinner from '@/components/common/DataLoadingSpinner.vue'
 
 const route = useRoute()
-const router = useRouter()
 const eventId = Number(route.params.event_id)
 const registrationId = Number(route.params.registration_id)
 
@@ -93,9 +108,10 @@ const loading = ref(true)
 const error = ref(null)
 const paymentError = ref(null)
 const isSubmitting = ref(false)
+const paymentSubmitted = ref(false)
 
-const payment_method = ref('')
-const payment_reference = ref('')
+const payment_method = ref(route.query.method === 'card' ? 'Card' : '')
+const payment_reference = ref(route.query.ref ? String(route.query.ref) : '')
 const payment_amount = ref(0)
 
 // Format date nicely
@@ -136,7 +152,7 @@ const handlePayment = async () => {
       payment_reference: payment_reference.value,
       payment_amount: payment_amount.value
     })
-    router.push({ name: 'EventPaymentSuccess' }) // or route to dashboard
+    paymentSubmitted.value = true
   } catch (err) {
     console.error(err)
     paymentError.value = err.response?.data?.detail || 'Payment failed. Please try again.'

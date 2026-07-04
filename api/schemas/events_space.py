@@ -148,6 +148,14 @@ class RegistrationSchema(BaseModel):
     participation_role: str
 
 
+class PaymentSubmitSchema(BaseModel):
+    registration_id: int
+    event_id: int
+    payment_method: str
+    payment_reference: str
+    payment_amount: float
+
+
 class OrganisationSchema(BaseModel):
     country_id: int
     organisation: str

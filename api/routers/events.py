@@ -19,7 +19,7 @@ from dependencies.auth_dependency import get_current_user, get_optional_current_
 from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends, Query, Request
 from models.models import Event, User, Registration, Document, Link, Payment, ParticipationRole
-from schemas.events_space import EventSchema, EventUpdateSchema, RegistrationSchema, LinkSchema
+from schemas.events_space import EventSchema, EventUpdateSchema, RegistrationSchema, LinkSchema, PaymentSubmitSchema
 from PIL import Image
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
@@ -567,6 +567,60 @@ async def get_registration_details(
             else None
         ),
     }
+
+
+METHOD_MAP = {
+    "bank transfer": "Bank Transfer",
+    "mpesa": "Mpesa",
+    "cash": "Cash",
+    "card": "Card",
+    "mobile money": "Mpesa",
+    "credit card": "Card",
+}
+
+
+@router.post("/payment/")
+async def submit_payment(
+    payment_schema: PaymentSubmitSchema,
+    db: Session = Depends(get_db),
+):
+    from models.models import PaymentMethod, PaymentStatus
+
+    registration = get_object(payment_schema.registration_id, db, Registration)
+
+    # Normalise the incoming method string against the enum
+    raw_method = payment_schema.payment_method.strip()
+    normalised = METHOD_MAP.get(raw_method.lower(), raw_method)
+    try:
+        method_enum = PaymentMethod(normalised)
+    except ValueError:
+        raise HTTPException(status_code=422, detail=f"Unknown payment method: {raw_method}")
+
+    existing = db.query(Payment).filter(
+        Payment.registration_id == payment_schema.registration_id
+    ).first()
+
+    if existing:
+        existing.payment_method = method_enum
+        existing.payment_reference = payment_schema.payment_reference
+        existing.payment_amount = payment_schema.payment_amount
+        existing.payment_date = datetime.utcnow()
+        db.commit()
+        db.refresh(existing)
+        return {"message": "Payment details updated", "payment_id": existing.id}
+
+    new_payment = Payment(
+        registration_id=payment_schema.registration_id,
+        payment_date=datetime.utcnow(),
+        payment_method=method_enum,
+        payment_reference=payment_schema.payment_reference,
+        payment_amount=payment_schema.payment_amount,
+        payment_status=PaymentStatus.PENDING,
+    )
+    db.add(new_payment)
+    db.commit()
+    db.refresh(new_payment)
+    return {"message": "Payment submitted successfully", "payment_id": new_payment.id}
 
 
 @router.post("/registration/{user_id}")

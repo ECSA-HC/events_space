@@ -407,7 +407,7 @@
             </p>
             <p class="text-xs leading-relaxed">
               You will be redirected to the payment portal shortly. If nothing happens,
-              <a href="https://ecsahc.org/payment/" target="_blank" rel="noopener"
+              <a :href="paymentUrl" target="_blank" rel="noopener"
                 class="font-semibold underline" style="color:#0095B6;">click here to pay now</a>.
             </p>
           </div>
@@ -460,6 +460,7 @@ const registrationError = ref(null)
 const isSubmitting = ref(false)
 const registrationDone = ref(false)
 const payNow = ref(false)
+const paymentUrl = ref('https://ecsahc.org/payment/')
 const loading = ref(true)
 const error = ref(null)
 
@@ -577,12 +578,16 @@ const handleRegister = async (proceedToPayment) => {
 
     await api.post(`/users/profile/${user_id.value}`, userProfilePayload)
     const eventRes = await api.post(`/events/registration/${user_id.value}`, eventPayload)
+    const registrationId = eventRes.data?.registration_id
 
     if (proceedToPayment) {
+      const returnUrl = `https://events.ecsahc.org/payment/${eventId}/${registrationId}`
+      paymentUrl.value = `https://ecsahc.org/payment/?return_url=${encodeURIComponent(returnUrl)}`
       registrationDone.value = true
       payNow.value = true
-      // Redirect to external payment portal after short delay so success screen shows
-      setTimeout(() => { window.location.href = 'https://ecsahc.org/payment/' }, 1800)
+      setTimeout(() => {
+        window.location.href = paymentUrl.value
+      }, 1800)
     } else {
       registrationDone.value = true
     }

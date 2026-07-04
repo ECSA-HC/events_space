@@ -135,8 +135,9 @@ const formatDate = (isoDate) => {
   })
 }
 
-function payEvent() {
-  window.open('https://ecsahc.org/payment/', '_blank')
+function payEvent(event) {
+  const returnUrl = `https://events.ecsahc.org/payment/${event.id}/${event.registration_id}`
+  window.open(`https://ecsahc.org/payment/?return_url=${encodeURIComponent(returnUrl)}`, '_blank')
 }
 
 onMounted(() => {
