@@ -442,3 +442,69 @@ async def resend_verification(
     )
 
     return {"message": "Verification email sent successfully"}
+
+
+user_dependency = Annotated[dict, Depends(get_current_user)]
+
+
+@router.post("/impersonate/{user_id}")
+async def impersonate_user(
+    user_id: int,
+    request: Request,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    dependency: Dependency = Depends(get_dependency),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    """Admin: issue a real session token for any user to allow full impersonation."""
+    auth_dependency.secure_access("ADMIN_DASHBOARD", current_user["user_id"])
+
+    target = db.query(User).filter(User.id == user_id, User.deleted_at == None).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    token = auth_dependency.create_access_token(target.email, target.id, timedelta(hours=2))
+
+    target_with_perms = (
+        db.query(User)
+        .options(
+            joinedload(User.user_roles)
+            .joinedload(UserRole.role)
+            .joinedload(Role.role_permissions)
+            .joinedload(RolePermission.permission)
+        )
+        .filter(User.id == user_id)
+        .first()
+    )
+
+    permissions = [
+        {
+            "permission": rp.permission.permission,
+            "permission_code": rp.permission.permission_code,
+        }
+        for user_role in target_with_perms.user_roles
+        for rp in user_role.role.role_permissions
+    ]
+
+    dependency.log_activity(
+        current_user["user_id"],
+        "ADMIN_IMPERSONATE",
+        current_user["username"],
+        dependency.request_ip(request),
+        f"Impersonated user ID {user_id} ({target.email})",
+    )
+
+    return {
+        "user": {
+            "id": target.id,
+            "firstname": target.firstname,
+            "lastname": target.lastname,
+            "phone": target.phone,
+            "email": target.email,
+            "verified": target.verified,
+            "must_change_password": False,
+        },
+        "permissions": permissions,
+        "access_token": token,
+        "token_type": "bearer",
+    }

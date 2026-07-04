@@ -8,18 +8,6 @@
 
     <div class="px-4 pt-4 pb-10 space-y-6 overflow-y-auto flex-1">
 
-      <!-- Admin banner -->
-      <div class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium"
-        style="background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;">
-        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-        </svg>
-        Admin preview — you are viewing the portal as seen by this user.
-      </div>
-
       <div v-if="loading" class="flex justify-center py-16">
         <DataLoadingSpinner />
       </div>
@@ -28,25 +16,44 @@
 
         <!-- ── Profile card ─────────────────────────────────────────────── -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col sm:flex-row gap-5">
-          <!-- Avatar -->
           <div class="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold flex-shrink-0"
             style="background:#0095B6;">
             {{ initials }}
           </div>
-          <!-- Info -->
-          <div class="flex-1 min-w-0 space-y-1">
+          <div class="flex-1 min-w-0 space-y-0.5">
             <h2 class="text-lg font-bold text-gray-900">{{ user?.firstname }} {{ user?.lastname }}</h2>
             <p class="text-sm text-gray-500">{{ user?.email }}</p>
             <p v-if="profile?.organisation" class="text-sm text-gray-600">{{ profile.organisation }}</p>
             <p v-if="profile?.country" class="text-sm text-gray-400">{{ profile.country }}</p>
           </div>
-          <!-- Role badges -->
-          <div class="flex flex-wrap gap-1.5 items-start">
-            <span v-for="r in user?.roles" :key="r.id"
-              class="inline-block px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
-              {{ r.role }}
-            </span>
-            <span v-if="!user?.roles?.length" class="text-xs text-gray-400">No system roles</span>
+          <div class="flex flex-col items-end gap-3">
+            <!-- Role badges -->
+            <div class="flex flex-wrap gap-1.5 justify-end">
+              <span v-for="r in user?.roles" :key="r.id"
+                class="inline-block px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                {{ r.role }}
+              </span>
+            </div>
+            <!-- Impersonate button -->
+            <button
+              @click="impersonate"
+              :disabled="impersonating"
+              class="inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+              style="background:#0095B6;"
+            >
+              <svg v-if="impersonating" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+              <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+              </svg>
+              {{ impersonating ? 'Loading…' : 'Enter as this User' }}
+            </button>
+            <p v-if="impersonateError" class="text-xs text-red-500 text-right">{{ impersonateError }}</p>
           </div>
         </div>
 
@@ -76,10 +83,8 @@
                 <p class="font-semibold text-sm text-gray-800">{{ e.event }}</p>
                 <p class="text-xs text-gray-400">{{ e.country }} · {{ formatDate(e.start_date) }}</p>
               </div>
-              <span v-if="e.paid"
-                class="inline-block px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">✅ Paid</span>
-              <span v-else
-                class="inline-block px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">⏳ Unpaid</span>
+              <span v-if="e.paid" class="inline-block px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">✅ Paid</span>
+              <span v-else class="inline-block px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">⏳ Unpaid</span>
             </div>
           </div>
         </div>
@@ -141,17 +146,22 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AdminBar from '@/components/common/AdminBar.vue'
 import DataLoadingSpinner from '@/components/common/DataLoadingSpinner.vue'
 import api from '@/plugins/axios'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
+const router = useRouter()
+const auth = useAuthStore()
 const userId = Number(route.params.id)
 
 const loading = ref(true)
 const loadingAbstracts = ref(true)
 const loadingReviews = ref(true)
+const impersonating = ref(false)
+const impersonateError = ref('')
 
 const user = ref(null)
 const profile = ref(null)
@@ -177,6 +187,23 @@ const statusClass = s => STATUS_COLORS[s] || 'bg-gray-100 text-gray-600'
 function formatDate(d) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+async function impersonate() {
+  impersonating.value = true
+  impersonateError.value = ''
+  try {
+    const res = await api.post(`/auth/impersonate/${userId}`)
+    auth.startImpersonation({
+      user: res.data.user,
+      token: res.data.access_token,
+      permissions: res.data.permissions,
+    })
+    router.push({ name: 'MyDashboard' })
+  } catch (err) {
+    impersonateError.value = err?.response?.data?.detail || 'Failed to start impersonation.'
+    impersonating.value = false
+  }
 }
 
 onMounted(async () => {

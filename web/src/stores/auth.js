@@ -11,11 +11,14 @@ export const useAuthStore = defineStore("auth", {
     mustChangePassword: false,
     refreshTimeout: null,
     needsRefresh: false,
+    impersonating: false,
+    adminSession: null,
   }),
   getters: {
     isAuthenticated: (state) => !!state.token,
     hasPermission: (state) => (code) =>
       state.permissions.some((p) => p.permission_code === code),
+    isImpersonating: (state) => state.impersonating,
   },
   actions: {
     setAuth({ user, token, permissions }) {
@@ -40,7 +43,7 @@ export const useAuthStore = defineStore("auth", {
         this.token = token;
         this.permissions = permissions ? JSON.parse(permissions) : [];
         this.mustChangePassword = this.user?.must_change_password ?? false;
-        this.needsRefresh = true; // stale — refresh on next navigation
+        this.needsRefresh = true;
         axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       }
     },
@@ -50,6 +53,8 @@ export const useAuthStore = defineStore("auth", {
       this.token = null;
       this.permissions = [];
       this.needsRefresh = false;
+      this.impersonating = false;
+      this.adminSession = null;
       localStorage.clear();
       delete axios.defaults.headers.common["Authorization"];
     },
@@ -62,10 +67,11 @@ export const useAuthStore = defineStore("auth", {
         this.permissions = res.data.permissions;
         this.mustChangePassword = res.data.user?.must_change_password ?? false;
         this.needsRefresh = false;
-        localStorage.setItem("user", JSON.stringify(res.data.user));
-        localStorage.setItem("permissions", JSON.stringify(res.data.permissions));
+        if (!this.impersonating) {
+          localStorage.setItem("user", JSON.stringify(res.data.user));
+          localStorage.setItem("permissions", JSON.stringify(res.data.permissions));
+        }
       } catch (e) {
-        // Token expired or invalid — log out
         this.logout();
       }
     },
@@ -79,6 +85,37 @@ export const useAuthStore = defineStore("auth", {
       } catch (e) {
         this.logout();
       }
+    },
+
+    startImpersonation({ user, token, permissions }) {
+      // Save real admin session
+      this.adminSession = {
+        user: this.user,
+        token: this.token,
+        permissions: this.permissions,
+        mustChangePassword: this.mustChangePassword,
+      };
+      // Swap in the target user's credentials
+      this.user = user;
+      this.token = token;
+      this.permissions = permissions;
+      this.mustChangePassword = false;
+      this.impersonating = true;
+      this.needsRefresh = false;
+      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    },
+
+    stopImpersonation() {
+      if (!this.adminSession) return;
+      const s = this.adminSession;
+      this.user = s.user;
+      this.token = s.token;
+      this.permissions = s.permissions;
+      this.mustChangePassword = s.mustChangePassword;
+      this.adminSession = null;
+      this.impersonating = false;
+      this.needsRefresh = false;
+      axios.defaults.headers.common["Authorization"] = `Bearer ${s.token}`;
     },
   },
 });

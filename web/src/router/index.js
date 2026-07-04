@@ -312,8 +312,8 @@ router.beforeEach(async (to, from, next) => {
     return next({ name: "Login" });
   }
 
-  // Force password change before accessing any protected page
-  if (auth.isAuthenticated && auth.mustChangePassword && to.name !== "ChangePassword") {
+  // Force password change before accessing any protected page (skip during impersonation)
+  if (auth.isAuthenticated && auth.mustChangePassword && to.name !== "ChangePassword" && !auth.impersonating) {
     return next({ name: "ChangePassword" });
   }
 
