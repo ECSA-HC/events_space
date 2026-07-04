@@ -89,7 +89,7 @@ const routes = [
         component: RegisterAccountView,
       },
       {
-        path: "/payment/:event_id/:registration_id",
+        path: "/payment/:event_id/:registration_id?",
         name: "EventPayment",
         component: PaymentView,
       },

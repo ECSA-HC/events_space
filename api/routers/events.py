@@ -643,6 +643,81 @@ async def submit_payment(
     return {"message": "Payment submitted successfully", "payment_id": new_payment.id}
 
 
+@router.post("/register-with-payment/")
+async def register_with_payment(
+    user_id: int = Form(...),
+    event_id: int = Form(...),
+    participation_role: str = Form(...),
+    payment_method: str = Form(...),
+    payment_amount: float = Form(...),
+    proof_file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Create registration + payment record together, only after proof is uploaded."""
+    from models.models import PaymentMethod, PaymentStatus, ParticipationRole
+
+    # Prevent duplicate registration
+    existing = db.query(Registration).filter(
+        Registration.user_id == user_id,
+        Registration.event_id == event_id,
+        Registration.deleted_at == None,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="You are already registered for this event.")
+
+    # Resolve enums
+    raw_method = payment_method.strip()
+    enum_name = METHOD_MAP.get(raw_method.lower())
+    if not enum_name:
+        raise HTTPException(status_code=422, detail=f"Unknown payment method: {raw_method}")
+    method_enum = PaymentMethod[enum_name]
+
+    try:
+        role_enum = ParticipationRole[participation_role]
+    except KeyError:
+        raise HTTPException(status_code=422, detail=f"Unknown participation role: {participation_role}")
+
+    # Save proof file first
+    if not proof_file or not proof_file.filename:
+        raise HTTPException(status_code=422, detail="Proof of payment file is required.")
+    ext = os.path.splitext(proof_file.filename)[1]
+    unique_name = f"proof_new_{user_id}_{event_id}_{uuid.uuid4().hex[:8]}{ext}"
+    proof_path = os.path.join(PAYMENT_RECEIPT_DIR, unique_name)
+    with open(proof_path, "wb+") as f:
+        f.write(await proof_file.read())
+
+    try:
+        # Create registration
+        new_registration = Registration(
+            user_id=user_id,
+            event_id=event_id,
+            participation_role=role_enum,
+            payment_proof=proof_path,
+        )
+        db.add(new_registration)
+        db.flush()
+
+        # Create payment record
+        new_payment = Payment(
+            registration_id=new_registration.id,
+            payment_date=datetime.utcnow(),
+            payment_method=method_enum,
+            payment_reference=f"REF-{uuid.uuid4().hex[:10].upper()}",
+            payment_amount=payment_amount,
+            payment_status=PaymentStatus.PENDING,
+        )
+        db.add(new_payment)
+        db.commit()
+        db.refresh(new_registration)
+        return {"message": "Registration and payment proof submitted successfully", "registration_id": new_registration.id}
+    except Exception as e:
+        db.rollback()
+        import os as _os
+        if _os.path.exists(proof_path):
+            _os.remove(proof_path)
+        raise HTTPException(status_code=500, detail="Failed to complete registration. Please try again.") from e
+
+
 @router.post("/registration/{user_id}")
 async def event_registration(
     request: Request,

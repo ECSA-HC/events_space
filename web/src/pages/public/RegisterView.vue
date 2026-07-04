@@ -578,12 +578,16 @@ const handleRegister = async (proceedToPayment) => {
     user_id.value = registerRes.data.user_id
 
     await api.post(`/users/profile/${user_id.value}`, userProfilePayload)
-    const eventRes = await api.post(`/events/registration/${user_id.value}`, eventPayload)
-    const registrationId = eventRes.data?.registration_id
 
     if (proceedToPayment) {
-      router.push(`/payment/${eventId}/${registrationId}`)
+      // Store pending registration — actual DB record created only after proof uploaded
+      sessionStorage.setItem(`pending_reg_${eventId}`, JSON.stringify({
+        user_id: user_id.value,
+        participation_role: participation_role.value,
+      }))
+      router.push(`/payment/${eventId}`)
     } else {
+      await api.post(`/events/registration/${user_id.value}`, eventPayload)
       registrationDone.value = true
     }
   } catch (err) {

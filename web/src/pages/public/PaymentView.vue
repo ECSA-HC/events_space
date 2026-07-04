@@ -20,16 +20,27 @@
     <section v-if="error" class="text-center py-10 text-red-600">{{ error }}</section>
 
     <!-- Main content -->
-    <section v-if="event && registration" class="max-w-2xl mx-auto px-4 py-10 space-y-6">
+    <section v-if="!loading && !error && event" class="max-w-2xl mx-auto px-4 py-10 space-y-6">
 
-      <!-- Already verified -->
-      <div v-if="registration.paid"
+      <!-- Already verified (returning user flow only) -->
+      <div v-if="!isNewRegistration && registration?.paid"
         class="bg-blue-50 border border-blue-300 text-blue-800 px-5 py-4 rounded-2xl text-center space-y-2">
         <p class="font-semibold text-lg">Your payment has already been verified ✅</p>
         <p class="text-sm">You are fully registered for this event.</p>
         <router-link to="/login"
           class="inline-block mt-2 px-6 py-2 rounded-full text-white text-sm font-semibold bg-bondi-blue">
           Log In to Your Account
+        </router-link>
+      </div>
+
+      <!-- Missing session (new flow but sessionStorage gone) -->
+      <div v-else-if="isNewRegistration && !pendingData"
+        class="bg-red-50 border border-red-300 text-red-800 px-5 py-4 rounded-2xl text-center space-y-3">
+        <p class="font-semibold">Your registration session has expired.</p>
+        <p class="text-sm">Please go back and complete the registration form again.</p>
+        <router-link :to="`/register/${eventId}`"
+          class="inline-block mt-2 px-6 py-2 rounded-full text-white text-sm font-semibold bg-bondi-blue">
+          Back to Registration
         </router-link>
       </div>
 
@@ -48,7 +59,7 @@
       </div>
 
       <!-- Payment flow -->
-      <template v-else>
+      <template v-else-if="isNewRegistration && pendingData || (!isNewRegistration && registration && !registration.paid)">
 
         <!-- Countdown / redirect banner -->
         <div class="bg-amber-50 border border-amber-300 rounded-2xl p-6 text-center space-y-3">
@@ -62,8 +73,7 @@
             </p>
             <div class="w-full bg-amber-200 rounded-full h-2 mt-1">
               <div class="bg-amber-500 h-2 rounded-full transition-all duration-1000"
-                :style="{ width: ((15 - countdown) / 15 * 100) + '%' }">
-              </div>
+                :style="{ width: ((15 - countdown) / 15 * 100) + '%' }"></div>
             </div>
             <button @click="openPaymentNow" class="text-sm text-amber-700 underline hover:text-amber-900">
               Open payment page now →
@@ -130,14 +140,22 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/plugins/axios'
 import DataLoadingSpinner from '@/components/common/DataLoadingSpinner.vue'
 
 const route = useRoute()
 const eventId = Number(route.params.event_id)
-const registrationId = Number(route.params.registration_id)
+const registrationId = route.params.registration_id ? Number(route.params.registration_id) : null
+
+// New registration = no registration_id in URL (came from RegisterView)
+const isNewRegistration = !registrationId
+
+// Read pending registration data from sessionStorage (set by RegisterView)
+const pendingData = isNewRegistration
+  ? JSON.parse(sessionStorage.getItem(`pending_reg_${eventId}`) || 'null')
+  : null
 
 const event = ref(null)
 const registration = ref(null)
@@ -183,14 +201,20 @@ function startCountdown() {
 const loadData = async () => {
   loading.value = true
   try {
-    const [eventRes, regRes] = await Promise.all([
-      api.get(`/events/${eventId}`),
-      api.get(`/events/registration/${registrationId}`)
-    ])
-    event.value = eventRes.data.event
-    registration.value = regRes.data.registration
-    if (!registration.value.paid) {
-      startCountdown()
+    if (isNewRegistration) {
+      // Only load event data — no registration exists yet
+      const eventRes = await api.get(`/events/${eventId}`)
+      event.value = eventRes.data.event
+      if (pendingData) startCountdown()
+    } else {
+      // Load both event and existing registration
+      const [eventRes, regRes] = await Promise.all([
+        api.get(`/events/${eventId}`),
+        api.get(`/events/registration/${registrationId}`)
+      ])
+      event.value = eventRes.data.event
+      registration.value = regRes.data.registration
+      if (!registration.value.paid) startCountdown()
     }
   } catch (err) {
     console.error(err)
@@ -209,14 +233,28 @@ const handlePayment = async () => {
   isSubmitting.value = true
   try {
     const fd = new FormData()
-    fd.append('registration_id', registrationId)
-    fd.append('event_id', eventId)
     fd.append('payment_method', payment_method.value)
     fd.append('payment_amount', Number(payment_amount.value))
-    if (proof_file.value) fd.append('proof_file', proof_file.value)
-    await api.post('/events/payment/', fd, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    fd.append('proof_file', proof_file.value)
+
+    if (isNewRegistration) {
+      // Create registration + payment together
+      fd.append('user_id', pendingData.user_id)
+      fd.append('event_id', eventId)
+      fd.append('participation_role', pendingData.participation_role)
+      await api.post('/events/register-with-payment/', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      sessionStorage.removeItem(`pending_reg_${eventId}`)
+    } else {
+      // Existing registration — just submit payment proof
+      fd.append('registration_id', registrationId)
+      fd.append('event_id', eventId)
+      await api.post('/events/payment/', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+    }
+
     paymentSubmitted.value = true
   } catch (err) {
     console.error(err)
