@@ -152,7 +152,7 @@ class PaymentSubmitSchema(BaseModel):
     registration_id: int
     event_id: int
     payment_method: str
-    payment_reference: str
+    payment_reference: Optional[str] = None
     payment_amount: float
 
 

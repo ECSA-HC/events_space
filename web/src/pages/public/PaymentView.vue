@@ -41,7 +41,6 @@
           Your proof of payment has been uploaded and you have been registered for the event.
           The secretariat will verify your payment and then update your payment status.
         </p>
-        <p class="text-sm text-gray-500">Reference: <strong>{{ payment_reference }}</strong></p>
         <router-link to="/login"
           class="inline-block mt-2 px-6 py-2 rounded-full text-white font-semibold bg-bondi-blue hover:bg-bondi-blue/90 transition">
           Log In to Your Account
@@ -63,7 +62,7 @@
             </p>
             <div class="w-full bg-amber-200 rounded-full h-2 mt-1">
               <div class="bg-amber-500 h-2 rounded-full transition-all duration-1000"
-                :style="{ width: ((10 - countdown) / 10 * 100) + '%' }">
+                :style="{ width: ((15 - countdown) / 15 * 100) + '%' }">
               </div>
             </div>
             <button @click="openPaymentNow" class="text-sm text-amber-700 underline hover:text-amber-900">
@@ -104,15 +103,16 @@
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Payment Reference / Transaction ID <span class="text-red-400">*</span></label>
-              <input v-model="payment_reference" required class="input-style"
-                placeholder="e.g. TXN123456789" />
-            </div>
-
-            <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Amount Paid (USD) <span class="text-red-400">*</span></label>
               <input v-model="payment_amount" type="number" min="0" step="0.01" required
                 class="input-style" placeholder="0.00" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Proof of Payment <span class="text-red-400">*</span></label>
+              <input type="file" accept="image/*,.pdf" required @change="proof_file = $event.target.files[0]"
+                class="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-bondi-blue/10 file:text-bondi-blue hover:file:bg-bondi-blue/20 cursor-pointer border border-gray-300 rounded-xl px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Upload a photo or screenshot of your payment receipt (JPG, PNG or PDF)</p>
             </div>
 
             <button type="submit" :disabled="isSubmitting"
@@ -146,11 +146,11 @@ const error = ref(null)
 const paymentError = ref(null)
 const isSubmitting = ref(false)
 const paymentSubmitted = ref(false)
-const countdown = ref(10)
+const countdown = ref(15)
 
 const payment_method = ref(route.query.method === 'card' ? 'Card' : '')
-const payment_reference = ref(route.query.ref ? String(route.query.ref) : '')
 const payment_amount = ref('')
+const proof_file = ref(null)
 
 const paymentBase = window.location.hostname === 'localhost'
   ? 'http://localhost/payment/'
@@ -204,12 +204,14 @@ const handlePayment = async () => {
   paymentError.value = null
   isSubmitting.value = true
   try {
-    await api.post('/events/payment/', {
-      registration_id: registrationId,
-      event_id: eventId,
-      payment_method: payment_method.value,
-      payment_reference: payment_reference.value,
-      payment_amount: Number(payment_amount.value),
+    const fd = new FormData()
+    fd.append('registration_id', registrationId)
+    fd.append('event_id', eventId)
+    fd.append('payment_method', payment_method.value)
+    fd.append('payment_amount', Number(payment_amount.value))
+    if (proof_file.value) fd.append('proof_file', proof_file.value)
+    await api.post('/events/payment/', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
     })
     paymentSubmitted.value = true
   } catch (err) {

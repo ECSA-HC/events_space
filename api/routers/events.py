@@ -582,42 +582,59 @@ METHOD_MAP = {
 
 @router.post("/payment/")
 async def submit_payment(
-    payment_schema: PaymentSubmitSchema,
+    registration_id: int = Form(...),
+    event_id: int = Form(...),
+    payment_method: str = Form(...),
+    payment_amount: float = Form(...),
+    proof_file: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
 ):
     from models.models import PaymentMethod, PaymentStatus
 
-    registration = get_object(payment_schema.registration_id, db, Registration)
+    registration = get_object(registration_id, db, Registration)
 
-    # Resolve to enum member by name to avoid SQLAlchemy value-vs-name mismatch
-    raw_method = payment_schema.payment_method.strip()
+    raw_method = payment_method.strip()
     enum_name = METHOD_MAP.get(raw_method.lower())
     if not enum_name:
         raise HTTPException(status_code=422, detail=f"Unknown payment method: {raw_method}")
     method_enum = PaymentMethod[enum_name]
 
+    proof_path = None
+    if proof_file and proof_file.filename:
+        ext = os.path.splitext(proof_file.filename)[1]
+        unique_name = f"proof_{registration_id}_{uuid.uuid4().hex[:8]}{ext}"
+        proof_path = os.path.join(PAYMENT_RECEIPT_DIR, unique_name)
+        with open(proof_path, "wb+") as f:
+            f.write(await proof_file.read())
+
+    auto_ref = f"REF-{uuid.uuid4().hex[:10].upper()}"
+
     existing = db.query(Payment).filter(
-        Payment.registration_id == payment_schema.registration_id
+        Payment.registration_id == registration_id
     ).first()
 
     if existing:
         existing.payment_method = method_enum
-        existing.payment_reference = payment_schema.payment_reference
-        existing.payment_amount = payment_schema.payment_amount
+        existing.payment_reference = auto_ref
+        existing.payment_amount = payment_amount
         existing.payment_date = datetime.utcnow()
+        if proof_path:
+            registration.payment_proof = proof_path
         db.commit()
         db.refresh(existing)
         return {"message": "Payment details updated", "payment_id": existing.id}
 
     new_payment = Payment(
-        registration_id=payment_schema.registration_id,
+        registration_id=registration_id,
         payment_date=datetime.utcnow(),
         payment_method=method_enum,
-        payment_reference=payment_schema.payment_reference,
-        payment_amount=payment_schema.payment_amount,
+        payment_reference=auto_ref,
+        payment_amount=payment_amount,
         payment_status=PaymentStatus.PENDING,
     )
     db.add(new_payment)
+    if proof_path:
+        registration.payment_proof = proof_path
     db.commit()
     db.refresh(new_payment)
     return {"message": "Payment submitted successfully", "payment_id": new_payment.id}
