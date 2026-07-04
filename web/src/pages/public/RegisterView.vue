@@ -581,8 +581,11 @@ const handleRegister = async (proceedToPayment) => {
     const registrationId = eventRes.data?.registration_id
 
     if (proceedToPayment) {
-      const returnUrl = `https://events.ecsahc.org/payment/${eventId}/${registrationId}`
-      paymentUrl.value = `https://ecsahc.org/payment/?return_url=${encodeURIComponent(returnUrl)}`
+      const returnUrl = `${window.location.origin}/payment/${eventId}/${registrationId}`
+      const paymentBase = window.location.hostname === 'localhost'
+        ? 'http://localhost/payment/'
+        : 'https://ecsahc.org/payment/'
+      paymentUrl.value = `${paymentBase}?return_url=${encodeURIComponent(returnUrl)}`
       registrationDone.value = true
       payNow.value = true
       setTimeout(() => {

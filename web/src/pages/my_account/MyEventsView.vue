@@ -221,8 +221,11 @@ async function deregisterEvent(event) {
 }
 
 function payEvent(event) {
-  const returnUrl = `https://events.ecsahc.org/payment/${event.id}/${event.registration_id}`
-  window.open(`https://ecsahc.org/payment/?return_url=${encodeURIComponent(returnUrl)}`, '_blank')
+  const returnUrl = `${window.location.origin}/payment/${event.id}/${event.registration_id}`
+  const paymentBase = window.location.hostname === 'localhost'
+    ? 'http://localhost/payment/'
+    : 'https://ecsahc.org/payment/'
+  window.open(`${paymentBase}?return_url=${encodeURIComponent(returnUrl)}`, '_blank')
 }
 
 onMounted(() => {

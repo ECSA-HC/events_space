@@ -569,13 +569,14 @@ async def get_registration_details(
     }
 
 
+# Maps frontend strings → PaymentMethod enum name (accessed via PaymentMethod[name])
 METHOD_MAP = {
-    "bank transfer": "Bank Transfer",
-    "mpesa": "Mpesa",
-    "cash": "Cash",
-    "card": "Card",
-    "mobile money": "Mpesa",
-    "credit card": "Card",
+    "bank transfer": "BANK_TRANSFER",
+    "mpesa": "MPESA",
+    "cash": "CASH",
+    "card": "CARD",
+    "mobile money": "MPESA",
+    "credit card": "CARD",
 }
 
 
@@ -588,13 +589,12 @@ async def submit_payment(
 
     registration = get_object(payment_schema.registration_id, db, Registration)
 
-    # Normalise the incoming method string against the enum
+    # Resolve to enum member by name to avoid SQLAlchemy value-vs-name mismatch
     raw_method = payment_schema.payment_method.strip()
-    normalised = METHOD_MAP.get(raw_method.lower(), raw_method)
-    try:
-        method_enum = PaymentMethod(normalised)
-    except ValueError:
+    enum_name = METHOD_MAP.get(raw_method.lower())
+    if not enum_name:
         raise HTTPException(status_code=422, detail=f"Unknown payment method: {raw_method}")
+    method_enum = PaymentMethod[enum_name]
 
     existing = db.query(Payment).filter(
         Payment.registration_id == payment_schema.registration_id
