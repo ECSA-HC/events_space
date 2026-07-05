@@ -344,20 +344,20 @@
               Send them a reminder to complete their payment.
             </div>
 
-            <!-- Abstract-reminded filter notice -->
-            <div v-if="abstractReminderSentCount > 0"
+            <!-- Abstract author filter notice -->
+            <div v-if="abstractAuthorInPendingCount > 0"
               class="mb-3 flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl text-sm"
               style="background:#fffbeb; border:1px solid #fcd34d;">
               <div class="flex items-center gap-2 text-amber-800">
                 <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                 </svg>
-                <span><strong>{{ abstractReminderSentCount }}</strong> of {{ pendingRegistrations.length }} have already been sent a registration reminder via the Abstracts page.</span>
+                <span><strong>{{ abstractAuthorInPendingCount }}</strong> of {{ pendingRegistrations.length }} are accepted abstract authors — managed via the Abstracts page.</span>
               </div>
               <button @click="hideAbstractReminded = !hideAbstractReminded"
                 class="text-xs font-semibold px-3 py-1 rounded-lg border transition flex-shrink-0"
                 :class="hideAbstractReminded ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-amber-700 border-amber-400 hover:bg-amber-50'">
-                {{ hideAbstractReminded ? 'Show all' : 'Hide reminded' }}
+                {{ hideAbstractReminded ? 'Show all' : 'Hide abstract authors' }}
               </button>
             </div>
 
@@ -427,10 +427,16 @@
                         class="hover:underline hover:text-[#0095B6] transition-colors">
                         {{ p.firstname }} {{ p.lastname }}
                       </router-link>
-                      <span v-if="p.abstract_reminder_sent"
+                      <span v-if="p.is_abstract_author"
                         class="ml-1.5 inline-block text-xs px-1.5 py-0.5 rounded font-medium"
                         style="background:#fffbeb;color:#92400e;border:1px solid #fcd34d;"
-                        title="Registration reminder sent via Abstracts page">
+                        title="Accepted abstract author — use Abstracts page to send registration reminder">
+                        Abstract Author
+                      </span>
+                      <span v-if="p.abstract_reminder_sent"
+                        class="ml-1.5 inline-block text-xs px-1.5 py-0.5 rounded font-medium"
+                        style="background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;"
+                        title="Registration reminder already sent via Abstracts page">
                         Reminded
                       </span>
                     </td>
@@ -957,8 +963,8 @@ const unpaidParticipants = computed(() =>
   participants.value.filter(p => !p.paid && !p.reminder_sent_at)
 )
 
-const abstractReminderSentCount = computed(() =>
-  pendingRegistrations.value.filter(p => p.abstract_reminder_sent).length
+const abstractAuthorInPendingCount = computed(() =>
+  pendingRegistrations.value.filter(p => p.is_abstract_author).length
 )
 
 const filteredPendingRegistrations = computed(() => {
@@ -966,9 +972,9 @@ const filteredPendingRegistrations = computed(() => {
   let list = [...pendingRegistrations.value].sort((a, b) => {
     const da = a.registered_at ? new Date(a.registered_at) : 0
     const db = b.registered_at ? new Date(b.registered_at) : 0
-    return db - da   // newest first
+    return db - da
   })
-  if (hideAbstractReminded.value) list = list.filter(p => !p.abstract_reminder_sent)
+  if (hideAbstractReminded.value) list = list.filter(p => !p.is_abstract_author)
   if (!q) return list
   return list.filter(p =>
     `${p.firstname} ${p.lastname} ${p.email} ${p.country}`.toLowerCase().includes(q)
