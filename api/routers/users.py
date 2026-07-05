@@ -174,7 +174,9 @@ async def get_incomplete_registrations(
               SELECT 1 FROM registration r WHERE r.user_id = u.id AND r.deleted_at IS NULL
           )
           AND NOT EXISTS (
-              SELECT 1 FROM user_role ur WHERE ur.user_id = u.id AND ur.deleted_at IS NULL
+              SELECT 1 FROM user_role ur
+              JOIN role ro ON ro.id = ur.role_id
+              WHERE ur.user_id = u.id AND ur.deleted_at IS NULL AND ro.role != 'User'
           )
           AND u.created_at >= DATE_SUB(NOW(), INTERVAL :days DAY)
         ORDER BY u.created_at DESC
