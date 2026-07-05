@@ -1030,6 +1030,16 @@ async def verify_payment(
         raise HTTPException(status_code=404, detail="Registration not found")
 
     registration.paid = True
+
+    # Generate a fresh password so credentials are always included in the verified email
+    new_plain_password = None
+    try:
+        new_plain_password = auth_dependency.generate_random_password()
+        registration.user.hashed_password = auth_dependency.hash_password(new_plain_password)
+        registration.user.must_change_password = True
+    except Exception as _pe:
+        logger.error(f"Failed to generate password for verified user: {_pe}")
+
     db.commit()
 
     try:
@@ -1040,6 +1050,7 @@ async def verify_payment(
                 recipient_email=registration.user.email,
                 firstname=registration.user.firstname or "Participant",
                 event_name=event.event,
+                password=new_plain_password,
                 background_tasks=background_tasks,
                 db=db,
                 sent_by_user_id=current_user["user_id"],

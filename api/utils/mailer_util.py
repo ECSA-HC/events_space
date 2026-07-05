@@ -480,6 +480,7 @@ def payment_verified_email(
     recipient_email,
     firstname,
     event_name,
+    password=None,
     portal_url="https://events.ecsahc.org",
     background_tasks: BackgroundTasks = None,
     db=None,
@@ -492,6 +493,7 @@ def payment_verified_email(
         firstname=firstname,
         event_name=event_name,
         email=recipient_email,
+        password=password,
         portal_url=portal_url,
         year=YEAR,
     )

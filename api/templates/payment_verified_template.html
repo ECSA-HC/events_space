@@ -53,17 +53,16 @@
       <div class="info-box">
         <p><strong>Your Login Credentials</strong></p>
         <p style="margin-top:10px;">• <strong>Username (Email):</strong> {{ email }}</p>
-        <p>• <strong>Password:</strong> The password that was emailed to you when your account was created.</p>
+        <p>• <strong>Password:</strong>
+          <span style="font-family:monospace;font-size:15px;background:#e0f2fe;padding:2px 8px;border-radius:4px;letter-spacing:1px;">{{ password }}</span>
+        </p>
         <p style="margin-top:10px;font-size:13px;color:#6b7280;">
-          If you have forgotten your password or are logging in for the first time,
-          use the reset link below to set a new one.
+          You will be prompted to change this password the first time you log in.
         </p>
       </div>
 
       <div style="text-align:center; margin: 20px 0;">
         <a href="{{ portal_url }}" class="btn">Log In to the Portal</a>
-        &nbsp;&nbsp;
-        <a href="{{ portal_url }}/forgot-password" class="btn-outline">Reset Password</a>
       </div>
 
       <!-- After login -->
