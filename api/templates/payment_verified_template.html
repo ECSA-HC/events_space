@@ -14,7 +14,8 @@
       .success-badge { background-color: #d1fae5; border: 1px solid #6ee7b7; color: #065f46; border-radius: 12px; padding: 20px 24px; text-align: center; margin: 24px 0; }
       .success-badge .icon { font-size: 40px; display: block; margin-bottom: 8px; }
       .success-badge p { margin: 4px 0; font-size: 15px; }
-      .btn { display: inline-block; background-color: #0095b6; color: #ffffff; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; margin: 16px 0; }
+      .btn { display: inline-block; background-color: #0095b6; color: #ffffff !important; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; margin: 16px 0; }
+      .btn-outline { display: inline-block; background-color: #ffffff; color: #0095b6 !important; padding: 11px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; border: 2px solid #0095b6; margin: 16px 0; }
       .divider { border: none; border-top: 1px solid #e5e7eb; margin: 28px 0; }
       .footer { font-size: 12px; color: #9ca3af; text-align: center; margin-top: 32px; }
       .event-name { font-weight: bold; color: #0095b6; }
@@ -48,20 +49,33 @@
         <p>Your payment has been reviewed and approved by our secretariat.</p>
       </div>
 
-      <!-- Login info -->
+      <!-- Login credentials -->
       <div class="info-box">
-        <p><strong>Access the Events Portal</strong></p>
-        <p>Log in to the portal using your registered email address to access event documents, your badge, and other resources.</p>
-        <p>• Username: <strong>{{ email }}</strong></p>
-        <p>• Portal: <a href="{{ portal_url }}" style="color:#0095b6;">{{ portal_url }}</a></p>
+        <p><strong>Your Login Credentials</strong></p>
+        <p style="margin-top:10px;">• <strong>Username (Email):</strong> {{ email }}</p>
+        <p>• <strong>Password:</strong> The password that was emailed to you when your account was created.</p>
+        <p style="margin-top:10px;font-size:13px;color:#6b7280;">
+          If you have forgotten your password or are logging in for the first time,
+          use the reset link below to set a new one.
+        </p>
       </div>
 
-      <p style="text-align:center;">
+      <div style="text-align:center; margin: 20px 0;">
         <a href="{{ portal_url }}" class="btn">Log In to the Portal</a>
-      </p>
+        &nbsp;&nbsp;
+        <a href="{{ portal_url }}/forgot-password" class="btn-outline">Reset Password</a>
+      </div>
+
+      <!-- After login -->
+      <div style="background-color:#fffbeb;border-left:4px solid #F7941D;padding:16px 20px;border-radius:0 8px 8px 0;margin:20px 0;">
+        <p style="margin:0 0 6px;font-size:14px;"><strong>After logging in:</strong></p>
+        <p style="margin:4px 0;font-size:14px;">• Go to <strong>My Account → Change Password</strong> to update your password.</p>
+        <p style="margin:4px 0;font-size:14px;">• Complete your profile (name, country, organisation) if not already done.</p>
+        <p style="margin:4px 0;font-size:14px;">• Download your participation badge from <strong>My Events</strong>.</p>
+      </div>
 
       <p style="font-size:13px;color:#6b7280;">
-        If you have any questions, please contact us at
+        Need help logging in? Contact us at
         <a href="mailto:admission@cosecsa.org" style="color:#0095b6;">admission@cosecsa.org</a>.
       </p>
 
