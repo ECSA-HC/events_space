@@ -935,8 +935,13 @@ const unpaidParticipants = computed(() =>
 
 const filteredPendingRegistrations = computed(() => {
   const q = pendingSearch.value.toLowerCase().trim()
-  if (!q) return pendingRegistrations.value
-  return pendingRegistrations.value.filter(p =>
+  const list = [...pendingRegistrations.value].sort((a, b) => {
+    const da = a.registered_at ? new Date(a.registered_at) : 0
+    const db = b.registered_at ? new Date(b.registered_at) : 0
+    return db - da   // newest first
+  })
+  if (!q) return list
+  return list.filter(p =>
     `${p.firstname} ${p.lastname} ${p.email} ${p.country}`.toLowerCase().includes(q)
   )
 })

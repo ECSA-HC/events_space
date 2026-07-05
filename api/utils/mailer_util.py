@@ -507,11 +507,13 @@ def registration_reminder_email(
     event_name,
     event_url,
     portal_url="https://events.ecsahc.org",
+    deadline_label="7 July 2026",
+    days_remaining=2,
     background_tasks: BackgroundTasks = None,
     db=None,
     sent_by_user_id=None,
 ):
-    subject = f"Action Required: Complete Your Registration for {event_name}"
+    subject = f"Action Required – {days_remaining} Day{'s' if days_remaining != 1 else ''} Left to Register: {event_name}"
     template = templates.get_template("registration_reminder_template.html")
     email_body = template.render(
         subject=subject,
@@ -519,6 +521,8 @@ def registration_reminder_email(
         event_name=event_name,
         event_url=event_url,
         portal_url=portal_url,
+        deadline_label=deadline_label,
+        days_remaining=days_remaining,
         year=YEAR,
     )
     send_email_backgroundable(recipient_email, subject, email_body, background_tasks,

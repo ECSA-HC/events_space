@@ -1787,6 +1787,7 @@ def notify_acceptance(
 @router.post("/send-registration-reminders")
 async def send_registration_reminders(
     event_id: int = Query(...),
+    deadline: str = Query("2026-07-07"),
     background_tasks: BackgroundTasks = None,
     current_user: user_dependency = None,
     db: Session = Depends(get_db),
@@ -1833,6 +1834,15 @@ async def send_registration_reminders(
             "message": "All accepted abstract authors have already registered for this event.",
         }
 
+    from datetime import date as _date
+    try:
+        _deadline_dt = _date.fromisoformat(deadline)
+        _days_remaining = (_deadline_dt - _date.today()).days
+        _deadline_label = _deadline_dt.strftime("%-d %B %Y")
+    except Exception:
+        _days_remaining = 2
+        _deadline_label = "7 July 2026"
+
     event_url = f"https://events.ecsahc.org/events/{event_id}"
     import utils.mailer_util as _mailer
     for author in targets:
@@ -1842,6 +1852,8 @@ async def send_registration_reminders(
             event_name=event.event,
             event_url=event_url,
             portal_url="https://events.ecsahc.org",
+            deadline_label=_deadline_label,
+            days_remaining=_days_remaining,
             background_tasks=background_tasks,
             db=db,
             sent_by_user_id=current_user["user_id"],

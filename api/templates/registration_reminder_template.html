@@ -15,6 +15,7 @@
       .info-box p { margin: 6px 0; font-size: 14px; }
       .warning-box { background-color: #fffbeb; border-left: 4px solid #F7941D; padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 20px 0; }
       .warning-box p { margin: 6px 0; font-size: 14px; color: #92400e; }
+      .urgent-box { background-color: #fef2f2; border: 2px solid #fca5a5; border-radius: 12px; padding: 20px 24px; text-align: center; margin: 24px 0; }
       .checklist { padding-left: 0; list-style: none; margin: 12px 0; }
       .checklist li { font-size: 14px; padding: 6px 0; display: flex; align-items: flex-start; gap: 10px; }
       .checklist li::before { content: "✓"; color: #0095b6; font-weight: bold; flex-shrink: 0; }
@@ -36,15 +37,25 @@
         </tr>
       </table>
 
+      <!-- Deadline countdown -->
+      <div class="urgent-box">
+        <p style="font-size:28px;font-weight:900;color:#dc2626;margin:0 0 4px;">
+          ⏰ {% if days_remaining == 1 %}Last Day!{% elif days_remaining <= 0 %}Deadline Passed{% else %}{{ days_remaining }} Days Left{% endif %}
+        </p>
+        <p style="font-size:14px;color:#7f1d1d;margin:4px 0 0;">
+          Registration deadline: <strong>{{ deadline_label }}</strong>
+        </p>
+      </div>
+
       <h1>Complete Your Registration for {{ event_name }}</h1>
       <p>Dear <strong>{{ firstname }}</strong>,</p>
       <p>
         Congratulations on having your abstract accepted for
         <span class="event-name">{{ event_name }}</span>!
-        Our records show that you have not yet completed your conference registration.
+        Our records show that you have <strong>not yet completed your conference registration</strong>.
       </p>
       <p>
-        To secure your place at the conference, please register and complete your payment as soon as possible.
+        Please register and complete your payment <strong>by {{ deadline_label }}</strong> to confirm your place at the conference.
       </p>
 
       <!-- Step 1: Register -->
@@ -77,11 +88,6 @@
 
       <hr class="divider" />
 
-      <div class="warning-box">
-        <p><strong>⚠ Don't miss the deadline</strong></p>
-        <p>Registration spots are limited. Please complete your registration and payment promptly to confirm your participation.</p>
-      </div>
-
       <ul class="checklist">
         <li>Register on the portal using the link above</li>
         <li>Complete your payment (Online Card, Bank Transfer, Mobile Money, or Cash)</li>
@@ -90,6 +96,7 @@
 
       <div class="info-box">
         <p><strong>Event:</strong> {{ event_name }}</p>
+        <p><strong>Registration Deadline:</strong> <span style="color:#dc2626;font-weight:bold;">{{ deadline_label }}</span></p>
         <p><strong>Portal:</strong> <a href="{{ portal_url }}" style="color:#0095b6;">{{ portal_url }}</a></p>
         <p><strong>Need help?</strong> Email us at <a href="mailto:admission@cosecsa.org" style="color:#0095b6;">admission@cosecsa.org</a></p>
       </div>
