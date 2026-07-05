@@ -287,6 +287,36 @@ async def add_event(
     return {"id": create_event_model.id}
 
 
+def _build_pending_list(pending_regs, db):
+    """Build pending registration list with abstract_reminder_sent flag."""
+    from models.models import EmailLog
+    reminded_emails = {
+        row.recipient_email.lower()
+        for row in db.query(EmailLog.recipient_email)
+        .filter(EmailLog.email_type == "registration_reminder", EmailLog.status == "sent")
+        .all()
+    }
+    return [
+        {
+            "id": r.id,
+            "user_id": r.user_id,
+            "firstname": r.user.firstname if r.user else None,
+            "lastname": r.user.lastname if r.user else None,
+            "email": r.user.email if r.user else None,
+            "phone": r.user.phone if r.user else None,
+            "country": (
+                r.user.user_profile[0].country.country
+                if r.user and r.user.user_profile and r.user.user_profile[0].country
+                else None
+            ),
+            "participation_role": r.participation_role,
+            "registered_at": r.registered_at,
+            "abstract_reminder_sent": (r.user.email or "").lower() in reminded_emails,
+        }
+        for r in pending_regs
+    ]
+
+
 @router.get("/{event_id}")
 async def get_event(
     request: Request,
@@ -492,24 +522,7 @@ async def get_event(
                 }
                 for l in links
             ],
-            "pending_registrations": [
-                {
-                    "id": r.id,
-                    "user_id": r.user_id,
-                    "firstname": r.user.firstname if r.user else None,
-                    "lastname": r.user.lastname if r.user else None,
-                    "email": r.user.email if r.user else None,
-                    "phone": r.user.phone if r.user else None,
-                    "country": (
-                        r.user.user_profile[0].country.country
-                        if r.user and r.user.user_profile and r.user.user_profile[0].country
-                        else None
-                    ),
-                    "participation_role": r.participation_role,
-                    "registered_at": r.registered_at,
-                }
-                for r in pending_payment_regs
-            ],
+            "pending_registrations": _build_pending_list(pending_payment_regs, db),
             "abstract_author_stats": _abstract_author_stats,
         }
     else:

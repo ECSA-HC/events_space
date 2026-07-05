@@ -344,6 +344,23 @@
               Send them a reminder to complete their payment.
             </div>
 
+            <!-- Abstract-reminded filter notice -->
+            <div v-if="abstractReminderSentCount > 0"
+              class="mb-3 flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl text-sm"
+              style="background:#fffbeb; border:1px solid #fcd34d;">
+              <div class="flex items-center gap-2 text-amber-800">
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+                <span><strong>{{ abstractReminderSentCount }}</strong> of {{ pendingRegistrations.length }} have already been sent a registration reminder via the Abstracts page.</span>
+              </div>
+              <button @click="hideAbstractReminded = !hideAbstractReminded"
+                class="text-xs font-semibold px-3 py-1 rounded-lg border transition flex-shrink-0"
+                :class="hideAbstractReminded ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-amber-700 border-amber-400 hover:bg-amber-50'">
+                {{ hideAbstractReminded ? 'Show all' : 'Hide reminded' }}
+              </button>
+            </div>
+
             <!-- Search + bulk reminder -->
             <div class="mb-3 flex flex-wrap gap-2 items-center">
               <div class="relative flex-1 min-w-[200px]">
@@ -410,6 +427,12 @@
                         class="hover:underline hover:text-[#0095B6] transition-colors">
                         {{ p.firstname }} {{ p.lastname }}
                       </router-link>
+                      <span v-if="p.abstract_reminder_sent"
+                        class="ml-1.5 inline-block text-xs px-1.5 py-0.5 rounded font-medium"
+                        style="background:#fffbeb;color:#92400e;border:1px solid #fcd34d;"
+                        title="Registration reminder sent via Abstracts page">
+                        Reminded
+                      </span>
                     </td>
                     <td class="px-4 py-2 text-gray-600">{{ p.email }}</td>
                     <td class="px-4 py-2 text-gray-600">{{ p.country || '—' }}</td>
@@ -882,6 +905,7 @@ const pageSize = ref(25)
 // Pagination — pending payment tab
 const pendingPage = ref(1)
 const pendingPageSize = ref(25)
+const hideAbstractReminded = ref(false)
 
 // Three-dots menus (separate IDs to avoid collision between tabs)
 const openMenuId = ref(null)
@@ -933,13 +957,18 @@ const unpaidParticipants = computed(() =>
   participants.value.filter(p => !p.paid && !p.reminder_sent_at)
 )
 
+const abstractReminderSentCount = computed(() =>
+  pendingRegistrations.value.filter(p => p.abstract_reminder_sent).length
+)
+
 const filteredPendingRegistrations = computed(() => {
   const q = pendingSearch.value.toLowerCase().trim()
-  const list = [...pendingRegistrations.value].sort((a, b) => {
+  let list = [...pendingRegistrations.value].sort((a, b) => {
     const da = a.registered_at ? new Date(a.registered_at) : 0
     const db = b.registered_at ? new Date(b.registered_at) : 0
     return db - da   // newest first
   })
+  if (hideAbstractReminded.value) list = list.filter(p => !p.abstract_reminder_sent)
   if (!q) return list
   return list.filter(p =>
     `${p.firstname} ${p.lastname} ${p.email} ${p.country}`.toLowerCase().includes(q)
@@ -988,6 +1017,7 @@ function toggleSelectAllUnpaid() {
 
 watch(pendingSearch, () => { pendingPage.value = 1 })
 watch(pendingPageSize, () => { pendingPage.value = 1 })
+watch(hideAbstractReminded, () => { pendingPage.value = 1 })
 
 // Close menus on outside click
 function handleClickOutside() { openMenuId.value = null; pendingMenuId.value = null }
