@@ -579,12 +579,13 @@ const handleRegister = async (proceedToPayment) => {
 
     await api.post(`/users/profile/${user_id.value}`, userProfilePayload)
 
-    const regRes = await api.post(`/events/registration/${user_id.value}`, eventPayload)
-    if (proceedToPayment) {
-      router.push(`/payment/${eventId}/${regRes.data.registration_id}`)
-    } else {
-      registrationDone.value = true
-    }
+    // Store pending data in sessionStorage; registration DB record is only created
+    // once the user actually uploads proof of payment (register-with-payment endpoint).
+    sessionStorage.setItem(`pending_reg_${eventId}`, JSON.stringify({
+      user_id: user_id.value,
+      participation_role: participation_role.value,
+    }))
+    router.push(`/payment/${eventId}`)
   } catch (err) {
     registrationError.value = err.response?.data?.detail || 'An error occurred while completing your registration.'
     currentStep.value = 0
