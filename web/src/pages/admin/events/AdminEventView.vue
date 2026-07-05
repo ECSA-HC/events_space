@@ -841,7 +841,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { TabGroup, TabList, Tab, TabPanels, TabPanel } from '@headlessui/vue'
 import { EyeIcon, TrashIcon, DocumentTextIcon } from '@heroicons/vue/24/outline'
 import { useRoute, useRouter } from 'vue-router'

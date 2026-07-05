@@ -1736,6 +1736,54 @@ def notify_acceptance(
     }
 
 
+@router.get("/registration-reminder-preview")
+async def registration_reminder_preview(
+    event_id: int = Query(...),
+    current_user: user_dependency = None,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+):
+    """Preview who will receive registration reminders (no emails sent)."""
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+
+    from models.models import Event
+    from sqlalchemy import text as _sql_text
+
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    author_rows = db.execute(_sql_text(
+        "SELECT DISTINCT aa.firstname, aa.lastname, LOWER(aa.email) as email "
+        "FROM abstract a "
+        "JOIN abstract_author aa ON aa.abstract_id = a.id "
+        "WHERE a.event_id = :eid AND a.status = 'accepted' AND aa.email IS NOT NULL AND aa.email != ''"
+    ), {"eid": event_id}).fetchall()
+
+    registered_rows = db.execute(_sql_text(
+        "SELECT LOWER(u.email) as email FROM registration r "
+        "JOIN user u ON u.id = r.user_id "
+        "WHERE r.event_id = :eid AND r.deleted_at IS NULL"
+    ), {"eid": event_id}).fetchall()
+    registered_emails = {row.email for row in registered_rows}
+
+    to_send = []
+    already_registered = []
+    for row in author_rows:
+        entry = {"firstname": row.firstname or "", "lastname": row.lastname or "", "email": row.email}
+        if row.email in registered_emails:
+            already_registered.append(entry)
+        else:
+            to_send.append(entry)
+
+    return {
+        "event_name": event.event,
+        "to_send": to_send,
+        "already_registered": already_registered,
+        "total_authors": len(author_rows),
+    }
+
+
 @router.post("/send-registration-reminders")
 async def send_registration_reminders(
     event_id: int = Query(...),

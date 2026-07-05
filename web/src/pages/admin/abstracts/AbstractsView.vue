@@ -880,7 +880,7 @@
     <div v-if="regReminderModal.open"
       class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
       @click.self="regReminderModal.open = false">
-      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[92vh]">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl flex flex-col max-h-[92vh]">
 
         <!-- Header -->
         <div class="flex items-center justify-between px-5 py-4 border-b flex-shrink-0">
@@ -893,7 +893,9 @@
             </div>
             <div>
               <p class="font-bold text-gray-800 text-sm">Send Registration Reminder</p>
-              <p class="text-xs text-gray-400 mt-0.5">Email accepted abstract authors who haven't registered</p>
+              <p class="text-xs text-gray-400 mt-0.5">
+                {{ regReminderModal.step === 'select' ? 'Email accepted abstract authors who haven\'t registered' : regReminderModal.step === 'preview' ? `Preview for: ${regReminderModal.preview.event_name}` : 'Reminders sent' }}
+              </p>
             </div>
           </div>
           <button @click="regReminderModal.open = false" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
@@ -903,60 +905,151 @@
           </button>
         </div>
 
-        <div class="p-5 space-y-4 overflow-y-auto flex-1">
+        <div class="p-5 overflow-y-auto flex-1">
 
-          <!-- Event selector (required) -->
-          <div>
-            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Event <span class="text-red-500">*</span></label>
-            <select v-model.number="regReminderModal.eventId" class="input w-full">
-              <option :value="null">— Select an event —</option>
-              <option v-for="e in events" :key="e.id" :value="e.id">{{ e.event }}</option>
-            </select>
-            <p class="text-xs text-gray-400 mt-1">Only accepted abstract authors for this event who haven't registered will receive the email.</p>
+          <!-- Step 1: Select event -->
+          <div v-if="regReminderModal.step === 'select'" class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Event <span class="text-red-500">*</span></label>
+              <select v-model.number="regReminderModal.eventId" class="input w-full">
+                <option :value="null">— Select an event —</option>
+                <option v-for="e in events" :key="e.id" :value="e.id">{{ e.event }}</option>
+              </select>
+              <p class="text-xs text-gray-400 mt-1">Only accepted abstract authors for this event who haven't registered will receive the email.</p>
+            </div>
+            <div class="flex items-start gap-3 px-4 py-3 rounded-xl text-sm" style="background:#fffbeb; border:1px solid #fcd34d;">
+              <svg class="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <p class="text-amber-800 text-xs leading-relaxed">
+                Abstract authors who have already registered (even if payment is pending) will <strong>not</strong> receive this email.
+              </p>
+            </div>
+            <p v-if="regReminderModal.error" class="text-red-500 text-sm">{{ regReminderModal.error }}</p>
           </div>
 
-          <!-- Info box -->
-          <div class="flex items-start gap-3 px-4 py-3 rounded-xl text-sm" style="background:#fffbeb; border:1px solid #fcd34d;">
-            <svg class="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            <p class="text-amber-800 text-xs leading-relaxed">
-              Abstract authors who have already registered (even if payment is pending) will <strong>not</strong> receive this email. They are managed separately from the event's Pending Payment tab.
-            </p>
+          <!-- Step 2: Preview -->
+          <div v-if="regReminderModal.step === 'preview'" class="space-y-4">
+            <!-- Summary badges -->
+            <div class="grid grid-cols-3 gap-3">
+              <div class="rounded-xl p-3 text-center" style="background:#f0f9fb; border:1px solid #b3e4f0;">
+                <p class="text-2xl font-bold" style="color:#0095B6;">{{ regReminderModal.preview.total_authors }}</p>
+                <p class="text-xs text-gray-500 mt-0.5">Total Authors</p>
+              </div>
+              <div class="rounded-xl p-3 text-center" style="background:#fffbeb; border:1px solid #fcd34d;">
+                <p class="text-2xl font-bold text-amber-600">{{ regReminderModal.preview.to_send.length }}</p>
+                <p class="text-xs text-gray-500 mt-0.5">Will Receive</p>
+              </div>
+              <div class="rounded-xl p-3 text-center" style="background:#f0fdf4; border:1px solid #bbf7d0;">
+                <p class="text-2xl font-bold text-green-600">{{ regReminderModal.preview.already_registered.length }}</p>
+                <p class="text-xs text-gray-500 mt-0.5">Already Registered</p>
+              </div>
+            </div>
+
+            <!-- Will receive list -->
+            <div v-if="regReminderModal.preview.to_send.length > 0">
+              <p class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+                Will Receive Reminder ({{ regReminderModal.preview.to_send.length }})
+              </p>
+              <div class="rounded-xl border border-amber-200 overflow-hidden">
+                <div class="max-h-52 overflow-y-auto divide-y divide-gray-100">
+                  <div v-for="a in regReminderModal.preview.to_send" :key="a.email"
+                    class="flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50">
+                    <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style="background:#fffbeb;color:#92400e;">
+                      {{ (a.firstname?.[0] || '') + (a.lastname?.[0] || '') }}
+                    </div>
+                    <div class="min-w-0">
+                      <p class="text-sm font-medium text-gray-800 truncate">{{ a.firstname }} {{ a.lastname }}</p>
+                      <p class="text-xs text-gray-400 truncate">{{ a.email }}</p>
+                    </div>
+                    <span class="ml-auto text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0" style="background:#fffbeb;color:#92400e;">Not registered</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-else class="rounded-xl border border-gray-200 p-4 text-center text-gray-400 text-sm">
+              No authors to remind — all accepted abstract authors have already registered.
+            </div>
+
+            <!-- Already registered list -->
+            <div v-if="regReminderModal.preview.already_registered.length > 0">
+              <p class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+                Already Registered – Will Be Skipped ({{ regReminderModal.preview.already_registered.length }})
+              </p>
+              <div class="rounded-xl border border-green-200 overflow-hidden">
+                <div class="max-h-40 overflow-y-auto divide-y divide-gray-100">
+                  <div v-for="a in regReminderModal.preview.already_registered" :key="a.email"
+                    class="flex items-center gap-3 px-4 py-2.5 hover:bg-green-50">
+                    <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style="background:#f0fdf4;color:#15803d;">
+                      {{ (a.firstname?.[0] || '') + (a.lastname?.[0] || '') }}
+                    </div>
+                    <div class="min-w-0">
+                      <p class="text-sm font-medium text-gray-800 truncate">{{ a.firstname }} {{ a.lastname }}</p>
+                      <p class="text-xs text-gray-400 truncate">{{ a.email }}</p>
+                    </div>
+                    <span class="ml-auto text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0" style="background:#f0fdf4;color:#15803d;">✓ Registered</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <p v-if="regReminderModal.error" class="text-red-500 text-sm">{{ regReminderModal.error }}</p>
           </div>
 
-          <!-- Result -->
-          <div v-if="regReminderModal.done" class="bg-green-50 border border-green-200 rounded-xl p-4">
-            <p class="font-semibold text-green-700 text-sm mb-1">
-              ✅ {{ regReminderModal.result.sent }} reminder{{ regReminderModal.result.sent !== 1 ? 's' : '' }} queued
-            </p>
-            <p class="text-xs text-gray-500">
-              {{ regReminderModal.result.already_registered }} author(s) already registered and were skipped.
-              Sending in the background — check Email Logs to confirm delivery.
-            </p>
+          <!-- Step 3: Done -->
+          <div v-if="regReminderModal.step === 'done'" class="space-y-4">
+            <div class="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
+              <p class="text-3xl mb-2">✅</p>
+              <p class="font-bold text-green-700 text-base mb-1">
+                {{ regReminderModal.result.sent }} reminder{{ regReminderModal.result.sent !== 1 ? 's' : '' }} queued
+              </p>
+              <p class="text-sm text-gray-500">
+                {{ regReminderModal.result.already_registered }} author(s) already registered were skipped.
+                Sending in the background — check Email Logs to confirm delivery.
+              </p>
+            </div>
           </div>
-
-          <p v-if="regReminderModal.error" class="text-red-500 text-sm">{{ regReminderModal.error }}</p>
 
         </div>
 
         <!-- Footer -->
-        <div class="flex items-center justify-end gap-3 px-5 py-4 border-t flex-shrink-0">
-          <button @click="regReminderModal.open = false"
+        <div class="flex items-center justify-between gap-3 px-5 py-4 border-t flex-shrink-0">
+          <button v-if="regReminderModal.step === 'preview'" @click="regReminderModal.step = 'select'"
             class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium">
-            {{ regReminderModal.done ? 'Close' : 'Cancel' }}
+            ← Back
           </button>
-          <button v-if="!regReminderModal.done"
-            @click="runRegReminder"
-            :disabled="regReminderModal.sending || !regReminderModal.eventId"
-            class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-xl disabled:opacity-50 transition hover:opacity-90"
-            style="background-color:#F7941D;">
-            <svg v-if="regReminderModal.sending" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-            </svg>
-            {{ regReminderModal.sending ? 'Sending…' : 'Send Reminders' }}
-          </button>
+          <div v-else></div>
+
+          <div class="flex gap-3">
+            <button @click="regReminderModal.open = false"
+              class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium">
+              {{ regReminderModal.step === 'done' ? 'Close' : 'Cancel' }}
+            </button>
+            <!-- Select step: Preview button -->
+            <button v-if="regReminderModal.step === 'select'"
+              @click="loadRegReminderPreview"
+              :disabled="regReminderModal.loading || !regReminderModal.eventId"
+              class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-xl disabled:opacity-50 transition hover:opacity-90"
+              style="background-color:#0095B6;">
+              <svg v-if="regReminderModal.loading" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+              {{ regReminderModal.loading ? 'Loading…' : 'Preview Recipients →' }}
+            </button>
+            <!-- Preview step: Send button -->
+            <button v-if="regReminderModal.step === 'preview'"
+              @click="runRegReminder"
+              :disabled="regReminderModal.sending || regReminderModal.preview.to_send.length === 0"
+              class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-xl disabled:opacity-50 transition hover:opacity-90"
+              style="background-color:#F7941D;">
+              <svg v-if="regReminderModal.sending" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+              {{ regReminderModal.sending ? 'Sending…' : `Send to ${regReminderModal.preview.to_send.length} Author${regReminderModal.preview.to_send.length !== 1 ? 's' : ''}` }}
+            </button>
+          </div>
         </div>
 
       </div>
@@ -1399,31 +1492,51 @@ const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'nu
 // ── Registration Reminder (for accepted abstract authors who haven't registered) ─
 const regReminderModal = ref({
   open: false,
+  step: 'select',   // 'select' | 'preview' | 'done'
   eventId: null,
+  loading: false,
   sending: false,
-  done: false,
+  preview: { event_name: '', to_send: [], already_registered: [], total_authors: 0 },
   result: { sent: 0, total_authors: 0, already_registered: 0 },
   error: '',
 })
 
 const openRegReminder = () => {
   const m = regReminderModal.value
+  m.step = 'select'
   m.eventId = filterEvent.value ? Number(filterEvent.value) : null
-  m.done = false
-  m.error = ''
+  m.loading = false
+  m.sending = false
+  m.preview = { event_name: '', to_send: [], already_registered: [], total_authors: 0 }
   m.result = { sent: 0, total_authors: 0, already_registered: 0 }
+  m.error = ''
   m.open = true
+}
+
+const loadRegReminderPreview = async () => {
+  const m = regReminderModal.value
+  if (!m.eventId) { m.error = 'Please select an event.'; return }
+  m.loading = true
+  m.error = ''
+  try {
+    const res = await api.get(`/abstracts/registration-reminder-preview?event_id=${m.eventId}`)
+    m.preview = res.data
+    m.step = 'preview'
+  } catch (e) {
+    m.error = e.response?.data?.detail || 'Failed to load preview. Please try again.'
+  } finally {
+    m.loading = false
+  }
 }
 
 const runRegReminder = async () => {
   const m = regReminderModal.value
-  if (!m.eventId) { m.error = 'Please select an event.'; return }
   m.sending = true
   m.error = ''
   try {
     const res = await api.post(`/abstracts/send-registration-reminders?event_id=${m.eventId}`)
     m.result = { sent: res.data.sent, total_authors: res.data.total_authors, already_registered: res.data.already_registered }
-    m.done = true
+    m.step = 'done'
   } catch (e) {
     m.error = e.response?.data?.detail || 'Failed to send reminders. Please try again.'
   } finally {
