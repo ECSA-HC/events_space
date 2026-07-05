@@ -58,8 +58,8 @@
         </router-link>
       </div>
 
-      <!-- Payment flow -->
-      <template v-else-if="isNewRegistration && pendingData || (!isNewRegistration && registration && !registration.paid)">
+      <!-- Payment flow: new registration (came from RegisterView, needs to pay first) -->
+      <template v-else-if="isNewRegistration && pendingData">
 
         <!-- Countdown / redirect banner -->
         <div class="bg-amber-50 border border-amber-300 rounded-2xl p-6 text-center space-y-3">
@@ -89,18 +89,14 @@
           </template>
         </div>
 
-        <!-- Proof of payment form -->
+        <!-- Proof of payment form (new registration) -->
         <div class="bg-white rounded-2xl shadow-sm p-7 space-y-5">
           <h2 class="text-xl font-bold text-gray-800">Upload Proof of Payment</h2>
           <p class="text-sm text-gray-500">Once you have completed your payment, enter your transaction details below.</p>
-
-          <div v-if="paymentError"
-            class="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-xl text-sm">
+          <div v-if="paymentError" class="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-xl text-sm">
             {{ paymentError }}
           </div>
-
           <form @submit.prevent="handlePayment" class="space-y-4">
-
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Payment Method <span class="text-red-400">*</span></label>
               <select v-model="payment_method" required class="input-style">
@@ -111,29 +107,72 @@
                 <option value="Cash">Cash</option>
               </select>
             </div>
-
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Amount Paid (USD) <span class="text-red-400">*</span></label>
-              <input v-model="payment_amount" type="number" min="0" step="0.01" required
-                class="input-style" placeholder="0.00" />
+              <input v-model="payment_amount" type="number" min="0" step="0.01" required class="input-style" placeholder="0.00" />
             </div>
-
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Proof of Payment <span class="text-red-400">*</span></label>
               <input type="file" accept="image/*,.pdf" required @change="proof_file = $event.target.files[0]"
                 class="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-bondi-blue/10 file:text-bondi-blue hover:file:bg-bondi-blue/20 cursor-pointer border border-gray-300 rounded-xl px-3 py-2" />
               <p class="text-xs text-gray-400 mt-1">Upload a photo or screenshot of your payment receipt (JPG, PNG or PDF)</p>
             </div>
-
             <button type="submit" :disabled="isSubmitting"
               class="w-full bg-bondi-blue text-white py-3 rounded-2xl font-semibold hover:bg-bondi-blue/90 transition disabled:opacity-60">
               <span v-if="isSubmitting">Uploading…</span>
               <span v-else>Upload Proof of Payment</span>
             </button>
-
           </form>
         </div>
+      </template>
 
+      <!-- Existing registration (came from reminder link — skip payment gateway, go straight to upload) -->
+      <template v-else-if="!isNewRegistration && registration && !registration.paid">
+
+        <!-- Info banner — no countdown -->
+        <div class="bg-blue-50 border border-blue-200 rounded-2xl p-5 space-y-1">
+          <p class="text-blue-900 font-semibold text-base">Upload your proof of payment</p>
+          <p class="text-sm text-blue-700">
+            You are registered for <strong>{{ event?.event }}</strong>. Fill in your payment details
+            and attach your receipt below to complete your registration.
+          </p>
+        </div>
+
+        <!-- Proof of payment form (reminder flow) -->
+        <div class="bg-white rounded-2xl shadow-sm p-7 space-y-5">
+          <h2 class="text-xl font-bold text-gray-800">Payment Details &amp; Proof</h2>
+          <p class="text-sm text-gray-500">Select your payment method, enter the amount you paid, and upload your receipt.</p>
+          <div v-if="paymentError" class="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-xl text-sm">
+            {{ paymentError }}
+          </div>
+          <form @submit.prevent="handlePayment" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Payment Method <span class="text-red-400">*</span></label>
+              <select v-model="payment_method" required class="input-style">
+                <option disabled value="">Select method</option>
+                <option value="Card">Online Payment (Credit/Debit Card)</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Mpesa">Mobile Money</option>
+                <option value="Cash">Cash</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Amount Paid (USD) <span class="text-red-400">*</span></label>
+              <input v-model="payment_amount" type="number" min="0" step="0.01" required class="input-style" placeholder="0.00" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Proof of Payment <span class="text-red-400">*</span></label>
+              <input type="file" accept="image/*,.pdf" required @change="proof_file = $event.target.files[0]"
+                class="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-bondi-blue/10 file:text-bondi-blue hover:file:bg-bondi-blue/20 cursor-pointer border border-gray-300 rounded-xl px-3 py-2" />
+              <p class="text-xs text-gray-400 mt-1">Upload your M-Pesa message, bank slip, or card receipt (JPG, PNG or PDF)</p>
+            </div>
+            <button type="submit" :disabled="isSubmitting"
+              class="w-full bg-bondi-blue text-white py-3 rounded-2xl font-semibold hover:bg-bondi-blue/90 transition disabled:opacity-60">
+              <span v-if="isSubmitting">Uploading…</span>
+              <span v-else>Submit Proof of Payment</span>
+            </button>
+          </form>
+        </div>
       </template>
     </section>
   </div>
@@ -214,7 +253,7 @@ const loadData = async () => {
       ])
       event.value = eventRes.data.event
       registration.value = regRes.data.registration
-      if (!registration.value.paid) startCountdown()
+      // No countdown for reminder flow — user goes straight to the upload form
     }
   } catch (err) {
     console.error(err)
