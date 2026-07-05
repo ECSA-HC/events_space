@@ -7,9 +7,17 @@
       <span class="text-sm text-gray-700">View</span>
     </AdminBar>
 
-    <!-- Event Details -->
+    <!-- Event Details (collapsible) -->
     <div class="px-4 pt-4">
-      <h1 class="text-xl font-bold text-gray-800 mb-4">Event Details</h1>
+      <button @click="detailsOpen = !detailsOpen"
+        class="flex items-center gap-2 mb-3 group focus:outline-none">
+        <h1 class="text-xl font-bold text-gray-800 group-hover:text-blue-600 transition-colors">Event Details</h1>
+        <svg class="w-5 h-5 text-gray-400 group-hover:text-blue-500 transition-transform duration-200"
+          :class="detailsOpen ? 'rotate-180' : ''"
+          fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
 
       <div v-if="loading" class="bg-white shadow-lg rounded-2xl p-8 flex justify-center items-center">
         <DataLoadingSpinner />
@@ -17,7 +25,7 @@
       <div v-else-if="error" class="bg-red-100 text-red-700 p-6 rounded-lg">
         Error loading event: {{ error }}
       </div>
-      <div v-else class="bg-white shadow-lg rounded-2xl p-6">
+      <div v-else-if="detailsOpen" class="bg-white shadow-lg rounded-2xl p-6">
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <DetailItem label="Event Name" :value="event.event" />
           <DetailItem label="Country" :value="event.country" />
@@ -31,29 +39,6 @@
           <h2 class="text-sm text-gray-600 mb-1 font-bold uppercase tracking-wide">Description</h2>
           <p class="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{{ event.description }}</p>
         </div>
-      </div>
-    </div>
-
-    <!-- Abstract Author Stats (only shown when event has accepted abstracts) -->
-    <div v-if="!loading && !error && abstractAuthorStats.total_authors > 0"
-      class="px-4 pt-2">
-      <div class="bg-white shadow-sm rounded-2xl px-5 py-3 flex flex-wrap items-center gap-4 text-sm border border-blue-100">
-        <span class="font-semibold text-gray-700 flex items-center gap-1.5">
-          <svg class="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-          Accepted Abstract Authors
-        </span>
-        <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200">
-          Total: {{ abstractAuthorStats.total_authors }}
-        </span>
-        <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-800 border border-green-200">
-          ✅ Registered: {{ abstractAuthorStats.registered }}
-        </span>
-        <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border"
-          :class="abstractAuthorStats.not_registered > 0 ? 'bg-red-50 text-red-700 border-red-200' : 'bg-gray-50 text-gray-500 border-gray-200'">
-          ❌ Not Registered: {{ abstractAuthorStats.not_registered }}
-        </span>
       </div>
     </div>
 
@@ -903,6 +888,7 @@ const participantSearch = ref('')
 const pendingSearch = ref('')
 const loadingAttendance = ref(false)
 const error = ref(null)
+const detailsOpen = ref(false)
 
 // Pagination — participants tab
 const currentPage = ref(1)
