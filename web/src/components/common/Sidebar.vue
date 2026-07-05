@@ -141,6 +141,18 @@
               <span v-if="!minimized" class="ml-3">Email Logs</span>
             </router-link>
           </li>
+          <li v-if="auth.hasPermission('VIEW_USER')" class="mb-1">
+            <router-link
+              :to="{ name: 'IncompleteRegistrations' }"
+              class="flex items-center px-3 py-2 text-gray-600 hover:bg-gray-200 hover:text-gray-800 rounded-2xl transition-colors"
+              :class="route.name === 'IncompleteRegistrations' ? 'bg-gray-300 text-gray-900 rounded-2xl' : ''"
+            >
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <span v-if="!minimized" class="ml-3">Incomplete Reg.</span>
+            </router-link>
+          </li>
           <li v-if="auth.hasPermission('VIEW_ROLE')" class="mb-1">
             <router-link
               :to="{ name: 'Roles' }"

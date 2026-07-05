@@ -561,3 +561,22 @@ def abstract_acceptance_email(
         sent_by_user_id=sent_by_user_id,
         db=db,
     )
+
+
+def incomplete_registration_reminder_email(
+    recipient_email,
+    firstname,
+    portal_url="https://events.ecsahc.org",
+    background_tasks: BackgroundTasks = None,
+    db=None,
+):
+    subject = "Complete Your Registration – ECSA-HC Events Portal"
+    template = templates.get_template("incomplete_registration_template.html")
+    email_body = template.render(
+        subject=subject,
+        firstname=firstname,
+        portal_url=portal_url,
+        year=YEAR,
+    )
+    send_email_backgroundable(recipient_email, subject, email_body, background_tasks,
+                              email_type="incomplete_registration_reminder", db=db)

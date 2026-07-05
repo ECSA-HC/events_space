@@ -362,7 +362,7 @@
                 </button>
               </div>
               <button @click="sendAllPendingReminders"
-                :disabled="sendingPendingReminders || pendingRegistrations.length === 0"
+                :disabled="sendingPendingReminders || nonAuthorPendingCount === 0"
                 class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
                 style="background-color:#F7941D;">
                 <svg v-if="!sendingPendingReminders" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -372,7 +372,7 @@
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
                 </svg>
-                <span>{{ sendingPendingReminders ? 'Sending…' : `Send Reminder to All (${pendingRegistrations.length})` }}</span>
+                <span>{{ sendingPendingReminders ? 'Sending…' : `Send Reminder (${nonAuthorPendingCount})` }}</span>
               </button>
             </div>
 
@@ -951,6 +951,10 @@ const unpaidParticipants = computed(() =>
 
 const abstractAuthorInPendingCount = computed(() =>
   pendingRegistrations.value.filter(p => p.is_abstract_author).length
+)
+
+const nonAuthorPendingCount = computed(() =>
+  pendingRegistrations.value.filter(p => !p.is_abstract_author).length
 )
 
 const filteredPendingRegistrations = computed(() => {

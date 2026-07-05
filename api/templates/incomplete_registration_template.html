@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ subject }}</title>
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; color: #333333; }
+      .email-container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 40px; box-sizing: border-box; border-top: 6px solid #0095b6; }
+      h1 { font-size: 22px; margin-bottom: 8px; color: #003f5c; }
+      p { font-size: 15px; line-height: 1.7; margin: 12px 0; }
+      .btn { display: inline-block; padding: 14px 32px; background-color: #0095b6; color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 15px; margin: 18px 0 8px; }
+      .info-box { background-color: #f0f9fb; border-left: 4px solid #0095b6; padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 20px 0; }
+      .info-box p { margin: 6px 0; font-size: 14px; }
+      .warning-box { background-color: #fffbeb; border-left: 4px solid #F7941D; padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 20px 0; }
+      .warning-box p { margin: 6px 0; font-size: 14px; color: #92400e; }
+      .checklist { padding-left: 0; list-style: none; margin: 12px 0; }
+      .checklist li { font-size: 14px; padding: 6px 0; display: flex; align-items: flex-start; gap: 10px; }
+      .checklist li::before { content: "→"; color: #0095b6; font-weight: bold; flex-shrink: 0; }
+      .divider { border: none; border-top: 1px solid #e5e7eb; margin: 28px 0; }
+      .footer { font-size: 12px; color: #9ca3af; text-align: center; margin-top: 32px; }
+    </style>
+  </head>
+  <body>
+    <div class="email-container">
+      <!-- Header -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+        <tr>
+          <td>
+            <span style="font-size:20px;font-weight:900;color:#0095b6;">ECSA</span>
+            <span style="font-size:20px;font-weight:900;color:#F7941D;">-HC</span>
+            <span style="font-size:13px;color:#6b7280;margin-left:6px;">Events Portal</span>
+          </td>
+        </tr>
+      </table>
+
+      <h1>Your Registration is Incomplete</h1>
+      <p>Dear <strong>{{ firstname }}</strong>,</p>
+      <p>
+        We noticed that you created an account on the ECSA-HC Events Portal but
+        have not yet completed your registration for any event.
+      </p>
+
+      <div class="warning-box">
+        <p><strong>⚠ Action Required</strong></p>
+        <p>
+          Your account has been created and your login credentials were sent to this email address.
+          To secure your place at the conference, please log in and complete your registration
+          by uploading your proof of payment.
+        </p>
+      </div>
+
+      <p><strong>To complete your registration:</strong></p>
+      <ul class="checklist">
+        <li>Log in to the portal using your credentials</li>
+        <li>Find and open the event you wish to attend</li>
+        <li>Click <strong>Register</strong> and complete the payment step</li>
+        <li>Upload your proof of payment (bank slip or card receipt)</li>
+      </ul>
+
+      <div style="text-align:center; margin: 24px 0;">
+        <a href="{{ portal_url }}/login" class="btn">Log In &amp; Complete Registration →</a>
+        <p style="font-size:12px;color:#9ca3af;margin-top:8px;">
+          Or visit: <a href="{{ portal_url }}" style="color:#0095b6;">{{ portal_url }}</a>
+        </p>
+      </div>
+
+      <hr class="divider" />
+
+      <div class="info-box">
+        <p><strong>Need help?</strong> Email us at <a href="mailto:admission@cosecsa.org" style="color:#0095b6;">admission@cosecsa.org</a></p>
+        <p><strong>Portal:</strong> <a href="{{ portal_url }}" style="color:#0095b6;">{{ portal_url }}</a></p>
+      </div>
+
+      <p style="font-size:13px;color:#6b7280;">
+        If you have already completed your registration or believe you received this message in error,
+        please disregard it or contact the secretariat.
+      </p>
+
+      <hr class="divider" />
+      <div class="footer">
+        <p>&copy; {{ year }} ECSA-HC Events Portal. All rights reserved.</p>
+        <p>East, Central and Southern Africa Health Community</p>
+      </div>
+    </div>
+  </body>
+</html>
