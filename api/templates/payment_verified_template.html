@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ subject }}</title>
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; color: #333333; }
+      .email-container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 40px; box-sizing: border-box; border-top: 6px solid #0095b6; }
+      h1 { font-size: 22px; margin-bottom: 8px; color: #003f5c; }
+      p { font-size: 15px; line-height: 1.7; margin: 12px 0; }
+      .info-box { background-color: #f0f9fb; border-left: 4px solid #0095b6; padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 20px 0; }
+      .info-box p { margin: 6px 0; font-size: 14px; }
+      .success-badge { background-color: #d1fae5; border: 1px solid #6ee7b7; color: #065f46; border-radius: 12px; padding: 20px 24px; text-align: center; margin: 24px 0; }
+      .success-badge .icon { font-size: 40px; display: block; margin-bottom: 8px; }
+      .success-badge p { margin: 4px 0; font-size: 15px; }
+      .btn { display: inline-block; background-color: #0095b6; color: #ffffff; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; margin: 16px 0; }
+      .divider { border: none; border-top: 1px solid #e5e7eb; margin: 28px 0; }
+      .footer { font-size: 12px; color: #9ca3af; text-align: center; margin-top: 32px; }
+      .event-name { font-weight: bold; color: #0095b6; }
+    </style>
+  </head>
+  <body>
+    <div class="email-container">
+      <!-- Header -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+        <tr>
+          <td>
+            <span style="font-size:20px;font-weight:900;color:#0095b6;">ECSA</span>
+            <span style="font-size:20px;font-weight:900;color:#F7941D;">-HC</span>
+            <span style="font-size:13px;color:#6b7280;margin-left:6px;">Events Portal</span>
+          </td>
+        </tr>
+      </table>
+
+      <h1>Payment Verified – You're Confirmed!</h1>
+      <p>Dear <strong>{{ firstname }}</strong>,</p>
+      <p>
+        Great news! Your payment for
+        <span class="event-name">{{ event_name }}</span>
+        has been verified. You are now fully registered for the event.
+      </p>
+
+      <!-- Success badge -->
+      <div class="success-badge">
+        <span class="icon">✅</span>
+        <p><strong>Your registration is confirmed.</strong></p>
+        <p>Your payment has been reviewed and approved by our secretariat.</p>
+      </div>
+
+      <!-- Login info -->
+      <div class="info-box">
+        <p><strong>Access the Events Portal</strong></p>
+        <p>Log in to the portal using your registered email address to access event documents, your badge, and other resources.</p>
+        <p>• Username: <strong>{{ email }}</strong></p>
+        <p>• Portal: <a href="{{ portal_url }}" style="color:#0095b6;">{{ portal_url }}</a></p>
+      </div>
+
+      <p style="text-align:center;">
+        <a href="{{ portal_url }}" class="btn">Log In to the Portal</a>
+      </p>
+
+      <p style="font-size:13px;color:#6b7280;">
+        If you have any questions, please contact us at
+        <a href="mailto:admission@cosecsa.org" style="color:#0095b6;">admission@cosecsa.org</a>.
+      </p>
+
+      <hr class="divider" />
+      <div class="footer">
+        <p>&copy; {{ year }} ECSA-HC Events Portal. All rights reserved.</p>
+        <p>East, Central and Southern Africa Health Community</p>
+      </div>
+    </div>
+  </body>
+</html>

@@ -107,7 +107,7 @@
                 <option disabled value="">Select method</option>
                 <option value="Card">Online Payment (Credit/Debit Card)</option>
                 <option value="Bank Transfer">Bank Transfer</option>
-                <option value="Mpesa">Mobile Money (Mpesa)</option>
+                <option value="Mpesa">Mobile Money</option>
                 <option value="Cash">Cash</option>
               </select>
             </div>

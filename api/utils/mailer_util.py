@@ -476,6 +476,29 @@ def proof_of_payment_received_email(
                               email_type="proof_received", sent_by_user_id=sent_by_user_id, db=db)
 
 
+def payment_verified_email(
+    recipient_email,
+    firstname,
+    event_name,
+    portal_url="https://events.ecsahc.org",
+    background_tasks: BackgroundTasks = None,
+    db=None,
+    sent_by_user_id=None,
+):
+    subject = f"Payment Confirmed – Your Registration is Complete – {event_name}"
+    template = templates.get_template("payment_verified_template.html")
+    email_body = template.render(
+        subject=subject,
+        firstname=firstname,
+        event_name=event_name,
+        email=recipient_email,
+        portal_url=portal_url,
+        year=YEAR,
+    )
+    send_email_backgroundable(recipient_email, subject, email_body, background_tasks,
+                              email_type="payment_verified", sent_by_user_id=sent_by_user_id, db=db)
+
+
 def abstract_acceptance_email(
     recipient_email,
     firstname,

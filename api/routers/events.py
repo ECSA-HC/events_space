@@ -346,6 +346,43 @@ async def get_event(
 
         # Fetch payment data via raw SQL to avoid ORM enum conversion errors on legacy data
         from sqlalchemy import text as _sql_text
+
+        # Abstract author registration stats
+        _abstract_author_stats = {"total_authors": 0, "registered": 0, "not_registered": 0}
+        try:
+            _author_rows = db.execute(
+                _sql_text(
+                    "SELECT DISTINCT LOWER(aa.email) as email"
+                    " FROM abstract a"
+                    " JOIN abstract_author aa ON aa.abstract_id = a.id"
+                    " WHERE a.event_id = :eid AND a.status = 'accepted' AND aa.email IS NOT NULL"
+                ),
+                {"eid": event_id},
+            ).fetchall()
+            _total_authors = len(_author_rows)
+            if _total_authors:
+                _registered_count = db.execute(
+                    _sql_text(
+                        "SELECT COUNT(DISTINCT LOWER(u.email)) as cnt"
+                        " FROM registration r"
+                        " JOIN user u ON u.id = r.user_id"
+                        " WHERE r.event_id = :eid AND r.deleted_at IS NULL"
+                        " AND LOWER(u.email) IN ("
+                        "   SELECT DISTINCT LOWER(aa2.email)"
+                        "   FROM abstract a2"
+                        "   JOIN abstract_author aa2 ON aa2.abstract_id = a2.id"
+                        "   WHERE a2.event_id = :eid AND a2.status = 'accepted' AND aa2.email IS NOT NULL"
+                        " )"
+                    ),
+                    {"eid": event_id},
+                ).scalar() or 0
+                _abstract_author_stats = {
+                    "total_authors": _total_authors,
+                    "registered": int(_registered_count),
+                    "not_registered": _total_authors - int(_registered_count),
+                }
+        except Exception as _ae:
+            logger.error(f"Abstract author stats error: {_ae}")
         _reg_ids = [r.id for r in registrations]
         if _reg_ids:
             _placeholders = ",".join(str(rid) for rid in _reg_ids)
@@ -473,6 +510,7 @@ async def get_event(
                 }
                 for r in pending_payment_regs
             ],
+            "abstract_author_stats": _abstract_author_stats,
         }
     else:
         raise HTTPException(status_code=404, detail="event not found")
@@ -979,6 +1017,7 @@ async def verify_payment(
     request: Request,
     registration_id: int,
     current_user: user_dependency,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     dependency: Dependency = Depends(get_dependency),
     auth_dependency: Auth = Depends(get_auth_dependency),
@@ -992,6 +1031,21 @@ async def verify_payment(
 
     registration.paid = True
     db.commit()
+
+    try:
+        from utils.mailer_util import payment_verified_email
+        event = db.query(Event).filter(Event.id == registration.event_id).first()
+        if registration.user and registration.user.email and event:
+            payment_verified_email(
+                recipient_email=registration.user.email,
+                firstname=registration.user.firstname or "Participant",
+                event_name=event.event,
+                background_tasks=background_tasks,
+                db=db,
+                sent_by_user_id=current_user["user_id"],
+            )
+    except Exception as _e:
+        logger.error(f"Failed to send payment verified email: {_e}")
 
     client_ip = dependency.request_ip(request)
     dependency.log_activity(
@@ -2002,6 +2056,97 @@ async def send_payment_reminders(
     return {
         "sent": len(targets),
         "message": f"Payment reminder sent to {len(targets)} participant(s).",
+    }
+
+
+@router.post("/{event_id}/send-pending-reminder/{registration_id}")
+async def send_single_pending_reminder(
+    event_id: int,
+    registration_id: int,
+    background_tasks: BackgroundTasks,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    """Admin: send a payment reminder to a single pending registration."""
+    auth_dependency.secure_access("ADMIN_DASHBOARD", current_user["user_id"])
+
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    registration = db.query(Registration).filter(
+        Registration.id == registration_id,
+        Registration.event_id == event_id,
+        Registration.deleted_at == None,
+    ).first()
+    if not registration:
+        raise HTTPException(status_code=404, detail="Registration not found")
+
+    import utils.mailer_util as mailer_util
+    payment_url = f"https://events.ecsahc.org/payment/{event_id}/{registration_id}"
+    if registration.user and registration.user.email:
+        mailer_util.payment_reminder_email(
+            recipient_email=registration.user.email,
+            firstname=registration.user.firstname or "Participant",
+            event_name=event.event,
+            payment_url=payment_url,
+            portal_url="https://events.ecsahc.org",
+            background_tasks=background_tasks,
+            db=db,
+            sent_by_user_id=current_user["user_id"],
+        )
+
+    return {"message": "Reminder sent successfully."}
+
+
+@router.post("/{event_id}/send-pending-bulk-reminders")
+async def send_pending_bulk_reminders(
+    event_id: int,
+    background_tasks: BackgroundTasks,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    """Admin: send payment reminders to all pending (no proof uploaded) registrations."""
+    auth_dependency.secure_access("ADMIN_DASHBOARD", current_user["user_id"])
+
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    targets = (
+        db.query(Registration)
+        .filter(
+            Registration.event_id == event_id,
+            Registration.paid == False,
+            Registration.payment_proof == None,
+            Registration.deleted_at == None,
+        )
+        .all()
+    )
+
+    if not targets:
+        return {"sent": 0, "message": "No pending registrations found."}
+
+    import utils.mailer_util as mailer_util
+    for reg in targets:
+        if reg.user and reg.user.email:
+            payment_url = f"https://events.ecsahc.org/payment/{event_id}/{reg.id}"
+            mailer_util.payment_reminder_email(
+                recipient_email=reg.user.email,
+                firstname=reg.user.firstname or "Participant",
+                event_name=event.event,
+                payment_url=payment_url,
+                portal_url="https://events.ecsahc.org",
+                background_tasks=background_tasks,
+                db=db,
+                sent_by_user_id=current_user["user_id"],
+            )
+
+    return {
+        "sent": len(targets),
+        "message": f"Payment reminder sent to {len(targets)} pending registration(s).",
     }
 
 

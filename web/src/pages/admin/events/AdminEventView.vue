@@ -34,6 +34,29 @@
       </div>
     </div>
 
+    <!-- Abstract Author Stats (only shown when event has accepted abstracts) -->
+    <div v-if="!loading && !error && abstractAuthorStats.total_authors > 0"
+      class="px-4 pt-2">
+      <div class="bg-white shadow-sm rounded-2xl px-5 py-3 flex flex-wrap items-center gap-4 text-sm border border-blue-100">
+        <span class="font-semibold text-gray-700 flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Accepted Abstract Authors
+        </span>
+        <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+          Total: {{ abstractAuthorStats.total_authors }}
+        </span>
+        <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-800 border border-green-200">
+          ✅ Registered: {{ abstractAuthorStats.registered }}
+        </span>
+        <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border"
+          :class="abstractAuthorStats.not_registered > 0 ? 'bg-red-50 text-red-700 border-red-200' : 'bg-gray-50 text-gray-500 border-gray-200'">
+          ❌ Not Registered: {{ abstractAuthorStats.not_registered }}
+        </span>
+      </div>
+    </div>
+
     <!-- Tabs -->
     <div class="px-4 pt-4 pb-10">
       <TabGroup>
@@ -321,51 +344,127 @@
               Send them a reminder to complete their payment.
             </div>
 
+            <!-- Search + bulk reminder -->
+            <div class="mb-3 flex flex-wrap gap-2 items-center">
+              <div class="relative flex-1 min-w-[200px]">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                <input v-model="pendingSearch" type="text" placeholder="Search by name, email or country…"
+                  class="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                <button v-if="pendingSearch" @click="pendingSearch = ''"
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+              <button @click="sendAllPendingReminders"
+                :disabled="sendingPendingReminders || pendingRegistrations.length === 0"
+                class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                style="background-color:#F7941D;">
+                <svg v-if="!sendingPendingReminders" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+                <svg v-else class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                </svg>
+                <span>{{ sendingPendingReminders ? 'Sending…' : `Send Reminder to All (${pendingRegistrations.length})` }}</span>
+              </button>
+            </div>
+
+            <!-- Reminder feedback -->
+            <div v-if="pendingReminderMessage" class="mb-3 px-4 py-3 rounded-xl text-sm font-medium"
+              :class="pendingReminderError ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'">
+              {{ pendingReminderMessage }}
+            </div>
+
             <div v-if="pendingRegistrations.length === 0" class="text-center py-12 text-gray-400 text-sm">
               No pending registrations — everyone has uploaded their proof of payment.
             </div>
 
-            <table v-else class="min-w-full divide-y divide-gray-200 text-sm">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">#</th>
-                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
-                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
-                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Country</th>
-                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Role</th>
-                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Registered</th>
-                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody class="bg-white divide-y divide-gray-100">
-                <tr v-for="(p, idx) in pendingRegistrations" :key="p.id" class="hover:bg-gray-50">
-                  <td class="px-4 py-2 text-gray-400 text-xs">{{ idx + 1 }}</td>
-                  <td class="px-4 py-2 font-medium">{{ p.firstname }} {{ p.lastname }}</td>
-                  <td class="px-4 py-2 text-gray-600">{{ p.email }}</td>
-                  <td class="px-4 py-2 text-gray-600">{{ p.country || '—' }}</td>
-                  <td class="px-4 py-2">
-                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
-                      {{ p.participation_role }}
-                    </span>
-                  </td>
-                  <td class="px-4 py-2 text-gray-500 text-xs">
-                    {{ p.registered_at ? new Date(p.registered_at).toLocaleDateString() : '—' }}
-                  </td>
-                  <td class="px-4 py-2">
-                    <div class="flex gap-2">
-                      <a :href="`/payment/${eventId}/${p.id}`" target="_blank"
-                        class="text-xs px-2 py-1 rounded-lg bg-amber-100 text-amber-800 hover:bg-amber-200 font-medium">
-                        Payment link
-                      </a>
-                      <button @click="deregisterParticipant(p)"
-                        class="text-xs px-2 py-1 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 font-medium">
-                        Deregister
+            <div v-else class="bg-white shadow rounded-lg overflow-auto" @click="pendingMenuId = null">
+              <table class="min-w-full divide-y divide-gray-200 text-sm">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">#</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Country</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Role</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Registered</th>
+                    <th class="px-4 py-2 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-100">
+                  <tr v-if="filteredPendingRegistrations.length === 0">
+                    <td colspan="7" class="text-center py-6 text-gray-400 italic text-sm">
+                      No pending registrations match your search.
+                    </td>
+                  </tr>
+                  <tr v-for="(p, idx) in filteredPendingRegistrations" :key="p.id" class="hover:bg-gray-50">
+                    <td class="px-4 py-2 text-gray-400 text-xs">{{ idx + 1 }}</td>
+                    <td class="px-4 py-2 font-medium">
+                      <router-link :to="{ name: 'AdminUserPerspective', params: { id: p.user_id } }"
+                        class="hover:underline hover:text-[#0095B6] transition-colors">
+                        {{ p.firstname }} {{ p.lastname }}
+                      </router-link>
+                    </td>
+                    <td class="px-4 py-2 text-gray-600">{{ p.email }}</td>
+                    <td class="px-4 py-2 text-gray-600">{{ p.country || '—' }}</td>
+                    <td class="px-4 py-2">
+                      <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                        {{ p.participation_role }}
+                      </span>
+                    </td>
+                    <td class="px-4 py-2 text-gray-500 text-xs">
+                      {{ p.registered_at ? new Date(p.registered_at).toLocaleDateString() : '—' }}
+                    </td>
+                    <!-- Three-dots actions -->
+                    <td class="px-2 py-2 relative" @click.stop>
+                      <button @click.stop="pendingMenuId = pendingMenuId === p.id ? null : p.id"
+                        class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                        </svg>
                       </button>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                      <!-- Dropdown -->
+                      <div v-if="pendingMenuId === p.id"
+                        class="absolute right-8 top-0 z-30 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 text-sm">
+                        <button @click.stop="sendPendingReminder(p); pendingMenuId = null"
+                          class="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 text-gray-700">
+                          <svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                          </svg>
+                          Send Reminder
+                        </button>
+                        <a :href="`/payment/${eventId}/${p.id}`" target="_blank" @click="pendingMenuId = null"
+                          class="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 text-gray-700">
+                          <svg class="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                          </svg>
+                          Payment Link
+                        </a>
+                        <router-link :to="{ name: 'AdminUserPerspective', params: { id: p.user_id } }"
+                          @click="pendingMenuId = null"
+                          class="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 text-gray-700">
+                          <svg class="w-4 h-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                          </svg>
+                          Enter as User
+                        </router-link>
+                        <div class="border-t border-gray-100 my-1"></div>
+                        <button @click.stop="deregisterParticipant(p); pendingMenuId = null"
+                          class="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-red-50 text-red-600">
+                          <TrashIcon class="w-4 h-4" /> Deregister
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </TabPanel>
 
           <!-- Attendance -->
@@ -730,6 +829,7 @@ const eventId = Number(route.params.id)
 const event = ref(null)
 const participants = ref([])
 const pendingRegistrations = ref([])
+const abstractAuthorStats = ref({ total_authors: 0, registered: 0, not_registered: 0 })
 const documents = ref([])
 const links = ref([])
 const attendance = ref([])
@@ -739,6 +839,7 @@ const reminderMessage = ref('')
 const reminderError = ref(false)
 const selectedUnpaid = ref([])
 const participantSearch = ref('')
+const pendingSearch = ref('')
 const loadingAttendance = ref(false)
 const error = ref(null)
 
@@ -746,8 +847,14 @@ const error = ref(null)
 const currentPage = ref(1)
 const pageSize = ref(25)
 
-// Three-dots menu
+// Three-dots menus (separate IDs to avoid collision between tabs)
 const openMenuId = ref(null)
+const pendingMenuId = ref(null)
+
+// Pending tab reminder state
+const sendingPendingReminders = ref(false)
+const pendingReminderMessage = ref('')
+const pendingReminderError = ref(false)
 
 // Sorted newest-first, filtered by search
 const filteredParticipants = computed(() => {
@@ -790,6 +897,14 @@ const unpaidParticipants = computed(() =>
   participants.value.filter(p => !p.paid && !p.reminder_sent_at)
 )
 
+const filteredPendingRegistrations = computed(() => {
+  const q = pendingSearch.value.toLowerCase().trim()
+  if (!q) return pendingRegistrations.value
+  return pendingRegistrations.value.filter(p =>
+    `${p.firstname} ${p.lastname} ${p.email} ${p.country}`.toLowerCase().includes(q)
+  )
+})
+
 function toggleParticipant(id) {
   const idx = selectedUnpaid.value.indexOf(id)
   if (idx === -1) selectedUnpaid.value.push(id)
@@ -804,8 +919,8 @@ function toggleSelectAllUnpaid() {
   }
 }
 
-// Close menu on outside click
-function handleClickOutside() { openMenuId.value = null }
+// Close menus on outside click
+function handleClickOutside() { openMenuId.value = null; pendingMenuId.value = null }
 onMounted(() => document.addEventListener('click', handleClickOutside))
 onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 
@@ -874,6 +989,7 @@ async function loadEventData() {
     event.value = res.data.event
     participants.value = res.data.participants
     pendingRegistrations.value = res.data.pending_registrations || []
+    abstractAuthorStats.value = res.data.abstract_author_stats || { total_authors: 0, registered: 0, not_registered: 0 }
     documents.value = res.data.documents
     links.value = res.data.links
   } catch (err) {
@@ -1134,6 +1250,35 @@ async function submitAddParticipant() {
     addParticipantError.value = e.response?.data?.detail || 'Failed to add participant.'
   } finally {
     addingParticipant.value = false
+  }
+}
+
+async function sendPendingReminder(p) {
+  if (!confirm(`Send payment reminder to ${p.firstname} ${p.lastname}?`)) return
+  try {
+    await api.post(`/events/${eventId}/send-pending-reminder/${p.id}`)
+    alert(`Reminder sent to ${p.email}`)
+  } catch (e) {
+    alert('Failed to send reminder: ' + (e.response?.data?.detail || e.message))
+  }
+}
+
+async function sendAllPendingReminders() {
+  const count = filteredPendingRegistrations.value.length
+  if (count === 0) return
+  if (!confirm(`Send payment reminder to all ${count} pending registration(s)?`)) return
+  sendingPendingReminders.value = true
+  pendingReminderMessage.value = ''
+  try {
+    const res = await api.post(`/events/${eventId}/send-pending-bulk-reminders`)
+    pendingReminderError.value = false
+    pendingReminderMessage.value = `✅ ${res.data.message}`
+  } catch (e) {
+    pendingReminderError.value = true
+    pendingReminderMessage.value = e.response?.data?.detail || 'Failed to send reminders.'
+  } finally {
+    sendingPendingReminders.value = false
+    setTimeout(() => pendingReminderMessage.value = '', 8000)
   }
 }
 
