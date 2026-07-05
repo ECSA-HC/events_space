@@ -126,11 +126,39 @@
         </div>
       </template>
 
-      <!-- Existing registration (came from reminder link — skip payment gateway, go straight to upload) -->
+      <!-- Existing registration (came from reminder link) -->
       <template v-else-if="!isNewRegistration && registration && !registration.paid">
 
-        <!-- Info banner — no countdown -->
-        <div class="bg-blue-50 border border-blue-200 rounded-2xl p-5 space-y-1">
+        <!-- Countdown shown only when ?action=pay was in the link -->
+        <div v-if="wantsPay" class="bg-amber-50 border border-amber-300 rounded-2xl p-6 text-center space-y-3">
+          <template v-if="countdown > 0">
+            <p class="text-amber-900 font-semibold text-base leading-relaxed">
+              In <span class="text-3xl font-bold text-amber-600">{{ countdown }}</span>
+              second{{ countdown !== 1 ? 's' : '' }}, the payment page will open in a new tab.
+            </p>
+            <p class="text-sm text-amber-700">
+              Kindly complete your payment and return to this page to upload your proof of payment.
+            </p>
+            <div class="w-full bg-amber-200 rounded-full h-2 mt-1">
+              <div class="bg-amber-500 h-2 rounded-full transition-all duration-1000"
+                :style="{ width: ((15 - countdown) / 15 * 100) + '%' }"></div>
+            </div>
+            <button @click="openPaymentNow" class="text-sm text-amber-700 underline hover:text-amber-900">
+              Open payment page now →
+            </button>
+          </template>
+          <template v-else>
+            <p class="text-amber-900 font-semibold">Payment page opened in a new tab.</p>
+            <p class="text-sm text-amber-700">Complete your payment there, then come back and fill in your proof details below.</p>
+            <a :href="paymentBase" target="_blank" rel="noopener"
+              class="text-sm text-amber-700 underline hover:text-amber-900">
+              Didn't open? Click here to open it again
+            </a>
+          </template>
+        </div>
+
+        <!-- Plain info banner when coming directly to upload -->
+        <div v-else class="bg-blue-50 border border-blue-200 rounded-2xl p-5 space-y-1">
           <p class="text-blue-900 font-semibold text-base">Upload your proof of payment</p>
           <p class="text-sm text-blue-700">
             You are registered for <strong>{{ event?.event }}</strong>. Fill in your payment details
@@ -190,6 +218,9 @@ const registrationId = route.params.registration_id ? Number(route.params.regist
 
 // New registration = no registration_id in URL (came from RegisterView)
 const isNewRegistration = !registrationId
+
+// ?action=pay means the user clicked "Go to Payment Page" in a reminder email
+const wantsPay = route.query.action === 'pay'
 
 // Read pending registration data from sessionStorage (set by RegisterView)
 const pendingData = isNewRegistration
@@ -253,7 +284,8 @@ const loadData = async () => {
       ])
       event.value = eventRes.data.event
       registration.value = regRes.data.registration
-      // No countdown for reminder flow — user goes straight to the upload form
+      // Only start countdown if user clicked "Go to Payment Page" in the reminder email
+      if (!registration.value.paid && wantsPay) startCountdown()
     }
   } catch (err) {
     console.error(err)
