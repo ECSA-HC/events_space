@@ -103,8 +103,6 @@
                 <option disabled value="">Select method</option>
                 <option value="Card">Online Payment (Credit/Debit Card)</option>
                 <option value="Bank Transfer">Bank Transfer</option>
-                <option value="Mpesa">Mobile Money</option>
-                <option value="Cash">Cash</option>
               </select>
             </div>
             <div>
@@ -180,8 +178,6 @@
                 <option disabled value="">Select method</option>
                 <option value="Card">Online Payment (Credit/Debit Card)</option>
                 <option value="Bank Transfer">Bank Transfer</option>
-                <option value="Mpesa">Mobile Money</option>
-                <option value="Cash">Cash</option>
               </select>
             </div>
             <div>
@@ -192,7 +188,7 @@
               <label class="block text-sm font-medium text-gray-700 mb-1">Proof of Payment <span class="text-red-400">*</span></label>
               <input type="file" accept="image/*,.pdf" required @change="proof_file = $event.target.files[0]"
                 class="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-bondi-blue/10 file:text-bondi-blue hover:file:bg-bondi-blue/20 cursor-pointer border border-gray-300 rounded-xl px-3 py-2" />
-              <p class="text-xs text-gray-400 mt-1">Upload your M-Pesa message, bank slip, or card receipt (JPG, PNG or PDF)</p>
+              <p class="text-xs text-gray-400 mt-1">Upload your bank transfer slip or card payment receipt (JPG, PNG or PDF)</p>
             </div>
             <button type="submit" :disabled="isSubmitting"
               class="w-full bg-bondi-blue text-white py-3 rounded-2xl font-semibold hover:bg-bondi-blue/90 transition disabled:opacity-60">

@@ -50,14 +50,20 @@
             {{ event.paid ? 'Paid' : 'Not Paid' }}
           </span>
 
-          <!-- Show "Pay Now" if not paid and event is upcoming -->
-          <div v-if="!event.paid && isUpcoming(event.start_date)" class="mt-2">
-                  <button
-                    class="text-green-600 hover:underline text-sm"
-                    @click="payEvent(event)"
-                  >
-                    Pay Now
-                  </button>
+          <!-- Actions for unpaid upcoming events -->
+          <div v-if="!event.paid && isUpcoming(event.start_date)" class="mt-3 flex flex-col gap-2">
+            <button
+              @click="goToPaymentPage(event)"
+              class="w-full text-sm font-semibold text-white rounded-lg py-1.5 px-3 transition hover:opacity-90"
+              style="background-color:#0095B6;">
+              Go to Payment Page
+            </button>
+            <button
+              @click="uploadProof(event)"
+              class="w-full text-sm font-semibold rounded-lg py-1.5 px-3 border-2 transition hover:bg-gray-50"
+              style="color:#0095B6; border-color:#0095B6; background:#fff;">
+              Upload Proof of Payment
+            </button>
           </div>
         </div>
       </div>
@@ -137,7 +143,11 @@ const formatDate = (isoDate) => {
   })
 }
 
-function payEvent(event) {
+function goToPaymentPage(event) {
+  router.push(`/payment/${event.id}/${event.registration_id}?action=pay`)
+}
+
+function uploadProof(event) {
   router.push(`/payment/${event.id}/${event.registration_id}`)
 }
 
