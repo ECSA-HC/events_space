@@ -203,7 +203,7 @@ const load = async () => {
 const sendReminder = async (user) => {
   user._sending = true
   try {
-    await api.post(`/users/${user.id}/send-incomplete-reminder`)
+    await api.post(`/users/send-incomplete-reminder/${user.id}`)
     user._sent = true
     remindersSent.value++
   } catch (err) {

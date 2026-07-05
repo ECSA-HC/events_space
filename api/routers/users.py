@@ -156,6 +156,70 @@ async def add_user(
     return user_schema
 
 
+@router.get("/incomplete-registrations")
+async def get_incomplete_registrations(
+    days: int = 90,
+    db: Session = Depends(get_db),
+):
+    """Users who created accounts but have no event registrations (abandoned registration flow)."""
+    from sqlalchemy import text as _t
+    rows = db.execute(_t("""
+        SELECT u.id, u.firstname, u.lastname, u.email, u.phone, u.created_at,
+               up.organisation, up.profession, c.country
+        FROM user u
+        LEFT JOIN user_profile up ON up.user_id = u.id AND up.deleted_at IS NULL
+        LEFT JOIN country c ON c.id = up.country_id
+        WHERE u.deleted_at IS NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM registration r WHERE r.user_id = u.id AND r.deleted_at IS NULL
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM user_role ur WHERE ur.user_id = u.id AND ur.deleted_at IS NULL
+          )
+          AND u.created_at >= DATE_SUB(NOW(), INTERVAL :days DAY)
+        ORDER BY u.created_at DESC
+    """), {"days": days}).fetchall()
+
+    return {
+        "total": len(rows),
+        "users": [
+            {
+                "id": r.id,
+                "firstname": r.firstname,
+                "lastname": r.lastname,
+                "email": r.email,
+                "phone": r.phone,
+                "country": r.country,
+                "organisation": r.organisation,
+                "profession": r.profession,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.post("/send-incomplete-reminder/{user_id}")
+async def send_incomplete_reminder(
+    user_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """Send a reminder to a user who created an account but hasn't registered for any event."""
+    user = db.query(User).filter(User.id == user_id, User.deleted_at == None).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    from utils.mailer_util import incomplete_registration_reminder_email
+    incomplete_registration_reminder_email(
+        recipient_email=user.email,
+        firstname=user.firstname or "Participant",
+        background_tasks=background_tasks,
+        db=db,
+    )
+    return {"message": f"Reminder sent to {user.email}"}
+
+
 @router.get("/{user_id}")
 async def get_user(
     request: Request,
@@ -577,70 +641,6 @@ async def upload_user_photo(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
-
-
-@router.get("/incomplete-registrations")
-async def get_incomplete_registrations(
-    days: int = 90,
-    db: Session = Depends(get_db),
-):
-    """Users who created accounts but have no event registrations (abandoned registration flow)."""
-    from sqlalchemy import text as _t
-    rows = db.execute(_t("""
-        SELECT u.id, u.firstname, u.lastname, u.email, u.phone, u.created_at,
-               up.organisation, up.profession, c.country
-        FROM user u
-        LEFT JOIN user_profile up ON up.user_id = u.id AND up.deleted_at IS NULL
-        LEFT JOIN country c ON c.id = up.country_id
-        WHERE u.deleted_at IS NULL
-          AND NOT EXISTS (
-              SELECT 1 FROM registration r WHERE r.user_id = u.id AND r.deleted_at IS NULL
-          )
-          AND NOT EXISTS (
-              SELECT 1 FROM user_role ur WHERE ur.user_id = u.id AND ur.deleted_at IS NULL
-          )
-          AND u.created_at >= DATE_SUB(NOW(), INTERVAL :days DAY)
-        ORDER BY u.created_at DESC
-    """), {"days": days}).fetchall()
-
-    return {
-        "total": len(rows),
-        "users": [
-            {
-                "id": r.id,
-                "firstname": r.firstname,
-                "lastname": r.lastname,
-                "email": r.email,
-                "phone": r.phone,
-                "country": r.country,
-                "organisation": r.organisation,
-                "profession": r.profession,
-                "created_at": r.created_at.isoformat() if r.created_at else None,
-            }
-            for r in rows
-        ],
-    }
-
-
-@router.post("/{user_id}/send-incomplete-reminder")
-async def send_incomplete_reminder(
-    user_id: int,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-):
-    """Send a reminder to a user who created an account but hasn't registered for any event."""
-    user = db.query(User).filter(User.id == user_id, User.deleted_at == None).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    from utils.mailer_util import incomplete_registration_reminder_email
-    incomplete_registration_reminder_email(
-        recipient_email=user.email,
-        firstname=user.firstname or "Participant",
-        background_tasks=background_tasks,
-        db=db,
-    )
-    return {"message": f"Reminder sent to {user.email}"}
 
 
 @router.delete("/delete_user_photo/{user_photo_id}")
