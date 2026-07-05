@@ -44,6 +44,17 @@
           Notify Accepted Authors
         </button>
 
+        <!-- Registration Reminder -->
+        <button @click="openRegReminder"
+          class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition hover:opacity-90"
+          style="background-color:#fffbeb; color:#92400e; border:1.5px solid #F7941D;">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+          </svg>
+          Registration Reminder
+        </button>
+
         <!-- PDF Book of Abstracts -->
         <button @click="exportPdf" :disabled="exportingPdf || loading || total === 0"
           class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition hover:opacity-90 disabled:opacity-50"
@@ -863,6 +874,94 @@
       </div>
     </div>
 
+    <!-- ══════════════════════════════════════════════════════════════════════
+         REGISTRATION REMINDER MODAL
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div v-if="regReminderModal.open"
+      class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+      @click.self="regReminderModal.open = false">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[92vh]">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between px-5 py-4 border-b flex-shrink-0">
+          <div class="flex items-center gap-3">
+            <div class="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background-color:#fffbeb;">
+              <svg class="w-5 h-5" style="color:#F7941D;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+              </svg>
+            </div>
+            <div>
+              <p class="font-bold text-gray-800 text-sm">Send Registration Reminder</p>
+              <p class="text-xs text-gray-400 mt-0.5">Email accepted abstract authors who haven't registered</p>
+            </div>
+          </div>
+          <button @click="regReminderModal.open = false" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="p-5 space-y-4 overflow-y-auto flex-1">
+
+          <!-- Event selector (required) -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Event <span class="text-red-500">*</span></label>
+            <select v-model.number="regReminderModal.eventId" class="input w-full">
+              <option :value="null">— Select an event —</option>
+              <option v-for="e in events" :key="e.id" :value="e.id">{{ e.event }}</option>
+            </select>
+            <p class="text-xs text-gray-400 mt-1">Only accepted abstract authors for this event who haven't registered will receive the email.</p>
+          </div>
+
+          <!-- Info box -->
+          <div class="flex items-start gap-3 px-4 py-3 rounded-xl text-sm" style="background:#fffbeb; border:1px solid #fcd34d;">
+            <svg class="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <p class="text-amber-800 text-xs leading-relaxed">
+              Abstract authors who have already registered (even if payment is pending) will <strong>not</strong> receive this email. They are managed separately from the event's Pending Payment tab.
+            </p>
+          </div>
+
+          <!-- Result -->
+          <div v-if="regReminderModal.done" class="bg-green-50 border border-green-200 rounded-xl p-4">
+            <p class="font-semibold text-green-700 text-sm mb-1">
+              ✅ {{ regReminderModal.result.sent }} reminder{{ regReminderModal.result.sent !== 1 ? 's' : '' }} queued
+            </p>
+            <p class="text-xs text-gray-500">
+              {{ regReminderModal.result.already_registered }} author(s) already registered and were skipped.
+              Sending in the background — check Email Logs to confirm delivery.
+            </p>
+          </div>
+
+          <p v-if="regReminderModal.error" class="text-red-500 text-sm">{{ regReminderModal.error }}</p>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="flex items-center justify-end gap-3 px-5 py-4 border-t flex-shrink-0">
+          <button @click="regReminderModal.open = false"
+            class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium">
+            {{ regReminderModal.done ? 'Close' : 'Cancel' }}
+          </button>
+          <button v-if="!regReminderModal.done"
+            @click="runRegReminder"
+            :disabled="regReminderModal.sending || !regReminderModal.eventId"
+            class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-xl disabled:opacity-50 transition hover:opacity-90"
+            style="background-color:#F7941D;">
+            <svg v-if="regReminderModal.sending" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+            </svg>
+            {{ regReminderModal.sending ? 'Sending…' : 'Send Reminders' }}
+          </button>
+        </div>
+
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -1296,6 +1395,41 @@ const openNotifySingle = (abs) => {
 }
 
 const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
+
+// ── Registration Reminder (for accepted abstract authors who haven't registered) ─
+const regReminderModal = ref({
+  open: false,
+  eventId: null,
+  sending: false,
+  done: false,
+  result: { sent: 0, total_authors: 0, already_registered: 0 },
+  error: '',
+})
+
+const openRegReminder = () => {
+  const m = regReminderModal.value
+  m.eventId = filterEvent.value ? Number(filterEvent.value) : null
+  m.done = false
+  m.error = ''
+  m.result = { sent: 0, total_authors: 0, already_registered: 0 }
+  m.open = true
+}
+
+const runRegReminder = async () => {
+  const m = regReminderModal.value
+  if (!m.eventId) { m.error = 'Please select an event.'; return }
+  m.sending = true
+  m.error = ''
+  try {
+    const res = await api.post(`/abstracts/send-registration-reminders?event_id=${m.eventId}`)
+    m.result = { sent: res.data.sent, total_authors: res.data.total_authors, already_registered: res.data.already_registered }
+    m.done = true
+  } catch (e) {
+    m.error = e.response?.data?.detail || 'Failed to send reminders. Please try again.'
+  } finally {
+    m.sending = false
+  }
+}
 
 const runNotifyAccepted = async () => {
   const m = notifyModal.value

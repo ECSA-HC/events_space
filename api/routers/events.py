@@ -2126,7 +2126,7 @@ async def send_pending_bulk_reminders(
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    targets = (
+    all_targets = (
         db.query(Registration)
         .filter(
             Registration.event_id == event_id,
@@ -2137,8 +2137,22 @@ async def send_pending_bulk_reminders(
         .all()
     )
 
+    # Exclude accepted abstract authors — they get their own reminder from the abstracts page
+    from sqlalchemy import text as _sql_text
+    _author_rows = db.execute(_sql_text(
+        "SELECT DISTINCT LOWER(aa.email) as email FROM abstract a "
+        "JOIN abstract_author aa ON aa.abstract_id = a.id "
+        "WHERE a.event_id = :eid AND a.status = 'accepted' AND aa.email IS NOT NULL"
+    ), {"eid": event_id}).fetchall()
+    excluded_emails = {row.email for row in _author_rows}
+
+    targets = [
+        t for t in all_targets
+        if t.user and t.user.email and t.user.email.lower() not in excluded_emails
+    ]
+
     if not targets:
-        return {"sent": 0, "message": "No pending registrations found."}
+        return {"sent": 0, "message": "No pending registrations found (abstract authors are excluded)."}
 
     import utils.mailer_util as mailer_util
     for reg in targets:
@@ -2157,7 +2171,8 @@ async def send_pending_bulk_reminders(
 
     return {
         "sent": len(targets),
-        "message": f"Payment reminder sent to {len(targets)} pending registration(s).",
+        "excluded_abstract_authors": len(excluded_emails),
+        "message": f"Payment reminder sent to {len(targets)} pending registration(s). {len(excluded_emails)} abstract author(s) excluded.",
     }
 
 

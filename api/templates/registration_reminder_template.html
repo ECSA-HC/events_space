@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ subject }}</title>
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; color: #333333; }
+      .email-container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 40px; box-sizing: border-box; border-top: 6px solid #0095b6; }
+      h1 { font-size: 22px; margin-bottom: 8px; color: #003f5c; }
+      p { font-size: 15px; line-height: 1.7; margin: 12px 0; }
+      .btn { display: inline-block; padding: 14px 32px; background-color: #0095b6; color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 15px; margin: 18px 0 8px; }
+      .btn-outline { display: inline-block; padding: 12px 28px; background-color: #ffffff; color: #0095b6 !important; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px; border: 2px solid #0095b6; margin: 6px 0; }
+      .info-box { background-color: #f0f9fb; border-left: 4px solid #0095b6; padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 20px 0; }
+      .info-box p { margin: 6px 0; font-size: 14px; }
+      .warning-box { background-color: #fffbeb; border-left: 4px solid #F7941D; padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 20px 0; }
+      .warning-box p { margin: 6px 0; font-size: 14px; color: #92400e; }
+      .checklist { padding-left: 0; list-style: none; margin: 12px 0; }
+      .checklist li { font-size: 14px; padding: 6px 0; display: flex; align-items: flex-start; gap: 10px; }
+      .checklist li::before { content: "✓"; color: #0095b6; font-weight: bold; flex-shrink: 0; }
+      .divider { border: none; border-top: 1px solid #e5e7eb; margin: 28px 0; }
+      .footer { font-size: 12px; color: #9ca3af; text-align: center; margin-top: 32px; }
+      .event-name { font-weight: bold; color: #0095b6; }
+    </style>
+  </head>
+  <body>
+    <div class="email-container">
+      <!-- Header -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+        <tr>
+          <td>
+            <span style="font-size:20px;font-weight:900;color:#0095b6;">ECSA</span>
+            <span style="font-size:20px;font-weight:900;color:#F7941D;">-HC</span>
+            <span style="font-size:13px;color:#6b7280;margin-left:6px;">Events Portal</span>
+          </td>
+        </tr>
+      </table>
+
+      <h1>Complete Your Registration for {{ event_name }}</h1>
+      <p>Dear <strong>{{ firstname }}</strong>,</p>
+      <p>
+        Congratulations on having your abstract accepted for
+        <span class="event-name">{{ event_name }}</span>!
+        Our records show that you have not yet completed your conference registration.
+      </p>
+      <p>
+        To secure your place at the conference, please register and complete your payment as soon as possible.
+      </p>
+
+      <!-- Step 1: Register -->
+      <p><strong>Step 1 — Register for the conference</strong></p>
+      <p style="font-size:14px;color:#4b5563;">
+        Visit the event page on our portal and click <strong>Register</strong> to complete your registration form.
+      </p>
+      <div style="text-align:center; margin: 20px 0;">
+        <a href="{{ event_url }}" class="btn">Register Now →</a>
+        <p style="font-size:12px;color:#9ca3af;margin-top:8px;">
+          Or copy this link: <a href="{{ event_url }}" style="color:#0095b6;">{{ event_url }}</a>
+        </p>
+      </div>
+
+      <hr class="divider" />
+
+      <!-- Step 2: Pay -->
+      <p><strong>Step 2 — Complete your payment</strong></p>
+      <p style="font-size:14px;color:#4b5563;">
+        After registering, proceed to the payment page. We accept Online Card, Bank Transfer, Mobile Money, and Cash payments.
+        Once payment is made, upload your proof of payment so the secretariat can verify it.
+      </p>
+
+      <div class="info-box">
+        <p><strong>Already registered?</strong> Go directly to your payment page to upload your proof of payment.</p>
+        <p style="margin-top:10px;font-size:12px;color:#6b7280;">
+          Accepted formats: JPG, PNG, or PDF · Your receipt, M-Pesa confirmation, or bank slip
+        </p>
+      </div>
+
+      <hr class="divider" />
+
+      <div class="warning-box">
+        <p><strong>⚠ Don't miss the deadline</strong></p>
+        <p>Registration spots are limited. Please complete your registration and payment promptly to confirm your participation.</p>
+      </div>
+
+      <ul class="checklist">
+        <li>Register on the portal using the link above</li>
+        <li>Complete your payment (Online Card, Bank Transfer, Mobile Money, or Cash)</li>
+        <li>Upload your proof of payment on the payment page</li>
+      </ul>
+
+      <div class="info-box">
+        <p><strong>Event:</strong> {{ event_name }}</p>
+        <p><strong>Portal:</strong> <a href="{{ portal_url }}" style="color:#0095b6;">{{ portal_url }}</a></p>
+        <p><strong>Need help?</strong> Email us at <a href="mailto:admission@cosecsa.org" style="color:#0095b6;">admission@cosecsa.org</a></p>
+      </div>
+
+      <p style="font-size:13px;color:#6b7280;">
+        If you have already registered and paid, please disregard this message.
+        Verification typically takes 1–2 business days after proof is uploaded.
+      </p>
+
+      <hr class="divider" />
+      <div class="footer">
+        <p>&copy; {{ year }} ECSA-HC Events Portal. All rights reserved.</p>
+        <p>East, Central and Southern Africa Health Community</p>
+      </div>
+    </div>
+  </body>
+</html>

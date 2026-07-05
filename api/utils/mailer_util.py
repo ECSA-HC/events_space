@@ -501,6 +501,30 @@ def payment_verified_email(
                               email_type="payment_verified", sent_by_user_id=sent_by_user_id, db=db)
 
 
+def registration_reminder_email(
+    recipient_email,
+    firstname,
+    event_name,
+    event_url,
+    portal_url="https://events.ecsahc.org",
+    background_tasks: BackgroundTasks = None,
+    db=None,
+    sent_by_user_id=None,
+):
+    subject = f"Action Required: Complete Your Registration for {event_name}"
+    template = templates.get_template("registration_reminder_template.html")
+    email_body = template.render(
+        subject=subject,
+        firstname=firstname,
+        event_name=event_name,
+        event_url=event_url,
+        portal_url=portal_url,
+        year=YEAR,
+    )
+    send_email_backgroundable(recipient_email, subject, email_body, background_tasks,
+                              email_type="registration_reminder", sent_by_user_id=sent_by_user_id, db=db)
+
+
 def abstract_acceptance_email(
     recipient_email,
     firstname,

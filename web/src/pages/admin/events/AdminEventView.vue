@@ -403,8 +403,8 @@
                       No pending registrations match your search.
                     </td>
                   </tr>
-                  <tr v-for="(p, idx) in filteredPendingRegistrations" :key="p.id" class="hover:bg-gray-50">
-                    <td class="px-4 py-2 text-gray-400 text-xs">{{ idx + 1 }}</td>
+                  <tr v-for="(p, idx) in paginatedPendingRegistrations" :key="p.id" class="hover:bg-gray-50">
+                    <td class="px-4 py-2 text-gray-400 text-xs">{{ (pendingPage - 1) * pendingPageSize + idx + 1 }}</td>
                     <td class="px-4 py-2 font-medium">
                       <router-link :to="{ name: 'AdminUserPerspective', params: { id: p.user_id } }"
                         class="hover:underline hover:text-[#0095B6] transition-colors">
@@ -465,6 +465,38 @@
                 </tbody>
               </table>
             </div>
+
+            <!-- Pending Payment Pagination -->
+            <div class="flex flex-wrap items-center justify-between mt-4 gap-3 text-sm text-gray-600">
+              <div class="flex items-center gap-2">
+                <span>Show</span>
+                <select v-model="pendingPageSize"
+                  class="border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]">
+                  <option :value="25">25</option>
+                  <option :value="50">50</option>
+                  <option :value="100">100</option>
+                </select>
+                <span>per page &middot; {{ filteredPendingRegistrations.length }} total</span>
+              </div>
+              <div v-if="pendingTotalPages > 1" class="flex items-center gap-1">
+                <button @click="pendingPage--" :disabled="pendingPage === 1"
+                  class="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">
+                  ← Prev
+                </button>
+                <template v-for="pg in pendingPageRange" :key="pg">
+                  <span v-if="pg === '...'" class="px-2 text-gray-400">…</span>
+                  <button v-else @click="pendingPage = pg"
+                    :class="['px-3 py-1.5 rounded-lg border transition', pendingPage === pg ? 'border-[#0095B6] bg-[#0095B6] text-white' : 'border-gray-200 hover:bg-gray-50']">
+                    {{ pg }}
+                  </button>
+                </template>
+                <button @click="pendingPage++" :disabled="pendingPage === pendingTotalPages"
+                  class="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">
+                  Next →
+                </button>
+              </div>
+            </div>
+
           </TabPanel>
 
           <!-- Attendance -->
@@ -843,9 +875,13 @@ const pendingSearch = ref('')
 const loadingAttendance = ref(false)
 const error = ref(null)
 
-// Pagination
+// Pagination — participants tab
 const currentPage = ref(1)
 const pageSize = ref(25)
+
+// Pagination — pending payment tab
+const pendingPage = ref(1)
+const pendingPageSize = ref(25)
 
 // Three-dots menus (separate IDs to avoid collision between tabs)
 const openMenuId = ref(null)
@@ -905,6 +941,32 @@ const filteredPendingRegistrations = computed(() => {
   )
 })
 
+const pendingTotalPages = computed(() => Math.max(1, Math.ceil(filteredPendingRegistrations.value.length / pendingPageSize.value)))
+
+const paginatedPendingRegistrations = computed(() => {
+  const start = (pendingPage.value - 1) * pendingPageSize.value
+  return filteredPendingRegistrations.value.slice(start, start + pendingPageSize.value)
+})
+
+const pendingPageRange = computed(() => {
+  const total = pendingTotalPages.value
+  const cur = pendingPage.value
+  const pages = []
+  if (total <= 7) {
+    for (let i = 1; i <= total; i++) pages.push(i)
+    return pages
+  }
+  const set = new Set([1, total, cur, cur - 1, cur + 1].filter(n => n >= 1 && n <= total))
+  const sorted = [...set].sort((a, b) => a - b)
+  let prev = 0
+  for (const n of sorted) {
+    if (n - prev > 1) pages.push('...')
+    pages.push(n)
+    prev = n
+  }
+  return pages
+})
+
 function toggleParticipant(id) {
   const idx = selectedUnpaid.value.indexOf(id)
   if (idx === -1) selectedUnpaid.value.push(id)
@@ -918,6 +980,9 @@ function toggleSelectAllUnpaid() {
     selectedUnpaid.value = unpaidParticipants.value.map(p => p.id)
   }
 }
+
+watch(pendingSearch, () => { pendingPage.value = 1 })
+watch(pendingPageSize, () => { pendingPage.value = 1 })
 
 // Close menus on outside click
 function handleClickOutside() { openMenuId.value = null; pendingMenuId.value = null }

@@ -1735,3 +1735,74 @@ def notify_acceptance(
         "errors": failed,
     }
 
+
+@router.post("/send-registration-reminders")
+async def send_registration_reminders(
+    event_id: int = Query(...),
+    background_tasks: BackgroundTasks = None,
+    current_user: user_dependency = None,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+):
+    """Send registration reminders to accepted abstract authors who have not yet registered for the event."""
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+
+    from models.models import Event, Registration
+    from sqlalchemy import text as _sql_text
+
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    # All accepted abstract authors for this event (distinct by email)
+    author_rows = db.execute(_sql_text(
+        "SELECT DISTINCT aa.firstname, aa.lastname, LOWER(aa.email) as email "
+        "FROM abstract a "
+        "JOIN abstract_author aa ON aa.abstract_id = a.id "
+        "WHERE a.event_id = :eid AND a.status = 'accepted' AND aa.email IS NOT NULL AND aa.email != ''"
+    ), {"eid": event_id}).fetchall()
+
+    if not author_rows:
+        return {"sent": 0, "total_authors": 0, "already_registered": 0,
+                "message": "No accepted abstract authors found for this event."}
+
+    # Authors who already have any registration (paid or pending) for this event
+    registered_rows = db.execute(_sql_text(
+        "SELECT LOWER(u.email) as email FROM registration r "
+        "JOIN user u ON u.id = r.user_id "
+        "WHERE r.event_id = :eid AND r.deleted_at IS NULL"
+    ), {"eid": event_id}).fetchall()
+    registered_emails = {row.email for row in registered_rows}
+
+    # Only send to those who have not registered at all
+    targets = [row for row in author_rows if row.email not in registered_emails]
+
+    if not targets:
+        return {
+            "sent": 0,
+            "total_authors": len(author_rows),
+            "already_registered": len(author_rows),
+            "message": "All accepted abstract authors have already registered for this event.",
+        }
+
+    event_url = f"https://events.ecsahc.org/events/{event_id}"
+    import utils.mailer_util as _mailer
+    for author in targets:
+        _mailer.registration_reminder_email(
+            recipient_email=author.email,
+            firstname=author.firstname or "Author",
+            event_name=event.event,
+            event_url=event_url,
+            portal_url="https://events.ecsahc.org",
+            background_tasks=background_tasks,
+            db=db,
+            sent_by_user_id=current_user["user_id"],
+        )
+
+    return {
+        "sent": len(targets),
+        "total_authors": len(author_rows),
+        "already_registered": len(author_rows) - len(targets),
+        "message": f"Registration reminder sent to {len(targets)} author(s). {len(author_rows) - len(targets)} already registered.",
+    }
+
