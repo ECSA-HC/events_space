@@ -351,7 +351,7 @@ async def get_event(
     )
 
     if event := get_object(event_id, db, Event):
-        _all_regs = event.registrations or []
+        _all_regs = [r for r in (event.registrations or []) if r.deleted_at is None]
         # Confirmed = paid OR has uploaded proof; pending = neither
         registrations = [r for r in _all_regs if r.paid or r.payment_proof]
         pending_payment_regs = [r for r in _all_regs if not r.paid and not r.payment_proof]
