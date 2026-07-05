@@ -43,9 +43,14 @@
         Our records show that your registration payment is still outstanding.
       </p>
 
-      <!-- Payment CTA -->
-      <div style="text-align:center; margin: 28px 0;">
-        <a href="{{ payment_url }}" class="btn">Pay Now →</a>
+      <!-- Step 1: Make payment -->
+      <p><strong>Step 1 — Complete your payment</strong></p>
+      <p style="font-size:14px;color:#4b5563;">
+        Use any of the available payment methods (Online Card, Bank Transfer, Mobile Money, or Cash).
+        Click the button below to access the payment page.
+      </p>
+      <div style="text-align:center; margin: 20px 0;">
+        <a href="{{ payment_url }}" class="btn">Go to Payment Page →</a>
         <p style="font-size:12px;color:#9ca3af;margin-top:8px;">
           Or copy this link: <a href="{{ payment_url }}" style="color:#0095b6;">{{ payment_url }}</a>
         </p>
@@ -53,38 +58,58 @@
 
       <hr class="divider" />
 
-      <!-- Profile update section -->
-      <div class="warning-box">
-        <p><strong>⚠ Action Required — Update Your Profile</strong></p>
-        <p>
-          To complete your verification and secure your place, please also update your
-          profile information and upload the required documents on the portal.
+      <!-- Step 2: Upload proof -->
+      <p><strong>Step 2 — Upload your proof of payment</strong></p>
+      <p style="font-size:14px;color:#4b5563;">
+        Once you have completed your payment, return to the same page and upload a photo or screenshot
+        of your payment receipt. This is required for the secretariat to verify your payment.
+      </p>
+
+      <div class="info-box">
+        <p><strong>✅ Already paid?</strong> Use the link below to upload your proof of payment now.</p>
+        <p style="margin-top:10px;">
+          <a href="{{ payment_url }}" style="color:#0095b6;font-weight:bold;">{{ payment_url }}</a>
+        </p>
+        <p style="font-size:12px;color:#6b7280;margin-top:6px;">
+          Accepted formats: JPG, PNG, or PDF · Your receipt, M-Pesa confirmation, or bank slip
         </p>
       </div>
 
-      <p><strong>Please ensure the following are completed on your portal account:</strong></p>
+      <div style="text-align:center; margin: 20px 0;">
+        <a href="{{ payment_url }}" class="btn-outline">Upload Proof of Payment</a>
+      </div>
+
+      <hr class="divider" />
+
+      <!-- Profile update section -->
+      <div class="warning-box">
+        <p><strong>⚠ Also ensure your profile is up to date</strong></p>
+        <p>
+          Please confirm your personal and professional details on the portal
+          so your registration badge and records are accurate.
+        </p>
+      </div>
+
       <ul class="checklist">
         <li>Confirm your personal details (name, title, country)</li>
         <li>Update your professional information (organisation, profession, position)</li>
-        <li>Upload your identification or proof of affiliation document</li>
-        <li>Complete payment using the link above</li>
+        <li>Complete payment and upload proof using the link above</li>
       </ul>
 
-      <!-- Portal link -->
-      <div style="text-align:center; margin: 24px 0;">
-        <a href="{{ portal_url }}/my-account/my-profile" class="btn-outline">Update My Profile on the Portal</a>
+      <div style="text-align:center; margin: 20px 0;">
+        <a href="{{ portal_url }}/my-account/my-profile" class="btn-outline">Update My Profile</a>
       </div>
 
       <div class="info-box">
         <p><strong>Event:</strong> {{ event_name }}</p>
         <p><strong>Portal:</strong> <a href="{{ portal_url }}" style="color:#0095b6;">{{ portal_url }}</a></p>
-        <p><strong>Payment:</strong> <a href="{{ payment_url }}" style="color:#0095b6;">{{ payment_url }}</a></p>
+        <p><strong>Payment &amp; Upload:</strong> <a href="{{ payment_url }}" style="color:#0095b6;">{{ payment_url }}</a></p>
         <p><strong>Need help?</strong> Email us at <a href="mailto:admission@cosecsa.org" style="color:#0095b6;">admission@cosecsa.org</a></p>
       </div>
 
       <p style="font-size:13px;color:#6b7280;">
-        If you have already made your payment, please disregard this message.
-        It may take up to 48 hours for your payment to be verified.
+        If your payment has already been verified, please disregard this message.
+        Verification typically takes 1–2 business days after proof is uploaded.
       </p>
 
       <hr class="divider" />
