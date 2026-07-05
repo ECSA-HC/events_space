@@ -2183,24 +2183,36 @@ async def send_pending_bulk_reminders(
         return {"sent": 0, "message": "No pending registrations found (abstract authors are excluded)."}
 
     import utils.mailer_util as mailer_util
+    from starlette.templating import Jinja2Templates as _Jinja2
+    _templates = _Jinja2(directory="templates")
+
+    messages = []
     for reg in targets:
         if reg.user and reg.user.email:
             payment_url = f"https://events.ecsahc.org/payment/{event_id}/{reg.id}"
-            mailer_util.payment_reminder_email(
-                recipient_email=reg.user.email,
+            subject = f"Action Required: Complete Your Payment – {event.event}"
+            body = _templates.get_template("payment_reminder_template.html").render(
+                subject=subject,
                 firstname=reg.user.firstname or "Participant",
                 event_name=event.event,
                 payment_url=payment_url,
                 portal_url="https://events.ecsahc.org",
-                background_tasks=background_tasks,
-                db=db,
-                sent_by_user_id=current_user["user_id"],
+                year=__import__("datetime").datetime.now().year,
             )
+            messages.append({
+                "recipient_email": reg.user.email,
+                "subject": subject,
+                "body": body,
+                "email_type": "payment_reminder",
+                "sent_by_user_id": current_user["user_id"],
+            })
+
+    background_tasks.add_task(mailer_util.send_bulk_emails, messages, db)
 
     return {
-        "sent": len(targets),
+        "sent": len(messages),
         "excluded_abstract_authors": len(excluded_emails),
-        "message": f"Payment reminder sent to {len(targets)} pending registration(s). {len(excluded_emails)} abstract author(s) excluded.",
+        "message": f"Payment reminder queued for {len(messages)} pending registration(s). {len(excluded_emails)} abstract author(s) excluded.",
     }
 
 

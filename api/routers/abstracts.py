@@ -1845,24 +1845,39 @@ async def send_registration_reminders(
 
     event_url = f"https://events.ecsahc.org/events/{event_id}"
     import utils.mailer_util as _mailer
+    from starlette.templating import Jinja2Templates as _Jinja2
+    _templates = _Jinja2(directory="templates")
+
+    messages = []
     for author in targets:
-        _mailer.registration_reminder_email(
-            recipient_email=author.email,
+        subject = (
+            f"Action Required – {_days_remaining} Day{'s' if _days_remaining != 1 else ''}"
+            f" Left to Register: {event.event}"
+        )
+        body = _templates.get_template("registration_reminder_template.html").render(
+            subject=subject,
             firstname=author.firstname or "Author",
             event_name=event.event,
             event_url=event_url,
             portal_url="https://events.ecsahc.org",
             deadline_label=_deadline_label,
             days_remaining=_days_remaining,
-            background_tasks=background_tasks,
-            db=db,
-            sent_by_user_id=current_user["user_id"],
+            year=__import__("datetime").datetime.now().year,
         )
+        messages.append({
+            "recipient_email": author.email,
+            "subject": subject,
+            "body": body,
+            "email_type": "registration_reminder",
+            "sent_by_user_id": current_user["user_id"],
+        })
+
+    background_tasks.add_task(_mailer.send_bulk_emails, messages, db)
 
     return {
         "sent": len(targets),
         "total_authors": len(author_rows),
         "already_registered": len(author_rows) - len(targets),
-        "message": f"Registration reminder sent to {len(targets)} author(s). {len(author_rows) - len(targets)} already registered.",
+        "message": f"Registration reminder queued for {len(targets)} author(s). {len(author_rows) - len(targets)} already registered.",
     }
 

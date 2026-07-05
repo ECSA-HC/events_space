@@ -160,6 +160,97 @@ def send_email_backgroundable(
                    reply_to_email, email_type, sent_by_user_id, db, sender_display_name)
 
 
+# --- BULK SENDER (single SMTP connection for many recipients) ---
+
+def send_bulk_emails(messages: list, db=None):
+    """
+    Send multiple emails over a single SMTP connection.
+    messages: list of dicts with keys: recipient_email, subject, body,
+              email_type, sent_by_user_id, reply_to_email (optional)
+    """
+    smtp_host     = os.getenv("SMTP_HOST", "")
+    smtp_port     = os.getenv("SMTP_PORT", "")
+    smtp_username = os.getenv("SMTP_USERNAME", "")
+    smtp_password = os.getenv("SMTP_PASSWORD", "")
+
+    if not smtp_host or not smtp_port:
+        logger.error("SMTP not configured — bulk send aborted")
+        return
+
+    try:
+        smtp_port = int(smtp_port)
+    except ValueError:
+        logger.error("SMTP_PORT is not a valid integer")
+        return
+
+    try:
+        server = smtplib.SMTP(smtp_host, smtp_port)
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+    except Exception as e:
+        logger.error("Failed to open SMTP connection for bulk send: %s", e)
+        return
+
+    try:
+        for msg in messages:
+            recipient_email  = msg["recipient_email"]
+            subject          = msg["subject"]
+            body             = msg["body"]
+            email_type       = msg.get("email_type", "general")
+            sent_by_user_id  = msg.get("sent_by_user_id")
+            reply_to_email   = msg.get("reply_to_email")
+
+            log_id = None
+            if db:
+                log_id = _create_email_log(db, recipient_email, subject, email_type,
+                                           sent_by_user_id, reply_to_email, body)
+
+            final_body = body
+            if log_id:
+                pixel = (
+                    f'<img src="{APP_BASE_URL}/email-logs/{log_id}/pixel.png"'
+                    ' width="1" height="1" style="display:none;" alt="" />'
+                )
+                final_body = body.replace("</body>", f"{pixel}\n</body>", 1)
+
+            mime_msg = MIMEMultipart()
+            mime_msg["From"]    = f"{FROM_NAME} <{FROM_EMAIL}>"
+            mime_msg["To"]      = recipient_email
+            mime_msg["Subject"] = subject
+            if reply_to_email:
+                mime_msg["Reply-To"] = reply_to_email
+            mime_msg.attach(MIMEText(final_body, "html"))
+
+            try:
+                server.sendmail(smtp_username, recipient_email, mime_msg.as_string())
+                logger.info("Bulk send: email sent to %s", recipient_email)
+                if db and log_id:
+                    _update_email_log(db, log_id, "sent")
+            except smtplib.SMTPServerDisconnected:
+                # Reconnect once if server dropped the connection mid-batch
+                logger.warning("SMTP disconnected mid-batch — reconnecting")
+                try:
+                    server = smtplib.SMTP(smtp_host, smtp_port)
+                    server.starttls()
+                    server.login(smtp_username, smtp_password)
+                    server.sendmail(smtp_username, recipient_email, mime_msg.as_string())
+                    if db and log_id:
+                        _update_email_log(db, log_id, "sent")
+                except Exception as reconnect_err:
+                    logger.error("Reconnect failed for %s: %s", recipient_email, reconnect_err)
+                    if db and log_id:
+                        _update_email_log(db, log_id, "failed", str(reconnect_err))
+            except Exception as e:
+                logger.error("Bulk send: failed to send to %s: %s", recipient_email, e)
+                if db and log_id:
+                    _update_email_log(db, log_id, "failed", str(e))
+    finally:
+        try:
+            server.quit()
+        except Exception:
+            pass
+
+
 # --- EMAIL FUNCTIONS ---
 
 
