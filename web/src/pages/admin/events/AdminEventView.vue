@@ -45,6 +45,12 @@
             </button>
           </Tab>
           <Tab v-slot="{ selected }" as="template">
+            <button :class="['py-2 px-4', selected ? 'border-b-2 border-amber-500 text-amber-600 font-semibold' : 'text-gray-600']">
+              Pending Payment
+              <span v-if="pendingRegistrations.length" class="ml-1 text-xs bg-amber-100 text-amber-700 rounded-full px-2">{{ pendingRegistrations.length }}</span>
+            </button>
+          </Tab>
+          <Tab v-slot="{ selected }" as="template">
             <button :class="['py-2 px-4', selected ? 'border-b-2 border-blue-600 text-blue-600 font-semibold' : 'text-gray-600']">
               Attendance
               <span v-if="attendance.length" class="ml-1 text-xs bg-green-100 text-green-700 rounded-full px-2">{{ attendance.length }}</span>
@@ -306,6 +312,60 @@
               </div>
             </div>
 
+          </TabPanel>
+
+          <!-- Pending Payment -->
+          <TabPanel>
+            <div class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+              These participants started registration but have not yet uploaded proof of payment.
+              Send them a reminder to complete their payment.
+            </div>
+
+            <div v-if="pendingRegistrations.length === 0" class="text-center py-12 text-gray-400 text-sm">
+              No pending registrations — everyone has uploaded their proof of payment.
+            </div>
+
+            <table v-else class="min-w-full divide-y divide-gray-200 text-sm">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">#</th>
+                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
+                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
+                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Country</th>
+                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Role</th>
+                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Registered</th>
+                  <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-100">
+                <tr v-for="(p, idx) in pendingRegistrations" :key="p.id" class="hover:bg-gray-50">
+                  <td class="px-4 py-2 text-gray-400 text-xs">{{ idx + 1 }}</td>
+                  <td class="px-4 py-2 font-medium">{{ p.firstname }} {{ p.lastname }}</td>
+                  <td class="px-4 py-2 text-gray-600">{{ p.email }}</td>
+                  <td class="px-4 py-2 text-gray-600">{{ p.country || '—' }}</td>
+                  <td class="px-4 py-2">
+                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                      {{ p.participation_role }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-2 text-gray-500 text-xs">
+                    {{ p.registered_at ? new Date(p.registered_at).toLocaleDateString() : '—' }}
+                  </td>
+                  <td class="px-4 py-2">
+                    <div class="flex gap-2">
+                      <a :href="`/payment/${eventId}/${p.id}`" target="_blank"
+                        class="text-xs px-2 py-1 rounded-lg bg-amber-100 text-amber-800 hover:bg-amber-200 font-medium">
+                        Payment link
+                      </a>
+                      <button @click="deregisterParticipant(p)"
+                        class="text-xs px-2 py-1 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 font-medium">
+                        Deregister
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </TabPanel>
 
           <!-- Attendance -->
@@ -669,6 +729,7 @@ const eventId = Number(route.params.id)
 
 const event = ref(null)
 const participants = ref([])
+const pendingRegistrations = ref([])
 const documents = ref([])
 const links = ref([])
 const attendance = ref([])
@@ -812,6 +873,7 @@ async function loadEventData() {
     const res = await api.get(`/events/${eventId}`)
     event.value = res.data.event
     participants.value = res.data.participants
+    pendingRegistrations.value = res.data.pending_registrations || []
     documents.value = res.data.documents
     links.value = res.data.links
   } catch (err) {

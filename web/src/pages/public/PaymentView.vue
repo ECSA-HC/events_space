@@ -105,9 +105,9 @@
               <label class="block text-sm font-medium text-gray-700 mb-1">Payment Method <span class="text-red-400">*</span></label>
               <select v-model="payment_method" required class="input-style">
                 <option disabled value="">Select method</option>
+                <option value="Card">Online Payment (Credit/Debit Card)</option>
                 <option value="Bank Transfer">Bank Transfer</option>
                 <option value="Mpesa">Mobile Money (Mpesa)</option>
-                <option value="Card">Credit/Debit Card</option>
                 <option value="Cash">Cash</option>
               </select>
             </div>

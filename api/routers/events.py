@@ -306,7 +306,10 @@ async def get_event(
     )
 
     if event := get_object(event_id, db, Event):
-        registrations = event.registrations or []
+        _all_regs = event.registrations or []
+        # Confirmed = paid OR has uploaded proof; pending = neither
+        registrations = [r for r in _all_regs if r.paid or r.payment_proof]
+        pending_payment_regs = [r for r in _all_regs if not r.paid and not r.payment_proof]
         documents = event.documents or []
         links = event.links or []
 
@@ -452,6 +455,24 @@ async def get_event(
                 }
                 for l in links
             ],
+            "pending_registrations": [
+                {
+                    "id": r.id,
+                    "user_id": r.user_id,
+                    "firstname": r.user.firstname if r.user else None,
+                    "lastname": r.user.lastname if r.user else None,
+                    "email": r.user.email if r.user else None,
+                    "phone": r.user.phone if r.user else None,
+                    "country": (
+                        r.user.user_profile[0].country.country
+                        if r.user and r.user.user_profile and r.user.user_profile[0].country
+                        else None
+                    ),
+                    "participation_role": r.participation_role,
+                    "registered_at": r.registered_at,
+                }
+                for r in pending_payment_regs
+            ],
         }
     else:
         raise HTTPException(status_code=404, detail="event not found")
@@ -595,6 +616,9 @@ METHOD_MAP = {
     "card": "CARD",
     "mobile money": "MPESA",
     "credit card": "CARD",
+    "debit card": "CARD",
+    "online payment (credit/debit card)": "CARD",
+    "online": "CARD",
 }
 
 
