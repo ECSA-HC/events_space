@@ -209,7 +209,17 @@ def list_abstracts(
     if presentation_type:
         q = q.filter(Abstract.presentation_type == presentation_type)
     if search:
-        q = q.filter(Abstract.title.ilike(f"%{search}%"))
+        from sqlalchemy import or_, exists as sa_exists
+        term = f"%{search}%"
+        q = q.filter(or_(
+            Abstract.title.ilike(term),
+            sa_exists().where(
+                (AbstractAuthor.abstract_id == Abstract.id) & or_(
+                    (AbstractAuthor.firstname + " " + AbstractAuthor.lastname).ilike(term),
+                    AbstractAuthor.email.ilike(term),
+                )
+            )
+        ))
 
     total = q.count()
 
@@ -244,9 +254,11 @@ def export_abstracts(
     event_id: int = None,
     status_filter: str = Query(None, alias="status"),
     search: str = Query(None),
+    track_id: int = Query(None),
+    presentation_type: str = Query(None),
 ):
     auth_dependency.secure_access("EXPORT_ABSTRACTS", current_user["user_id"])
-    from sqlalchemy import or_
+    from sqlalchemy import or_, exists as sa_exists
     q = db.query(Abstract).options(
         joinedload(Abstract.authors),
         joinedload(Abstract.submitter),
@@ -258,11 +270,21 @@ def export_abstracts(
         q = q.filter(Abstract.event_id == event_id)
     if status_filter:
         q = q.filter(Abstract.status == status_filter)
+    if track_id:
+        q = q.filter(Abstract.track_id == track_id)
+    if presentation_type:
+        q = q.filter(Abstract.presentation_type == presentation_type)
     if search:
         term = f"%{search}%"
         q = q.filter(or_(
             Abstract.title.ilike(term),
             Abstract.keywords.ilike(term),
+            sa_exists().where(
+                (AbstractAuthor.abstract_id == Abstract.id) & or_(
+                    (AbstractAuthor.firstname + " " + AbstractAuthor.lastname).ilike(term),
+                    AbstractAuthor.email.ilike(term),
+                )
+            ),
         ))
     abstracts = q.order_by(Abstract.created_at.desc()).all()
 

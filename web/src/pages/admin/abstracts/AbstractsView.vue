@@ -89,7 +89,7 @@
 
     <!-- Filters -->
     <div class="bg-white rounded-2xl shadow p-4 flex flex-wrap gap-3">
-      <input v-model="search" type="text" placeholder="Search by title..."
+      <input v-model="search" type="text" placeholder="Search by title or author name / email…"
         class="input flex-1 min-w-[180px]" />
       <select v-model="filterEvent" class="input w-44">
         <option value="">All Events</option>
@@ -1319,12 +1319,19 @@ const exportExcel = async () => {
   exporting.value = true
   try {
     const params = new URLSearchParams()
-    if (filterEvent.value)   params.append('event_id', filterEvent.value)
-    if (filterStatus.value)  params.append('status',   filterStatus.value)
-    if (search.value.trim()) params.append('search',   search.value.trim())
+    if (filterEvent.value)        params.append('event_id',          filterEvent.value)
+    if (filterStatus.value)       params.append('status',            filterStatus.value)
+    if (filterTrack.value)        params.append('track_id',          filterTrack.value)
+    if (filterType.value)         params.append('presentation_type', filterType.value)
+    if (search.value.trim())      params.append('search',            search.value.trim())
     const res = await api.get(`/abstracts/export?${params.toString()}`, { responseType: 'blob' })
     const parts = ['abstracts']
     if (filterStatus.value) parts.push(filterStatus.value.replace('_', '-'))
+    if (filterTrack.value) {
+      const t = tracks.value.find(t => t.id === filterTrack.value)
+      if (t) parts.push(t.code.replace(/\s+/g, '-'))
+    }
+    if (filterType.value) parts.push(filterType.value)
     if (search.value.trim()) parts.push(search.value.trim().slice(0, 20).replace(/\s+/g, '-'))
     parts.push(new Date().toISOString().slice(0, 10))
     const url = URL.createObjectURL(new Blob([res.data], {
