@@ -52,7 +52,7 @@
               <span v-if="participants.length" class="ml-1 text-xs bg-gray-200 text-gray-700 rounded-full px-2">{{ participants.length }}</span>
             </button>
           </Tab>
-          <Tab v-slot="{ selected }" as="template">
+          <Tab v-if="isFullAdmin" v-slot="{ selected }" as="template">
             <button :class="['py-2 px-4', selected ? 'border-b-2 border-amber-500 text-amber-600 font-semibold' : 'text-gray-600']">
               Pending Payment
               <span v-if="pendingRegistrations.length" class="ml-1 text-xs bg-amber-100 text-amber-700 rounded-full px-2">{{ pendingRegistrations.length }}</span>
@@ -91,7 +91,7 @@
               </button>
             </div>
 
-            <div class="flex justify-end mb-3 gap-2 flex-wrap">
+            <div v-if="isFullAdmin" class="flex justify-end mb-3 gap-2 flex-wrap">
               <!-- Report button -->
               <button
                 @click="goToReport"
@@ -150,13 +150,13 @@
             </div>
 
             <!-- Reminder feedback -->
-            <div v-if="reminderMessage" class="mb-3 px-4 py-3 rounded-xl text-sm font-medium"
+            <div v-if="isFullAdmin && reminderMessage" class="mb-3 px-4 py-3 rounded-xl text-sm font-medium"
               :class="reminderError ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'">
               {{ reminderMessage }}
             </div>
 
             <!-- Stats bar -->
-            <div class="mb-2 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+            <div v-if="isFullAdmin" class="mb-2 flex flex-wrap items-center gap-3 text-xs text-gray-500">
               <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-700 rounded-full border border-green-200">
                 <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                 {{ participants.filter(p => p.paid).length }} Paid
@@ -172,7 +172,7 @@
             </div>
 
             <!-- Selection summary bar -->
-            <div v-if="unpaidParticipants.length > 0"
+            <div v-if="isFullAdmin && unpaidParticipants.length > 0"
               class="mb-2 flex items-center gap-3 px-3 py-2 bg-orange-50 border border-orange-200 rounded-xl text-sm text-orange-800">
               <input type="checkbox" class="accent-orange-500 w-4 h-4 cursor-pointer"
                 :checked="selectedUnpaid.length === unpaidParticipants.length && unpaidParticipants.length > 0"
@@ -188,7 +188,7 @@
                 </span>
               </span>
             </div>
-            <div v-else-if="participants.filter(p => !p.paid).length > 0"
+            <div v-else-if="isFullAdmin && participants.filter(p => !p.paid).length > 0"
               class="mb-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700">
               ✅ All unpaid participants have already received a payment reminder.
             </div>
@@ -197,7 +197,7 @@
               <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                   <tr>
-                    <th class="px-3 py-2 w-8">
+                    <th v-if="isFullAdmin" class="px-3 py-2 w-8">
                       <input type="checkbox" class="accent-orange-500 w-4 h-4 cursor-pointer"
                         :checked="selectedUnpaid.length === unpaidParticipants.length && unpaidParticipants.length > 0"
                         @change="toggleSelectAllUnpaid" title="Select all unpaid" />
@@ -207,20 +207,20 @@
                     <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Country</th>
                     <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Email</th>
                     <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Payment</th>
-                    <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Reminder</th>
+                    <th v-if="isFullAdmin" class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Reminder</th>
                     <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Registered</th>
                     <th class="px-4 py-2 w-10"></th>
                   </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                   <tr v-if="filteredParticipants.length === 0">
-                    <td colspan="9" class="text-center py-6 text-gray-400 italic text-sm">
+                    <td :colspan="isFullAdmin ? 9 : 7" class="text-center py-6 text-gray-400 italic text-sm">
                       {{ participantSearch ? 'No participants match your search.' : 'No participants yet.' }}
                     </td>
                   </tr>
                   <tr v-for="(p, idx) in paginatedParticipants" :key="p.id"
                     :class="selectedUnpaid.includes(p.id) ? 'bg-orange-50' : p.reminder_sent_at && !p.paid ? 'bg-blue-50/40' : ''">
-                    <td class="px-3 py-2">
+                    <td v-if="isFullAdmin" class="px-3 py-2">
                       <input v-if="!p.paid && !p.reminder_sent_at"
                         type="checkbox" class="accent-orange-500 w-4 h-4 cursor-pointer"
                         :checked="selectedUnpaid.includes(p.id)"
@@ -243,7 +243,7 @@
                         <span v-else class="inline-block px-2 py-0.5 text-xs bg-gray-100 text-gray-500 rounded-full hover:bg-gray-200 transition cursor-pointer">Not Paid</span>
                       </button>
                     </td>
-                    <td class="px-4 py-2">
+                    <td v-if="isFullAdmin" class="px-4 py-2">
                       <span v-if="p.reminder_sent_at"
                         class="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-blue-50 text-blue-700 rounded-full font-medium"
                         :title="`Reminder sent: ${formatDateTime(p.reminder_sent_at)}`">
@@ -325,7 +325,7 @@
           </TabPanel>
 
           <!-- Pending Payment -->
-          <TabPanel>
+          <TabPanel v-if="isFullAdmin">
             <div class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
               These participants started registration but have not yet uploaded proof of payment.
               Send them a reminder to complete their payment.
