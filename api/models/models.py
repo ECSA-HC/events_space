@@ -79,7 +79,7 @@ class ParticipationRole(PyEnum):
 class PaymentMethod(PyEnum):
     CASH = "Cash"
     MPESA = "Mpesa"
-    BANK_TRANSFER = "Bank Transfer"
+    BANK_TRANSFER = "Bank_Transfer"
     CARD = "Card"
 
 
@@ -539,7 +539,7 @@ class Payment(Base):
     )
 
     payment_date = Column(TIMESTAMP(timezone=True), nullable=False)
-    payment_method = Column(Enum(PaymentMethod), nullable=False)
+    payment_method = Column(Enum(PaymentMethod, values_callable=lambda x: [e.value for e in x]), nullable=False)
     payment_reference = Column(String(100), nullable=False)  # transaction ID/reference
     payment_amount = Column(Numeric(10, 2), nullable=False)
     payment_status = Column(Enum(PaymentStatus), nullable=False)
