@@ -161,25 +161,17 @@ async def get_incomplete_registrations(
     days: int = 90,
     db: Session = Depends(get_db),
 ):
-    """Users who have no complete registration: either no registration record at all,
-    or a registration record with no proof of payment uploaded and not marked paid."""
+    """Users who created accounts but have no event registrations (abandoned registration flow)."""
     from sqlalchemy import text as _t
     rows = db.execute(_t("""
         SELECT u.id, u.firstname, u.lastname, u.email, u.phone, u.created_at,
-               up.organisation, up.profession, c.country,
-               EXISTS(
-                   SELECT 1 FROM registration r2
-                   WHERE r2.user_id = u.id AND r2.deleted_at IS NULL
-               ) AS has_registration
+               up.organisation, up.profession, c.country
         FROM user u
         LEFT JOIN user_profile up ON up.user_id = u.id AND up.deleted_at IS NULL
         LEFT JOIN country c ON c.id = up.country_id
         WHERE u.deleted_at IS NULL
           AND NOT EXISTS (
-              SELECT 1 FROM registration r
-              WHERE r.user_id = u.id
-                AND r.deleted_at IS NULL
-                AND (r.paid = 1 OR r.payment_proof IS NOT NULL)
+              SELECT 1 FROM registration r WHERE r.user_id = u.id AND r.deleted_at IS NULL
           )
           AND NOT EXISTS (
               SELECT 1 FROM user_role ur
@@ -203,7 +195,6 @@ async def get_incomplete_registrations(
                 "organisation": r.organisation,
                 "profession": r.profession,
                 "created_at": r.created_at.isoformat() if r.created_at else None,
-                "has_registration": bool(r.has_registration),
             }
             for r in rows
         ],
