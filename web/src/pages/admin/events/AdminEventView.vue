@@ -277,11 +277,13 @@
                           class="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 text-gray-700">
                           <DocumentTextIcon class="w-4 h-4 text-amber-500" /> View Proof
                         </button>
-                        <div class="border-t border-gray-100 my-1"></div>
-                        <button @click.stop="deregisterParticipant(p); openMenuId = null"
-                          class="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-red-50 text-red-600">
-                          <TrashIcon class="w-4 h-4" /> Deregister
-                        </button>
+                        <template v-if="isFullAdmin">
+                          <div class="border-t border-gray-100 my-1"></div>
+                          <button @click.stop="deregisterParticipant(p); openMenuId = null"
+                            class="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-red-50 text-red-600">
+                            <TrashIcon class="w-4 h-4" /> Deregister
+                          </button>
+                        </template>
                       </div>
                     </td>
                   </tr>
@@ -468,11 +470,13 @@
                           </svg>
                           Enter as User
                         </router-link>
-                        <div class="border-t border-gray-100 my-1"></div>
-                        <button @click.stop="deregisterParticipant(p); pendingMenuId = null"
-                          class="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-red-50 text-red-600">
-                          <TrashIcon class="w-4 h-4" /> Deregister
-                        </button>
+                        <template v-if="isFullAdmin">
+                          <div class="border-t border-gray-100 my-1"></div>
+                          <button @click.stop="deregisterParticipant(p); pendingMenuId = null"
+                            class="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-red-50 text-red-600">
+                            <TrashIcon class="w-4 h-4" /> Deregister
+                          </button>
+                        </template>
                       </div>
                     </td>
                   </tr>
@@ -859,6 +863,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { TabGroup, TabList, Tab, TabPanels, TabPanel } from '@headlessui/vue'
 import { EyeIcon, TrashIcon, DocumentTextIcon } from '@heroicons/vue/24/outline'
 import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import AdminBar from '@/components/common/AdminBar.vue'
 import DataLoadingSpinner from '@/components/common/DataLoadingSpinner.vue'
 import api from '@/plugins/axios'
@@ -870,7 +875,9 @@ import AddLinkModal from '@/components/specific/AddLinkModal.vue'
 const baseUrl = import.meta.env.VITE_API_BASE_URL
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 const eventId = Number(route.params.id)
+const isFullAdmin = computed(() => auth.hasPermission('ADMIN_DASHBOARD'))
 
 const event = ref(null)
 const participants = ref([])

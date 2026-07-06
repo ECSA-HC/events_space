@@ -64,10 +64,12 @@ class Auth:
         return bcrypt.hash(password)
 
     def secure_access(self, permission_code, user_id):
+        codes = [permission_code] if isinstance(permission_code, str) else permission_code
         permission = self.db.query(UserRole, User, RolePermission, Permission).filter(
             User.id == UserRole.user_id, User.id == user_id).filter(
             UserRole.role_id == RolePermission.role_id).filter(
-            Permission.id == RolePermission.permission_id, Permission.permission_code == permission_code).first()
+            Permission.id == RolePermission.permission_id,
+            Permission.permission_code.in_(codes)).first()
 
         if permission is None:
             raise HTTPException(

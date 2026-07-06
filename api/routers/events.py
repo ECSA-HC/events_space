@@ -1052,7 +1052,7 @@ async def verify_payment(
     auth_dependency: Auth = Depends(get_auth_dependency),
 ):
     """Admin verifies a participant's payment, setting paid=True."""
-    auth_dependency.secure_access("ADMIN_DASHBOARD", current_user["user_id"])
+    auth_dependency.secure_access(["ADMIN_DASHBOARD", "VERIFY_PAYMENT"], current_user["user_id"])
 
     registration = db.query(Registration).filter(Registration.id == registration_id).first()
     if not registration:
@@ -1108,7 +1108,7 @@ async def unverify_payment(
     auth_dependency: Auth = Depends(get_auth_dependency),
 ):
     """Admin marks a participant's payment as unpaid."""
-    auth_dependency.secure_access("ADMIN_DASHBOARD", current_user["user_id"])
+    auth_dependency.secure_access(["ADMIN_DASHBOARD", "VERIFY_PAYMENT"], current_user["user_id"])
 
     registration = db.query(Registration).filter(Registration.id == registration_id).first()
     if not registration:
