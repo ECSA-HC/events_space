@@ -52,7 +52,7 @@
               <span v-if="participants.length" class="ml-1 text-xs bg-gray-200 text-gray-700 rounded-full px-2">{{ participants.length }}</span>
             </button>
           </Tab>
-          <Tab v-if="isFullAdmin" v-slot="{ selected }" as="template">
+          <Tab v-if="canVerifyPayment" v-slot="{ selected }" as="template">
             <button :class="['py-2 px-4', selected ? 'border-b-2 border-amber-500 text-amber-600 font-semibold' : 'text-gray-600']">
               Pending Payment
               <span v-if="pendingRegistrations.length" class="ml-1 text-xs bg-amber-100 text-amber-700 rounded-full px-2">{{ pendingRegistrations.length }}</span>
@@ -91,9 +91,9 @@
               </button>
             </div>
 
-            <div v-if="isFullAdmin" class="flex justify-end mb-3 gap-2 flex-wrap">
-              <!-- Report button -->
-              <button
+            <div class="flex justify-end mb-3 gap-2 flex-wrap">
+              <!-- Report button - visible to Finance Officer too -->
+              <button v-if="canVerifyPayment"
                 @click="goToReport"
                 class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition hover:opacity-90"
                 style="background-color:#1B3F6E;"
@@ -104,8 +104,8 @@
                 View Report
               </button>
 
-              <!-- Add Participant -->
-              <button @click="openAddParticipantModal"
+              <!-- Add Participant (admin only) -->
+              <button v-if="isFullAdmin" @click="openAddParticipantModal"
                 class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition hover:opacity-90"
                 style="background-color:#0095B6;">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -115,7 +115,7 @@
                 Add Participant
               </button>
 
-              <select @change="downloadParticipants($event.target.value)"
+              <select v-if="isFullAdmin" @change="downloadParticipants($event.target.value)"
                 class="bg-bondi-blue text-white px-4 pr-4 py-2 rounded-full hover:bg-bondi-blue-700">
                 <option disabled selected>Download List</option>
                 <option value="all">All</option>
@@ -123,7 +123,7 @@
                 <option value="false">Not Paid</option>
               </select>
 
-              <select @change="downloadBadgesAsPDF($event.target.value)"
+              <select v-if="isFullAdmin" @change="downloadBadgesAsPDF($event.target.value)"
                 class="bg-bondi-blue text-white px-4 pr-4 py-2 rounded-full hover:bg-bondi-blue-700">
                 <option disabled selected>Download Badge List</option>
                 <option value="all">All</option>
@@ -131,7 +131,7 @@
                 <option value="false">Not Paid</option>
               </select>
 
-              <button @click="sendPaymentReminders"
+              <button v-if="isFullAdmin" @click="sendPaymentReminders"
                 :disabled="sendingReminders || unpaidParticipants.length === 0"
                 class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
                 style="background-color:#F7941D;">
@@ -325,7 +325,7 @@
           </TabPanel>
 
           <!-- Pending Payment -->
-          <TabPanel v-if="isFullAdmin">
+          <TabPanel v-if="canVerifyPayment">
             <div class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
               These participants started registration but have not yet uploaded proof of payment.
               Send them a reminder to complete their payment.
@@ -878,6 +878,7 @@ const router = useRouter()
 const auth = useAuthStore()
 const eventId = Number(route.params.id)
 const isFullAdmin = computed(() => auth.hasPermission('ADMIN_DASHBOARD'))
+const canVerifyPayment = computed(() => auth.hasPermission('VERIFY_PAYMENT') || isFullAdmin.value)
 
 const event = ref(null)
 const participants = ref([])
