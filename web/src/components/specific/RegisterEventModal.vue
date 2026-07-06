@@ -26,10 +26,9 @@
         <button
           @click="register"
           class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          :disabled="!participationRole || loading"
+          :disabled="!participationRole"
         >
-          <span v-if="loading">Registering...</span>
-          <span v-else>Register</span>
+          Continue to Payment
         </button>
       </div>
     </div>
@@ -37,8 +36,8 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
-import api from '@/plugins/axios'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 const props = defineProps({
   visible: Boolean,
@@ -47,34 +46,24 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'registered'])
-
+const router = useRouter()
 const participationRole = ref('')
-const loading = ref(false)
 
 function close() {
   participationRole.value = ''
   emit('close')
 }
 
-async function register() {
-  if (!props.event || !props.userId) return
+function register() {
+  if (!props.event || !props.userId || !participationRole.value) return
 
-  loading.value = true
-  try {
-    const res = await api.post(`/events/registration/${props.userId}`, {
-      event_id: props.event.id,
-      participation_role: participationRole.value
-    })
-
-    emit('registered', {
-      registration_id: res.data.id,
-      event_id: props.event.id
-    })
-    close()
-  } catch (err) {
-    console.error('Registration failed:', err)
-  } finally {
-    loading.value = false
-  }
+  // Store pending data in sessionStorage — registration DB record is only created
+  // once the user uploads proof of payment on the payment page.
+  sessionStorage.setItem(`pending_reg_${props.event.id}`, JSON.stringify({
+    user_id: props.userId,
+    participation_role: participationRole.value,
+  }))
+  close()
+  router.push(`/payment/${props.event.id}`)
 }
 </script>
