@@ -908,12 +908,12 @@ const sendingPendingReminders = ref(false)
 const pendingReminderMessage = ref('')
 const pendingReminderError = ref(false)
 
-// Sorted newest-first, filtered by search
+// Sorted by most recent proof-of-payment upload (updated_at), newest first
 const filteredParticipants = computed(() => {
   const q = participantSearch.value.toLowerCase().trim()
   const list = [...participants.value].sort((a, b) => {
-    const da = a.registered_at ? new Date(a.registered_at) : 0
-    const db = b.registered_at ? new Date(b.registered_at) : 0
+    const da = a.updated_at ? new Date(a.updated_at) : (a.registered_at ? new Date(a.registered_at) : 0)
+    const db = b.updated_at ? new Date(b.updated_at) : (b.registered_at ? new Date(b.registered_at) : 0)
     return db - da
   })
   if (!q) return list

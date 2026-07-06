@@ -513,6 +513,7 @@ async def get_event(
                     "payment_amount": float(payment_by_reg[r.id].payment_amount) if r.id in payment_by_reg and payment_by_reg[r.id].payment_amount else None,
                     "payment_date": str(payment_by_reg[r.id].payment_date) if r.id in payment_by_reg and payment_by_reg[r.id].payment_date else None,
                     "registered_at": r.registered_at,
+                    "updated_at": r.updated_at,
                     "reminder_sent_at": getattr(r, "reminder_sent_at", None),
                 }
                 for r in registrations
