@@ -108,7 +108,14 @@ const login = async () => {
     })
 
     const isAdmin = data.permissions.some(p => p.permission_code === 'ADMIN_DASHBOARD')
-    router.push({ name: isAdmin ? 'AdminDashboard' : 'MyDashboard' })
+    const isFinanceOfficer = !isAdmin && data.permissions.some(p => p.permission_code === 'VERIFY_PAYMENT')
+    if (isAdmin) {
+      router.push({ name: 'AdminDashboard' })
+    } else if (isFinanceOfficer) {
+      router.push({ name: 'AdminEvents' })
+    } else {
+      router.push({ name: 'MyDashboard' })
+    }
   } catch (err) {
     if (err.response?.status === 401) {
       error.value = 'Invalid email or password.'
