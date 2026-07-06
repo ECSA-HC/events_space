@@ -352,9 +352,10 @@ async def get_event(
 
     if event := get_object(event_id, db, Event):
         _all_regs = [r for r in (event.registrations or []) if r.deleted_at is None]
-        # Confirmed = paid OR has uploaded proof; pending = neither
+        # Confirmed participants = paid OR proof uploaded (admin reviews via ⏳ badge in participants tab)
+        # No proof uploaded → incomplete registration (handled by Incomplete Registrations page)
         registrations = [r for r in _all_regs if r.paid or r.payment_proof]
-        pending_payment_regs = [r for r in _all_regs if not r.paid and not r.payment_proof]
+        pending_payment_regs = []
         documents = event.documents or []
         links = event.links or []
 

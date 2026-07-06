@@ -6,7 +6,7 @@
       <div>
         <h1 class="text-2xl font-semibold text-gray-800">Incomplete Registrations</h1>
         <p class="text-sm text-gray-400 mt-0.5">
-          Users who created accounts but never uploaded proof of payment
+          Users who registered but never uploaded proof of payment
         </p>
       </div>
       <div class="flex items-center gap-2">
@@ -71,8 +71,7 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
       </svg>
       <span>
-        These users created portal accounts but did not upload proof of payment.
-        Their accounts and credentials exist — they just need to log in and complete registration.
+        These users have not completed payment — either they created an account but never started registration, or they registered but have not yet uploaded proof of payment.
         Admins and users with roles are excluded from this list.
       </span>
     </div>
