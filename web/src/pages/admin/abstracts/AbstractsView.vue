@@ -7,7 +7,7 @@
         <h1 class="text-2xl font-semibold text-black">Abstract Submissions</h1>
         <p v-if="!loading" class="text-sm text-gray-400 mt-0.5">
           {{ total }} {{ total === 1 ? 'abstract' : 'abstracts' }}
-          <span v-if="filterEvent || filterStatus || filterTrack || filterType || search"> (filtered)</span>
+          <span v-if="filterEvent || filterStatus || filterTracks.length || filterType || search"> (filtered)</span>
         </p>
       </div>
       <div class="flex items-center gap-2">
@@ -103,10 +103,38 @@
         <option value="rejected">Rejected</option>
         <option value="revision_required">Revision Required</option>
       </select>
-      <select v-model.number="filterTrack" class="input w-44">
-        <option value="">All Tracks</option>
-        <option v-for="t in tracks" :key="t.id" :value="t.id">{{ t.code }}</option>
-      </select>
+      <!-- Multi-track picker -->
+      <div class="relative" ref="trackPickerRef">
+        <button type="button" @click="trackPickerOpen = !trackPickerOpen"
+          class="input w-52 flex items-center justify-between gap-2 text-left"
+          :class="filterTracks.length ? 'border-[#0095B6] bg-[#e6f7fb] text-[#006f87]' : 'text-gray-500'">
+          <span class="truncate text-sm">
+            {{ filterTracks.length === 0 ? 'All Tracks'
+               : filterTracks.length === 1 ? tracks.find(t => t.id === filterTracks[0])?.code || '1 track'
+               : `${filterTracks.length} tracks` }}
+          </span>
+          <svg class="w-4 h-4 flex-shrink-0 transition-transform" :class="trackPickerOpen ? 'rotate-180' : ''"
+            fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div v-if="trackPickerOpen"
+          class="absolute top-full left-0 mt-1 z-20 bg-white border border-gray-200 rounded-xl shadow-lg w-64 max-h-72 overflow-y-auto">
+          <div class="flex items-center justify-between px-3 py-2 border-b border-gray-100">
+            <span class="text-xs font-semibold text-gray-500 uppercase">Tracks</span>
+            <button v-if="filterTracks.length" @click="filterTracks = []"
+              class="text-xs text-red-400 hover:text-red-600 font-medium">Clear</button>
+          </div>
+          <label v-for="t in tracks" :key="t.id"
+            class="flex items-center gap-2.5 px-3 py-2 hover:bg-[#e6f7fb] cursor-pointer text-sm"
+            :class="filterTracks.includes(t.id) ? 'bg-[#e6f7fb]' : ''">
+            <input type="checkbox" :value="t.id" v-model="filterTracks"
+              class="w-4 h-4 rounded" style="accent-color:#0095B6;" />
+            <span class="font-medium" style="color:#006f87;">{{ t.code }}</span>
+            <span class="text-gray-400 text-xs truncate flex-1">{{ t.title }}</span>
+          </label>
+        </div>
+      </div>
       <select v-model="filterType" class="input w-40">
         <option value="">All Types</option>
         <option value="oral">Oral</option>
@@ -114,22 +142,25 @@
       </select>
     </div>
 
-    <!-- Active track filter badge -->
-    <div v-if="filterTrack && activeTrackName"
-      class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm border"
-      style="background-color:#e6f7fb; border-color:#b3e4f0;">
-      <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:#0095B6;">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-          d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a2 2 0 012-2z"/>
-      </svg>
-      <span class="font-medium truncate" style="color:#006f87;">{{ activeTrackName }}</span>
-      <button @click="filterTrack = ''"
-        class="ml-auto flex-shrink-0 text-gray-400 hover:text-red-500 transition"
-        title="Clear track filter">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+    <!-- Active track filter badges -->
+    <div v-if="filterTracks.length" class="flex items-center gap-2 flex-wrap">
+      <span v-for="tid in filterTracks" :key="tid"
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm border font-medium"
+        style="background-color:#e6f7fb; border-color:#b3e4f0; color:#006f87;">
+        <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a2 2 0 012-2z"/>
         </svg>
-      </button>
+        {{ tracks.find(t => t.id === tid)?.code || tid }}
+        <button @click="filterTracks = filterTracks.filter(id => id !== tid)"
+          class="text-gray-400 hover:text-red-500 transition leading-none">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </span>
+      <button v-if="filterTracks.length > 1" @click="filterTracks = []"
+        class="text-xs text-red-400 hover:text-red-600 font-medium underline">Clear all</button>
     </div>
 
     <!-- ── Floating bulk-action bar (appears when rows selected) ──────────── -->
@@ -1059,7 +1090,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AbstractStatsPanel from './AbstractStatsView.vue'
 import api from '@/plugins/axios'
@@ -1073,13 +1104,15 @@ const tracks       = ref([])
 const loading      = ref(true)
 const exporting    = ref(false)
 const exportingPdf = ref(false)
-const search       = ref('')
-const filterEvent  = ref('')
-const filterStatus = ref('')
-const filterTrack  = ref('')
-const filterType   = ref('')
-const page         = ref(1)
-const pageSize     = 50
+const search        = ref('')
+const filterEvent   = ref('')
+const filterStatus  = ref('')
+const filterTracks  = ref([])
+const filterType    = ref('')
+const page          = ref(1)
+const pageSize      = 50
+const trackPickerOpen = ref(false)
+const trackPickerRef  = ref(null)
 
 // Cross-page selection: Map<id, abstractObj>
 const selectedItems = ref(new Map())
@@ -1279,11 +1312,11 @@ async function fetchAbstracts() {
     const params = new URLSearchParams()
     params.set('skip',  String((page.value - 1) * pageSize))
     params.set('limit', String(pageSize))
-    if (filterEvent.value)  params.set('event_id',          filterEvent.value)
-    if (filterStatus.value) params.set('status',            filterStatus.value)
-    if (filterTrack.value)  params.set('track_id',          filterTrack.value)
-    if (filterType.value)   params.set('presentation_type', filterType.value)
-    if (search.value.trim()) params.set('search',           search.value.trim())
+    if (filterEvent.value)   params.set('event_id',          filterEvent.value)
+    if (filterStatus.value)  params.set('status',            filterStatus.value)
+    filterTracks.value.forEach(id => params.append('track_id', id))
+    if (filterType.value)    params.set('presentation_type', filterType.value)
+    if (search.value.trim()) params.set('search',            search.value.trim())
     const res = await api.get(`/abstracts/?${params}`)
     abstracts.value = res.data.data  || []
     total.value     = res.data.total ?? 0
@@ -1293,7 +1326,7 @@ async function fetchAbstracts() {
 }
 
 // Reset to page 1 and refetch when any filter changes
-watch([search, filterEvent, filterStatus, filterTrack, filterType], () => {
+watch([search, filterEvent, filterStatus, filterTracks, filterType], () => {
   page.value = 1
   fetchAbstracts()
 })
@@ -1301,7 +1334,7 @@ watch([search, filterEvent, filterStatus, filterTrack, filterType], () => {
 watch(page, fetchAbstracts)
 
 onMounted(async () => {
-  if (route.query.track_id) filterTrack.value = Number(route.query.track_id)
+  if (route.query.track_id) filterTracks.value = [Number(route.query.track_id)]
 
   try {
     const [evRes, trackRes] = await Promise.all([
@@ -1319,17 +1352,17 @@ const exportExcel = async () => {
   exporting.value = true
   try {
     const params = new URLSearchParams()
-    if (filterEvent.value)        params.append('event_id',          filterEvent.value)
-    if (filterStatus.value)       params.append('status',            filterStatus.value)
-    if (filterTrack.value)        params.append('track_id',          filterTrack.value)
-    if (filterType.value)         params.append('presentation_type', filterType.value)
-    if (search.value.trim())      params.append('search',            search.value.trim())
+    if (filterEvent.value)   params.append('event_id',          filterEvent.value)
+    if (filterStatus.value)  params.append('status',            filterStatus.value)
+    filterTracks.value.forEach(id => params.append('track_id', id))
+    if (filterType.value)    params.append('presentation_type', filterType.value)
+    if (search.value.trim()) params.append('search',            search.value.trim())
     const res = await api.get(`/abstracts/export?${params.toString()}`, { responseType: 'blob' })
     const parts = ['abstracts']
     if (filterStatus.value) parts.push(filterStatus.value.replace('_', '-'))
-    if (filterTrack.value) {
-      const t = tracks.value.find(t => t.id === filterTrack.value)
-      if (t) parts.push(t.code.replace(/\s+/g, '-'))
+    if (filterTracks.value.length) {
+      const codes = filterTracks.value.map(id => tracks.value.find(t => t.id === id)?.code || id)
+      parts.push(codes.join('+').replace(/\s+/g, '-'))
     }
     if (filterType.value) parts.push(filterType.value)
     if (search.value.trim()) parts.push(search.value.trim().slice(0, 20).replace(/\s+/g, '-'))
@@ -1400,12 +1433,14 @@ const pageNumbers = computed(() => {
   return result
 })
 
-// Name of the currently active track filter (for display)
-const activeTrackName = computed(() => {
-  if (!filterTrack.value) return ''
-  const t = tracks.value.find(t => t.id === filterTrack.value)
-  return t ? `${t.code}: ${t.title}` : ''
-})
+// Close track picker on outside click
+function handleOutsideClick(e) {
+  if (trackPickerRef.value && !trackPickerRef.value.contains(e.target)) {
+    trackPickerOpen.value = false
+  }
+}
+onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
+onMounted(() => document.addEventListener('click', handleOutsideClick))
 
 const statusClass = (s) => ({
   submitted: 'bg-blue-100 text-blue-700',

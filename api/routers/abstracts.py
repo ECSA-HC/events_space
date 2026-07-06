@@ -191,7 +191,7 @@ def list_abstracts(
     event_id: int = Query(None),
     status_filter: str = Query(None, alias="status"),
     search: str = Query(None),
-    track_id: int = Query(None),
+    track_id: list[int] = Query(default=[]),
     presentation_type: str = Query(None),
     skip: int = 0,
     limit: int = 50,
@@ -205,7 +205,7 @@ def list_abstracts(
     if status_filter:
         q = q.filter(Abstract.status == status_filter)
     if track_id:
-        q = q.filter(Abstract.track_id == track_id)
+        q = q.filter(Abstract.track_id.in_(track_id))
     if presentation_type:
         q = q.filter(Abstract.presentation_type == presentation_type)
     if search:
@@ -254,7 +254,7 @@ def export_abstracts(
     event_id: int = None,
     status_filter: str = Query(None, alias="status"),
     search: str = Query(None),
-    track_id: int = Query(None),
+    track_id: list[int] = Query(default=[]),
     presentation_type: str = Query(None),
 ):
     auth_dependency.secure_access("EXPORT_ABSTRACTS", current_user["user_id"])
@@ -271,7 +271,7 @@ def export_abstracts(
     if status_filter:
         q = q.filter(Abstract.status == status_filter)
     if track_id:
-        q = q.filter(Abstract.track_id == track_id)
+        q = q.filter(Abstract.track_id.in_(track_id))
     if presentation_type:
         q = q.filter(Abstract.presentation_type == presentation_type)
     if search:
