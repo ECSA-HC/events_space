@@ -790,14 +790,11 @@ async def register_with_payment(
     from models.models import PaymentMethod, PaymentStatus, ParticipationRole
     from utils.mailer_util import proof_of_payment_received_email
 
-    # Prevent duplicate registration
     existing = db.query(Registration).filter(
         Registration.user_id == user_id,
         Registration.event_id == event_id,
         Registration.deleted_at == None,
     ).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="You are already registered for this event.")
 
     # Resolve enums
     raw_method = payment_method.strip()
@@ -805,11 +802,6 @@ async def register_with_payment(
     if not enum_name:
         raise HTTPException(status_code=422, detail=f"Unknown payment method: {raw_method}")
     method_enum = PaymentMethod[enum_name]
-
-    try:
-        role_enum = ParticipationRole[participation_role]
-    except KeyError:
-        raise HTTPException(status_code=422, detail=f"Unknown participation role: {participation_role}")
 
     # Save proof file first
     if not proof_file or not proof_file.filename:
@@ -819,6 +811,39 @@ async def register_with_payment(
     proof_path = os.path.join(PAYMENT_RECEIPT_DIR, unique_name)
     with open(proof_path, "wb+") as f:
         f.write(await proof_file.read())
+
+    if existing:
+        # Already registered — update proof and reset payment to pending re-verification
+        try:
+            existing.payment_proof = proof_path
+            existing.paid = False
+            existing_payment = db.query(Payment).filter(Payment.registration_id == existing.id).first()
+            if existing_payment:
+                existing_payment.payment_method = method_enum
+                existing_payment.payment_amount = payment_amount
+                existing_payment.payment_status = PaymentStatus.PENDING
+                existing_payment.payment_date = datetime.utcnow()
+            else:
+                db.add(Payment(
+                    registration_id=existing.id,
+                    payment_date=datetime.utcnow(),
+                    payment_method=method_enum,
+                    payment_reference=f"REF-{uuid.uuid4().hex[:10].upper()}",
+                    payment_amount=payment_amount,
+                    payment_status=PaymentStatus.PENDING,
+                ))
+            db.commit()
+            return {"message": "Payment proof updated successfully", "registration_id": existing.id}
+        except Exception as e:
+            db.rollback()
+            if os.path.exists(proof_path):
+                os.remove(proof_path)
+            raise HTTPException(status_code=500, detail="Failed to update proof. Please try again.") from e
+
+    try:
+        role_enum = ParticipationRole[participation_role]
+    except KeyError:
+        raise HTTPException(status_code=422, detail=f"Unknown participation role: {participation_role}")
 
     try:
         # Create registration
@@ -859,9 +884,8 @@ async def register_with_payment(
         return {"message": "Registration and payment proof submitted successfully", "registration_id": new_registration.id}
     except Exception as e:
         db.rollback()
-        import os as _os
-        if _os.path.exists(proof_path):
-            _os.remove(proof_path)
+        if os.path.exists(proof_path):
+            os.remove(proof_path)
         raise HTTPException(status_code=500, detail="Failed to complete registration. Please try again.") from e
 
 
