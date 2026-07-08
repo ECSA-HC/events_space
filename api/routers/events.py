@@ -640,12 +640,18 @@ async def get_registration_details(
     user = db.query(User).filter(User.id == registration.user_id).first()
     event = db.query(Event).filter(Event.id == registration.event_id).first()
 
+    role_value = (
+        registration.participation_role.name
+        if hasattr(registration.participation_role, "name")
+        else str(registration.participation_role).lower()
+    )
+
     return {
         "registration": {
             "id": registration.id,
             "user_id": registration.user_id,
             "event_id": registration.event_id,
-            "participation_role": registration.participation_role.name,
+            "participation_role": role_value,
             "paid": registration.paid,
             "created_at": registration.created_at,
             "updated_at": registration.updated_at,
