@@ -732,7 +732,6 @@ async def submit_payment(
         if proof_path:
             registration.payment_proof = proof_path
         db.commit()
-        db.refresh(existing)
         try:
             ev = db.query(Event).filter(Event.id == event_id).first()
             if registration.user and registration.user.email:
@@ -759,7 +758,6 @@ async def submit_payment(
     if proof_path:
         registration.payment_proof = proof_path
     db.commit()
-    db.refresh(new_payment)
     try:
         ev = db.query(Event).filter(Event.id == event_id).first()
         if registration.user and registration.user.email:
@@ -867,7 +865,6 @@ async def register_with_payment(
         )
         db.add(new_payment)
         db.commit()
-        db.refresh(new_registration)
         try:
             _user = db.query(User).filter(User.id == user_id).first()
             ev = db.query(Event).filter(Event.id == event_id).first()
