@@ -553,45 +553,29 @@ const formatDate = (dateStr) => {
   return new Date(dateStr).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
-const handleRegister = async (proceedToPayment) => {
-  try {
-    isSubmitting.value = true
-    payNow.value = proceedToPayment
-    registrationError.value = null
+const handleRegister = (proceedToPayment) => {
+  payNow.value = proceedToPayment
+  registrationError.value = null
 
-    const userPayload = {
-      firstname: firstName.value,
-      lastname: lastName.value,
-      email: email.value,
-      phone: phone.value,
-      event_name: event.value?.event || null,
-      abstract_id: route.query.abstract_id ? parseInt(route.query.abstract_id) : null,
-    }
-    const userProfilePayload = {
-      title: title.value, middle_name: middleName.value, country_id: country_id.value,
-      profession: profession.value, gender: gender.value, organisation: organisation.value, position: position.value,
-    }
-    const eventPayload = { event_id: eventId, participation_role: participation_role.value }
-
-    const registerRes = await api.post('/auth/register', userPayload)
-    if (!registerRes.data.user_id) throw new Error('User registration failed')
-    user_id.value = registerRes.data.user_id
-
-    await api.post(`/users/profile/${user_id.value}`, userProfilePayload)
-
-    // Store pending data in sessionStorage; registration DB record is only created
-    // once the user actually uploads proof of payment (register-with-payment endpoint).
-    sessionStorage.setItem(`pending_reg_${eventId}`, JSON.stringify({
-      user_id: user_id.value,
-      participation_role: participation_role.value,
-    }))
-    router.push(`/payment/${eventId}`)
-  } catch (err) {
-    registrationError.value = err.response?.data?.detail || 'An error occurred while completing your registration.'
-    currentStep.value = 0
-  } finally {
-    isSubmitting.value = false
-  }
+  // Store all user data — account is created only after proof of payment is uploaded
+  sessionStorage.setItem(`pending_reg_${eventId}`, JSON.stringify({
+    is_new_user: true,
+    firstname: firstName.value,
+    lastname: lastName.value,
+    email: email.value,
+    phone: phone.value,
+    event_name: event.value?.event || null,
+    abstract_id: route.query.abstract_id ? parseInt(route.query.abstract_id) : null,
+    title: title.value,
+    middle_name: middleName.value,
+    country_id: country_id.value,
+    profession: profession.value,
+    gender: gender.value,
+    organisation: organisation.value,
+    position: position.value,
+    participation_role: participation_role.value,
+  }))
+  router.push(`/payment/${eventId}`)
 }
 
 onMounted(async () => {

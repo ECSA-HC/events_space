@@ -130,6 +130,12 @@ async def register(
     }
 
 
+@router.get("/check-email")
+async def check_email(email: str, db: Session = Depends(get_db)):
+    exists = db.query(User).filter(User.email == email).first()
+    return {"exists": bool(exists)}
+
+
 @router.post("/login")
 async def login(
     request: Request,

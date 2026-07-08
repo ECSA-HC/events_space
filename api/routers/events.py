@@ -12,7 +12,7 @@ from fastapi import status, HTTPException, File, Form, UploadFile
 from typing import Annotated
 from core.database import get_db
 from sqlalchemy.orm import Session, joinedload
-from datetime import datetime
+from datetime import datetime, timedelta
 from dependencies.auth_dependency import Auth
 from dependencies.dependency import Dependency
 from dependencies.auth_dependency import get_current_user, get_optional_current_user
@@ -775,18 +775,90 @@ async def submit_payment(
 
 @router.post("/register-with-payment/")
 async def register_with_payment(
-    user_id: int = Form(...),
+    user_id: Optional[int] = Form(None),
     event_id: int = Form(...),
     participation_role: str = Form(...),
     payment_method: str = Form(...),
     payment_amount: float = Form(...),
     proof_file: UploadFile = File(...),
+    # New-user fields — only sent when registering without an existing account
+    new_firstname: Optional[str] = Form(None),
+    new_lastname: Optional[str] = Form(None),
+    new_email: Optional[str] = Form(None),
+    new_phone: Optional[str] = Form(None),
+    new_title: Optional[str] = Form(None),
+    new_middle_name: Optional[str] = Form(None),
+    new_country_id: Optional[int] = Form(None),
+    new_profession: Optional[str] = Form(None),
+    new_gender: Optional[str] = Form(None),
+    new_organisation: Optional[str] = Form(None),
+    new_position: Optional[str] = Form(None),
+    new_event_name: Optional[str] = Form(None),
     background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
 ):
-    """Create registration + payment record together, only after proof is uploaded."""
-    from models.models import PaymentMethod, PaymentStatus, ParticipationRole
-    from utils.mailer_util import proof_of_payment_received_email
+    """Create registration + payment record together, only after proof is uploaded.
+    When user_id is None, creates the user account atomically with the registration.
+    """
+    from models.models import (
+        PaymentMethod, PaymentStatus, ParticipationRole,
+        UserProfile, UserRole, AccountVerification, Role,
+    )
+    import utils.mailer_util as mailer_util
+
+    created_password = None
+
+    # ── Create new user account when no user_id provided ─────────────────────
+    if not user_id:
+        if not new_email:
+            raise HTTPException(status_code=422, detail="Email is required for new registrations.")
+        existing_account = db.query(User).filter(User.email == new_email).first()
+        if existing_account:
+            user_id = existing_account.id
+        else:
+            if not new_firstname or not new_lastname:
+                raise HTTPException(status_code=422, detail="Name is required for new registrations.")
+            auth_dep = Auth(db)
+            password = auth_dep.generate_random_password()
+            hashed = auth_dep.hash_password(password)
+            created_password = password
+
+            new_user = User(
+                firstname=new_firstname,
+                lastname=new_lastname,
+                phone=new_phone,
+                email=new_email,
+                hashed_password=hashed,
+                verified=False,
+                must_change_password=True,
+            )
+            db.add(new_user)
+            db.flush()
+            user_id = new_user.id
+
+            role = db.query(Role).filter(Role.role == "User").first()
+            if role:
+                db.add(UserRole(user_id=user_id, role_id=role.id))
+
+            if new_country_id:
+                db.add(UserProfile(
+                    user_id=user_id,
+                    title=new_title or "",
+                    middle_name=new_middle_name or "",
+                    country_id=new_country_id,
+                    profession=new_profession or "",
+                    gender=new_gender or "",
+                    organisation=new_organisation or "",
+                    position=new_position or "",
+                ))
+
+            db.add(AccountVerification(
+                user_id=user_id,
+                verification_token=str(uuid.uuid4()),
+                expires_at=datetime.utcnow() + timedelta(hours=1),
+            ))
+            db.flush()
+    # ─────────────────────────────────────────────────────────────────────────
 
     existing = db.query(Registration).filter(
         Registration.user_id == user_id,
@@ -801,7 +873,7 @@ async def register_with_payment(
         raise HTTPException(status_code=422, detail=f"Unknown payment method: {raw_method}")
     method_enum = PaymentMethod[enum_name]
 
-    # Save proof file first
+    # Save proof file
     if not proof_file or not proof_file.filename:
         raise HTTPException(status_code=422, detail="Proof of payment file is required.")
     ext = os.path.splitext(proof_file.filename)[1]
@@ -831,7 +903,31 @@ async def register_with_payment(
                     payment_status=PaymentStatus.PENDING,
                 ))
             db.commit()
+            # Send welcome email if new account was created (email exists but no prior registration)
+            if created_password:
+                try:
+                    mailer_util.new_account_email(
+                        new_email, new_firstname, created_password, new_event_name, background_tasks
+                    )
+                except Exception:
+                    pass
+            else:
+                try:
+                    ev = db.query(Event).filter(Event.id == event_id).first()
+                    _u = db.query(User).filter(User.id == user_id).first()
+                    if _u and _u.email:
+                        mailer_util.proof_of_payment_received_email(
+                            recipient_email=_u.email,
+                            firstname=_u.firstname or "Participant",
+                            event_name=ev.event if ev else "the event",
+                            background_tasks=background_tasks,
+                            db=db,
+                        )
+                except Exception:
+                    pass
             return {"message": "Payment proof updated successfully", "registration_id": existing.id}
+        except HTTPException:
+            raise
         except Exception as e:
             db.rollback()
             if os.path.exists(proof_path):
@@ -844,7 +940,6 @@ async def register_with_payment(
         raise HTTPException(status_code=422, detail=f"Unknown participation role: {participation_role}")
 
     try:
-        # Create registration
         new_registration = Registration(
             user_id=user_id,
             event_id=event_id,
@@ -854,30 +949,37 @@ async def register_with_payment(
         db.add(new_registration)
         db.flush()
 
-        # Create payment record
-        new_payment = Payment(
+        db.add(Payment(
             registration_id=new_registration.id,
             payment_date=datetime.utcnow(),
             payment_method=method_enum,
             payment_reference=f"REF-{uuid.uuid4().hex[:10].upper()}",
             payment_amount=payment_amount,
             payment_status=PaymentStatus.PENDING,
-        )
-        db.add(new_payment)
+        ))
         db.commit()
+
+        # Send the appropriate email after successful commit
         try:
-            _user = db.query(User).filter(User.id == user_id).first()
             ev = db.query(Event).filter(Event.id == event_id).first()
-            if _user and _user.email:
-                proof_of_payment_received_email(
-                    recipient_email=_user.email,
-                    firstname=_user.firstname or "Participant",
-                    event_name=ev.event if ev else "the event",
-                    background_tasks=background_tasks,
-                    db=db,
+            event_name = ev.event if ev else "the event"
+            if created_password:
+                mailer_util.new_account_email(
+                    new_email, new_firstname, created_password, new_event_name or event_name, background_tasks
                 )
+            else:
+                _user = db.query(User).filter(User.id == user_id).first()
+                if _user and _user.email:
+                    mailer_util.proof_of_payment_received_email(
+                        recipient_email=_user.email,
+                        firstname=_user.firstname or "Participant",
+                        event_name=event_name,
+                        background_tasks=background_tasks,
+                        db=db,
+                    )
         except Exception:
             pass
+
         return {"message": "Registration and payment proof submitted successfully", "registration_id": new_registration.id}
     except Exception as e:
         db.rollback()

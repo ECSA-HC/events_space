@@ -50,6 +50,7 @@
         <h2 class="text-2xl font-bold text-green-700">Proof of Payment Uploaded</h2>
         <p class="text-gray-600 leading-relaxed max-w-md mx-auto">
           Your proof of payment has been uploaded and you have been registered for the event.
+          <span v-if="newUserFlow"> Your login credentials have been sent to <strong>{{ pendingData?.email }}</strong>.</span>
           The secretariat will verify your payment and then update your payment status.
         </p>
         <router-link to="/login"
@@ -223,6 +224,9 @@ const pendingData = isNewRegistration
   ? JSON.parse(sessionStorage.getItem(`pending_reg_${eventId}`) || 'null')
   : null
 
+// True when the user came from the public registration form (no existing account)
+const newUserFlow = pendingData?.is_new_user === true
+
 const event = ref(null)
 const registration = ref(null)
 const loading = ref(true)
@@ -306,9 +310,30 @@ const handlePayment = async () => {
 
     if (isNewRegistration) {
       // Create registration + payment together
-      fd.append('user_id', pendingData.user_id)
       fd.append('event_id', eventId)
       fd.append('participation_role', pendingData.participation_role)
+      if (newUserFlow) {
+        // New user — pass all registration fields; backend creates the account
+        fd.append('new_firstname', pendingData.firstname)
+        fd.append('new_lastname', pendingData.lastname)
+        fd.append('new_email', pendingData.email)
+        if (pendingData.phone) fd.append('new_phone', pendingData.phone)
+        if (pendingData.title) fd.append('new_title', pendingData.title)
+        if (pendingData.middle_name) fd.append('new_middle_name', pendingData.middle_name)
+        if (pendingData.country_id) fd.append('new_country_id', pendingData.country_id)
+        if (pendingData.profession) fd.append('new_profession', pendingData.profession)
+        if (pendingData.gender) fd.append('new_gender', pendingData.gender)
+        if (pendingData.organisation) fd.append('new_organisation', pendingData.organisation)
+        if (pendingData.position) fd.append('new_position', pendingData.position)
+        if (pendingData.event_name) fd.append('new_event_name', pendingData.event_name)
+      } else if (pendingData.user_id) {
+        // Existing user (via admin modal or old sessionStorage format)
+        fd.append('user_id', pendingData.user_id)
+      } else {
+        paymentError.value = 'Session data is missing. Please go back and register again.'
+        isSubmitting.value = false
+        return
+      }
       await api.post('/events/register-with-payment/', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
