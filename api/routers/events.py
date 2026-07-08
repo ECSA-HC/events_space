@@ -793,7 +793,6 @@ async def register_with_payment(
     new_gender: Optional[str] = Form(None),
     new_organisation: Optional[str] = Form(None),
     new_position: Optional[str] = Form(None),
-    new_event_name: Optional[str] = Form(None),
     background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
 ):
@@ -806,9 +805,10 @@ async def register_with_payment(
     )
     import utils.mailer_util as mailer_util
 
-    created_password = None
-
     # ── Create new user account when no user_id provided ─────────────────────
+    # Credentials are generated here only to satisfy the required password column;
+    # they are never emailed at this point. verify_payment() issues and emails a
+    # fresh password once the secretariat verifies the payment.
     if not user_id:
         if not new_email:
             raise HTTPException(status_code=422, detail="Email is required for new registrations.")
@@ -819,9 +819,7 @@ async def register_with_payment(
             if not new_firstname or not new_lastname:
                 raise HTTPException(status_code=422, detail="Name is required for new registrations.")
             auth_dep = Auth(db)
-            password = auth_dep.generate_random_password()
-            hashed = auth_dep.hash_password(password)
-            created_password = password
+            hashed = auth_dep.hash_password(auth_dep.generate_random_password())
 
             new_user = User(
                 firstname=new_firstname,
@@ -903,28 +901,21 @@ async def register_with_payment(
                     payment_status=PaymentStatus.PENDING,
                 ))
             db.commit()
-            # Send welcome email if new account was created (email exists but no prior registration)
-            if created_password:
-                try:
-                    mailer_util.new_account_email(
-                        new_email, new_firstname, created_password, new_event_name, background_tasks
+            # Credentials are only ever emailed at payment verification time (verify_payment).
+            # At upload time we just confirm receipt of the proof.
+            try:
+                ev = db.query(Event).filter(Event.id == event_id).first()
+                _u = db.query(User).filter(User.id == user_id).first()
+                if _u and _u.email:
+                    mailer_util.proof_of_payment_received_email(
+                        recipient_email=_u.email,
+                        firstname=_u.firstname or "Participant",
+                        event_name=ev.event if ev else "the event",
+                        background_tasks=background_tasks,
+                        db=db,
                     )
-                except Exception:
-                    pass
-            else:
-                try:
-                    ev = db.query(Event).filter(Event.id == event_id).first()
-                    _u = db.query(User).filter(User.id == user_id).first()
-                    if _u and _u.email:
-                        mailer_util.proof_of_payment_received_email(
-                            recipient_email=_u.email,
-                            firstname=_u.firstname or "Participant",
-                            event_name=ev.event if ev else "the event",
-                            background_tasks=background_tasks,
-                            db=db,
-                        )
-                except Exception:
-                    pass
+            except Exception:
+                pass
             return {"message": "Payment proof updated successfully", "registration_id": existing.id}
         except HTTPException:
             raise
@@ -959,24 +950,21 @@ async def register_with_payment(
         ))
         db.commit()
 
-        # Send the appropriate email after successful commit
+        # Credentials are only ever emailed at payment verification time (verify_payment).
+        # At upload time — whether the account is brand new or pre-existing — we just
+        # confirm receipt of the proof.
         try:
             ev = db.query(Event).filter(Event.id == event_id).first()
             event_name = ev.event if ev else "the event"
-            if created_password:
-                mailer_util.new_account_email(
-                    new_email, new_firstname, created_password, new_event_name or event_name, background_tasks
+            _user = db.query(User).filter(User.id == user_id).first()
+            if _user and _user.email:
+                mailer_util.proof_of_payment_received_email(
+                    recipient_email=_user.email,
+                    firstname=_user.firstname or "Participant",
+                    event_name=event_name,
+                    background_tasks=background_tasks,
+                    db=db,
                 )
-            else:
-                _user = db.query(User).filter(User.id == user_id).first()
-                if _user and _user.email:
-                    mailer_util.proof_of_payment_received_email(
-                        recipient_email=_user.email,
-                        firstname=_user.firstname or "Participant",
-                        event_name=event_name,
-                        background_tasks=background_tasks,
-                        db=db,
-                    )
         except Exception:
             pass
 

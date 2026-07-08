@@ -325,7 +325,6 @@ const handlePayment = async () => {
         if (pendingData.gender) fd.append('new_gender', pendingData.gender)
         if (pendingData.organisation) fd.append('new_organisation', pendingData.organisation)
         if (pendingData.position) fd.append('new_position', pendingData.position)
-        if (pendingData.event_name) fd.append('new_event_name', pendingData.event_name)
       } else if (pendingData.user_id) {
         // Existing user (via admin modal or old sessionStorage format)
         fd.append('user_id', pendingData.user_id)
