@@ -130,7 +130,7 @@
                 class="bg-bondi-blue text-white px-4 pr-4 py-2 rounded-full hover:bg-bondi-blue-700">
                 <option disabled selected>{{ roleFilter === 'all' ? 'Download List' : `Download List (${roleCategoryLabel})` }}</option>
                 <option value="all">All</option>
-                <option value="true">Paid</option>
+                <option value="true">Paid &amp; POP</option>
                 <option value="false">Not Paid</option>
               </select>
 
@@ -138,7 +138,7 @@
                 class="bg-bondi-blue text-white px-4 pr-4 py-2 rounded-full hover:bg-bondi-blue-700">
                 <option disabled selected>{{ roleFilter === 'all' ? 'Download Badge List' : `Download Badge List (${roleCategoryLabel})` }}</option>
                 <option value="all">All</option>
-                <option value="true">Paid</option>
+                <option value="true">Paid &amp; POP</option>
                 <option value="false">Not Paid</option>
               </select>
 

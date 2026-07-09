@@ -1496,14 +1496,18 @@ async def download_event_participants(
                 "participation_role": PARTICIPATION_ROLE_MAP.get(role_key, role_key),
                 "role_key": role_key,
                 "paid": reg.paid,
+                "has_proof": bool(reg.payment_proof),
                 "registered_at": reg.registered_at,
             }
         )
 
-    # Filter by paid status
+    # Filter by paid status — "Paid" means paid OR proof of payment uploaded (POP),
+    # matching the confirmed-participants set shown on the Participants tab.
     if paid != "all":
-        is_paid = paid == "true"
-        participants = [p for p in participants if p["paid"] == is_paid]
+        if paid == "true":
+            participants = [p for p in participants if p["paid"] or p["has_proof"]]
+        else:
+            participants = [p for p in participants if not p["paid"] and not p["has_proof"]]
 
     # Filter by role category (matches the Participants tab filter pills)
     if role_category != "all":
@@ -1553,7 +1557,7 @@ async def download_event_participants(
                 p["position"],
                 p["country"] or "",
                 p["participation_role"],
-                "Yes" if p["paid"] else "No",
+                "Yes" if p["paid"] else ("Pending (Proof Uploaded)" if p["has_proof"] else "No"),
                 p["registered_at"].strftime("%Y-%m-%d %H:%M:%S"),
             ]
         )
@@ -1907,12 +1911,17 @@ async def download_participant_badges_pdf(
                 "event_dates": _fmt_event_dates(event),
                 "participation_role_raw": role_key,
                 "paid": reg.paid,
+                "has_proof": bool(reg.payment_proof),
             }
         )
 
+    # "Paid" means paid OR proof of payment uploaded (POP), matching the
+    # confirmed-participants set shown on the Participants tab.
     if paid != "all":
-        is_paid = paid == "true"
-        participants = [p for p in participants if p["paid"] == is_paid]
+        if paid == "true":
+            participants = [p for p in participants if p["paid"] or p["has_proof"]]
+        else:
+            participants = [p for p in participants if not p["paid"] and not p["has_proof"]]
 
     if role_category != "all":
         if role_category == "other":
