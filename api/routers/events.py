@@ -81,6 +81,7 @@ def sanitize_filename(name: str) -> str:
 # Define mapping of participation_role keys to display names
 PARTICIPATION_ROLE_MAP = {
     "secretariat": "ECSA-HC secretariat",
+    "djcc": "DJCC Member",
     "moh": "Country delegate (from Ministry of Health)",
     "member_state": "Participant from ECSA Member States",
     "other_africa": "Participant from other African countries",
@@ -116,6 +117,7 @@ BADGE_ROLE_COLORS = {
     "speaker":      "#C8102E",
     "presenter":    "#C8102E",
     "delegate":     "#009639",
+    "djcc":         "#8B5CF6",
     "moh":          "#009639",
     "member_state": "#009639",
     "other_africa": "#009639",
@@ -133,6 +135,7 @@ BADGE_ROLE_LABELS = {
     "speaker":      "SPEAKER",
     "presenter":    "PRESENTER",
     "delegate":     "DELEGATE",
+    "djcc":         "DJCC MEMBER",
     "moh":          "DELEGATE",
     "member_state": "DELEGATE",
     "other_africa": "DELEGATE",
@@ -2478,6 +2481,7 @@ async def admin_add_participant(
     # Build friendly role label
     role_labels = {
         "secretariat": "ECSA-HC Secretariat",
+        "djcc": "DJCC Member",
         "moh": "Country Delegate (Ministry of Health)",
         "member_state": "Participant from ECSA Member States",
         "other_africa": "Participant from other African countries",

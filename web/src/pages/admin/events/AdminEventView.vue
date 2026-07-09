@@ -91,6 +91,17 @@
               </button>
             </div>
 
+            <!-- Role category filter -->
+            <div class="mb-3 flex flex-wrap gap-2">
+              <button v-for="cat in roleCategories" :key="cat.key"
+                @click="roleFilter = cat.key; currentPage = 1"
+                class="px-3 py-1.5 rounded-full text-xs font-semibold border transition"
+                :class="roleFilter === cat.key ? 'text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'"
+                :style="roleFilter === cat.key ? { backgroundColor: cat.color } : {}">
+                {{ cat.label }} · {{ cat.total }} ({{ cat.paid }} paid)
+              </button>
+            </div>
+
             <div class="flex justify-end mb-3 gap-2 flex-wrap">
               <!-- Report button - visible to Finance Officer too -->
               <button v-if="canVerifyPayment"
@@ -808,6 +819,7 @@
                 class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]">
                 <option value="" disabled>Select a role…</option>
                 <option value="secretariat">ECSA-HC Secretariat</option>
+                <option value="djcc">DJCC Member</option>
                 <option value="moh">Country Delegate (Ministry of Health)</option>
                 <option value="member_state">Participant – ECSA Member State</option>
                 <option value="other_africa">Participant – Other African Country</option>
@@ -916,14 +928,39 @@ const sendingPendingReminders = ref(false)
 const pendingReminderMessage = ref('')
 const pendingReminderError = ref(false)
 
+// Role category filter — Secretariat / DJCC Members / Other
+const roleFilter = ref('all')
+
+function roleCategoryOf(p) {
+  if (p.participation_role === 'secretariat') return 'secretariat'
+  if (p.participation_role === 'djcc') return 'djcc'
+  return 'other'
+}
+
+const roleCategories = computed(() => {
+  const all = participants.value
+  const secretariat = all.filter(p => roleCategoryOf(p) === 'secretariat')
+  const djcc = all.filter(p => roleCategoryOf(p) === 'djcc')
+  const other = all.filter(p => roleCategoryOf(p) === 'other')
+  return [
+    { key: 'all', label: 'All', total: all.length, paid: all.filter(p => p.paid).length, color: '#0095B6' },
+    { key: 'secretariat', label: 'Secretariat', total: secretariat.length, paid: secretariat.filter(p => p.paid).length, color: '#00AEEF' },
+    { key: 'djcc', label: 'DJCC Members', total: djcc.length, paid: djcc.filter(p => p.paid).length, color: '#8B5CF6' },
+    { key: 'other', label: 'Other', total: other.length, paid: other.filter(p => p.paid).length, color: '#6B7280' },
+  ]
+})
+
 // Sorted by most recent proof-of-payment upload (updated_at), newest first
 const filteredParticipants = computed(() => {
   const q = participantSearch.value.toLowerCase().trim()
-  const list = [...participants.value].sort((a, b) => {
+  let list = [...participants.value].sort((a, b) => {
     const da = a.updated_at ? new Date(a.updated_at) : (a.registered_at ? new Date(a.registered_at) : 0)
     const db = b.updated_at ? new Date(b.updated_at) : (b.registered_at ? new Date(b.registered_at) : 0)
     return db - da
   })
+  if (roleFilter.value !== 'all') {
+    list = list.filter(p => roleCategoryOf(p) === roleFilter.value)
+  }
   if (!q) return list
   return list.filter(p =>
     `${p.firstname} ${p.lastname} ${p.email} ${p.country}`.toLowerCase().includes(q)

@@ -74,6 +74,7 @@ class ParticipationRole(PyEnum):
     other_africa = "other_africa"
     member_state = "member_state"
     moh = "moh"
+    djcc = "djcc"
 
 
 class PaymentMethod(PyEnum):

@@ -8,6 +8,13 @@
       "port": 5174,
       "autoPort": true,
       "cwd": "/Applications/XAMPP/xamppfiles/htdocs/events_space/web"
+    },
+    {
+      "name": "events-api",
+      "runtimeExecutable": "venv/bin/uvicorn",
+      "runtimeArgs": ["main:app", "--host", "127.0.0.1", "--port", "8002", "--reload"],
+      "port": 8002,
+      "cwd": "/Applications/XAMPP/xamppfiles/htdocs/events_space/api"
     }
   ]
 }
