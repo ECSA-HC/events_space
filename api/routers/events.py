@@ -1509,12 +1509,13 @@ async def download_event_participants(
         else:
             participants = [p for p in participants if not p["paid"] and not p["has_proof"]]
 
-    # Filter by role category (matches the Participants tab filter pills)
-    if role_category != "all":
-        if role_category == "other":
-            participants = [p for p in participants if p["role_key"] not in ("secretariat", "djcc")]
-        else:
-            participants = [p for p in participants if p["role_key"] == role_category]
+    # Filter by role category. Secretariat and DJCC members are only included
+    # when explicitly selected via their own filter pill — the general "All"
+    # export excludes them since they're downloaded separately.
+    if role_category in ("secretariat", "djcc"):
+        participants = [p for p in participants if p["role_key"] == role_category]
+    else:
+        participants = [p for p in participants if p["role_key"] not in ("secretariat", "djcc")]
 
     if not participants:
         raise HTTPException(status_code=404, detail="No participants found")
