@@ -1444,6 +1444,7 @@ async def download_event_participants(
     event_id: int,
     current_user: user_dependency,
     paid: Literal["all", "true", "false"] = Query("all"),
+    role_category: Literal["all", "secretariat", "djcc", "other"] = Query("all"),
     db: Session = Depends(get_db),
     dependency=Depends(get_dependency),
     auth_dependency: Auth = Depends(get_auth_dependency),
@@ -1457,7 +1458,7 @@ async def download_event_participants(
         "DOWNLOAD_PARTICIPANTS",
         current_user["username"],
         client_ip,
-        f"Downloaded participants for event {event_id} with filter paid={paid}",
+        f"Downloaded participants for event {event_id} with filter paid={paid}, role_category={role_category}",
     )
 
     event = get_object(event_id, db, Event)
@@ -1493,6 +1494,7 @@ async def download_event_participants(
                 "organisation": organisation,
                 "country": country,
                 "participation_role": PARTICIPATION_ROLE_MAP.get(role_key, role_key),
+                "role_key": role_key,
                 "paid": reg.paid,
                 "registered_at": reg.registered_at,
             }
@@ -1502,6 +1504,13 @@ async def download_event_participants(
     if paid != "all":
         is_paid = paid == "true"
         participants = [p for p in participants if p["paid"] == is_paid]
+
+    # Filter by role category (matches the Participants tab filter pills)
+    if role_category != "all":
+        if role_category == "other":
+            participants = [p for p in participants if p["role_key"] not in ("secretariat", "djcc")]
+        else:
+            participants = [p for p in participants if p["role_key"] == role_category]
 
     if not participants:
         raise HTTPException(status_code=404, detail="No participants found")
@@ -1843,6 +1852,7 @@ async def download_participant_badges_pdf(
     event_id: int,
     current_user: user_dependency,
     paid: Literal["all", "true", "false"] = Query("all"),
+    role_category: Literal["all", "secretariat", "djcc", "other"] = Query("all"),
     user_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     dependency=Depends(get_dependency),
@@ -1855,7 +1865,7 @@ async def download_participant_badges_pdf(
         "DOWNLOAD_BADGES",
         current_user["username"],
         client_ip,
-        f"Downloaded participant badges for event {event_id} with filter paid={paid}",
+        f"Downloaded participant badges for event {event_id} with filter paid={paid}, role_category={role_category}",
     )
 
     event = get_object(event_id, db, Event)
@@ -1903,6 +1913,12 @@ async def download_participant_badges_pdf(
     if paid != "all":
         is_paid = paid == "true"
         participants = [p for p in participants if p["paid"] == is_paid]
+
+    if role_category != "all":
+        if role_category == "other":
+            participants = [p for p in participants if p["participation_role_raw"] not in ("secretariat", "djcc")]
+        else:
+            participants = [p for p in participants if p["participation_role_raw"] == role_category]
 
     # Optional single-participant filter (used by badge preview download button)
     if user_id is not None:

@@ -128,7 +128,7 @@
 
               <select v-if="isFullAdmin" @change="downloadParticipants($event.target.value)"
                 class="bg-bondi-blue text-white px-4 pr-4 py-2 rounded-full hover:bg-bondi-blue-700">
-                <option disabled selected>Download List</option>
+                <option disabled selected>{{ roleFilter === 'all' ? 'Download List' : `Download List (${roleCategoryLabel})` }}</option>
                 <option value="all">All</option>
                 <option value="true">Paid</option>
                 <option value="false">Not Paid</option>
@@ -136,7 +136,7 @@
 
               <select v-if="isFullAdmin" @change="downloadBadgesAsPDF($event.target.value)"
                 class="bg-bondi-blue text-white px-4 pr-4 py-2 rounded-full hover:bg-bondi-blue-700">
-                <option disabled selected>Download Badge List</option>
+                <option disabled selected>{{ roleFilter === 'all' ? 'Download Badge List' : `Download Badge List (${roleCategoryLabel})` }}</option>
                 <option value="all">All</option>
                 <option value="true">Paid</option>
                 <option value="false">Not Paid</option>
@@ -1020,6 +1020,10 @@ const roleCategories = computed(() => {
   ]
 })
 
+const roleCategoryLabel = computed(() =>
+  roleCategories.value.find(c => c.key === roleFilter.value)?.label || 'All'
+)
+
 // Sorted by most recent proof-of-payment upload (updated_at), newest first
 const filteredParticipants = computed(() => {
   const q = participantSearch.value.toLowerCase().trim()
@@ -1250,7 +1254,7 @@ async function togglePayment(p) {
 async function downloadBadgesAsPDF(paidFilter) {
   if (!paidFilter) return
   try {
-    const url = `/events/${eventId}/participants/badges?paid=${paidFilter}`
+    const url = `/events/${eventId}/participants/badges?paid=${paidFilter}&role_category=${roleFilter.value}`
     const response = await api.get(url, { responseType: 'blob' })
     const contentDisposition = response.headers['content-disposition'] || ''
     let filename = 'participant_badges.pdf'
@@ -1386,7 +1390,7 @@ async function sendPaymentReminders() {
 }
 
 async function downloadParticipants(paidFilter) {
-  const url = `/events/${eventId}/participants/download?paid=${paidFilter}`
+  const url = `/events/${eventId}/participants/download?paid=${paidFilter}&role_category=${roleFilter.value}`
   try {
     const response = await api.get(url, { responseType: 'blob' })
     const contentDisposition = response.headers['content-disposition']
