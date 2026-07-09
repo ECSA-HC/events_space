@@ -290,6 +290,10 @@
                         </button>
                         <template v-if="isFullAdmin">
                           <div class="border-t border-gray-100 my-1"></div>
+                          <button @click.stop="openEditRoleModal(p); openMenuId = null"
+                            class="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 text-gray-700">
+                            <PencilSquareIcon class="w-4 h-4 text-[#0095B6]" /> Edit Role
+                          </button>
                           <button @click.stop="deregisterParticipant(p); openMenuId = null"
                             class="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-red-50 text-red-600">
                             <TrashIcon class="w-4 h-4" /> Deregister
@@ -864,6 +868,72 @@
         </div>
       </div>
 
+      <!-- Edit Role Modal -->
+      <div v-if="showEditRoleModal"
+        class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+        @click.self="closeEditRoleModal">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[92vh]">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+            <div class="flex items-center gap-3">
+              <div class="h-9 w-9 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+                <PencilSquareIcon class="w-5 h-5 text-[#0095B6]" />
+              </div>
+              <div>
+                <p class="font-bold text-gray-800 text-sm">Edit Participation Role</p>
+                <p class="text-xs text-gray-400">{{ editRoleParticipant?.firstname }} {{ editRoleParticipant?.lastname }} · {{ editRoleParticipant?.email }}</p>
+              </div>
+            </div>
+            <button @click="closeEditRoleModal" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="p-5 space-y-4 overflow-y-auto flex-1">
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Participation Role *</label>
+              <select v-model="editRoleForm.participation_role"
+                class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]">
+                <option value="" disabled>Select a role…</option>
+                <option value="secretariat">ECSA-HC Secretariat</option>
+                <option value="djcc">DJCC Member</option>
+                <option value="moh">Country Delegate (Ministry of Health)</option>
+                <option value="member_state">Participant – ECSA Member State</option>
+                <option value="other_africa">Participant – Other African Country</option>
+                <option value="world">International Participant</option>
+                <option value="delegate">Delegate</option>
+                <option value="presenter">Presenter</option>
+                <option value="speaker">Speaker</option>
+                <option value="moderator">Moderator</option>
+                <option value="participant">General Participant</option>
+                <option value="student">Student</option>
+                <option value="exhibitor">Sponsor / Exhibitor</option>
+                <option value="sponsor">Sponsor</option>
+              </select>
+              <p v-if="editRoleForm.participation_role === 'secretariat'" class="text-xs text-amber-600 mt-1.5">
+                Secretariat is exempt from payment — this participant will automatically be marked as paid.
+              </p>
+            </div>
+            <div v-if="editRoleError" class="flex items-start gap-2 p-3 rounded-xl text-sm text-red-700 bg-red-50 border border-red-200">❌ {{ editRoleError }}</div>
+            <div v-if="editRoleSuccess" class="flex items-start gap-2 p-3 rounded-xl text-sm text-green-700 bg-green-50 border border-green-200">✅ {{ editRoleSuccess }}</div>
+          </div>
+          <div class="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-100 flex-shrink-0">
+            <button @click="closeEditRoleModal"
+              class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition font-medium">Cancel</button>
+            <button @click="submitEditRole"
+              :disabled="savingEditRole || !editRoleForm.participation_role"
+              class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-xl transition hover:opacity-90 disabled:opacity-50"
+              style="background-color:#0095B6;">
+              <svg v-if="savingEditRole" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+              {{ savingEditRole ? 'Saving…' : 'Save Role' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <UploadDocumentModal v-if="showUploadModal" :eventId="eventId" @close="showUploadModal = false" @uploaded="refreshDocuments" />
       <AddLinkModal v-if="showAddLinkModal" :eventId="eventId" @close="showAddLinkModal = false" @uploaded="refreshLinks" />
     </div>
@@ -873,7 +943,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { TabGroup, TabList, Tab, TabPanels, TabPanel } from '@headlessui/vue'
-import { EyeIcon, TrashIcon, DocumentTextIcon } from '@heroicons/vue/24/outline'
+import { EyeIcon, TrashIcon, DocumentTextIcon, PencilSquareIcon } from '@heroicons/vue/24/outline'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AdminBar from '@/components/common/AdminBar.vue'
@@ -1082,6 +1152,13 @@ const loadingUsers = ref(false)
 const userPickerSearch = ref('')
 const userPickerOpen = ref(false)
 const selectedUser = ref(null)
+
+const showEditRoleModal = ref(false)
+const editRoleParticipant = ref(null)
+const editRoleForm = ref({ participation_role: '' })
+const savingEditRole = ref(false)
+const editRoleError = ref('')
+const editRoleSuccess = ref('')
 
 const alreadyRegisteredEmails = computed(() =>
   new Set(participants.value.map(p => (p.email || '').toLowerCase()))
@@ -1391,6 +1468,47 @@ async function submitAddParticipant() {
     addParticipantError.value = e.response?.data?.detail || 'Failed to add participant.'
   } finally {
     addingParticipant.value = false
+  }
+}
+
+function openEditRoleModal(p) {
+  editRoleParticipant.value = p
+  editRoleForm.value = { participation_role: p.participation_role || '' }
+  editRoleError.value = ''
+  editRoleSuccess.value = ''
+  showEditRoleModal.value = true
+}
+
+function closeEditRoleModal() {
+  showEditRoleModal.value = false
+  editRoleParticipant.value = null
+  editRoleForm.value = { participation_role: '' }
+  editRoleError.value = ''
+  editRoleSuccess.value = ''
+}
+
+async function submitEditRole() {
+  if (!editRoleParticipant.value || !editRoleForm.value.participation_role) return
+  savingEditRole.value = true
+  editRoleError.value = ''
+  editRoleSuccess.value = ''
+  try {
+    const p = editRoleParticipant.value
+    const res = await api.post(`/events/${eventId}/admin-add-participant`, {
+      email: p.email,
+      firstname: p.firstname,
+      lastname: p.lastname,
+      participation_role: editRoleForm.value.participation_role,
+      send_invitation: false,
+    })
+    editRoleSuccess.value = res.data.message || 'Role updated successfully'
+    const refreshed = await api.get(`/events/${eventId}`)
+    participants.value = refreshed.data.participants
+    setTimeout(() => closeEditRoleModal(), 1500)
+  } catch (e) {
+    editRoleError.value = e.response?.data?.detail || 'Failed to update role.'
+  } finally {
+    savingEditRole.value = false
   }
 }
 
