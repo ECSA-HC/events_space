@@ -156,7 +156,8 @@ BADGE_ROLE_LABELS = {
 }
 
 # ISO 3166-1 alpha-2 codes for ECSA member states shown on the badge
-ECSA_FLAG_CODES = ["sz", "ke", "ls", "mw", "mu", "tz", "ug", "zm", "zw"]
+# (must match flagCodes in ParticipantBadgeModal.vue)
+ECSA_FLAG_CODES = ["sz", "ke", "ls", "mw", "mu", "mz", "st", "tz", "ug", "zm", "zw"]
 _FLAG_CACHE: dict = {}
 
 
@@ -1855,23 +1856,21 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
     c.drawCentredString(W / 2, fy(134.5), "Scan QR code to confirm attendance")
 
     # ── ECSA member-state flags ───────────────────────────────────────────────
-    # Two rows at the very bottom (136–147 mm from top)
-    flag_map   = _get_flag_images()
-    all_flags  = [flag_map.get(code) for code in ECSA_FLAG_CODES]
-    flag_w_mm  = 8.5
-    flag_h_mm  = 5.5
-    f_gap_mm   = 1.2
-    flag_rows  = [all_flags[:5], all_flags[5:]]
+    # Single row at the very bottom, matching the online badge preview.
+    flag_map  = _get_flag_images()
+    all_flags = [flag_map.get(code) for code in ECSA_FLAG_CODES]
+    valid     = [img for img in all_flags if img is not None]
 
-    for ri, flag_row in enumerate(flag_rows):
-        valid = [img for img in flag_row if img is not None]
-        if not valid:
-            continue
-        n        = len(valid)
-        row_w_mm = n * flag_w_mm + (n - 1) * f_gap_mm
-        sx       = (W_mm - row_w_mm) / 2
-        row_top  = 136.0 + ri * (flag_h_mm + f_gap_mm)
-        flag_rl_y = fy(row_top + flag_h_mm)
+    if valid:
+        max_row_w_mm = 92.0                # available width within page margins
+        n            = len(valid)
+        f_gap_mm     = 0.9
+        flag_w_mm    = min(7.0, (max_row_w_mm - (n - 1) * f_gap_mm) / n)
+        flag_h_mm    = flag_w_mm / 1.545    # matches original flag aspect ratio
+        row_w_mm     = n * flag_w_mm + (n - 1) * f_gap_mm
+        sx           = (W_mm - row_w_mm) / 2
+        row_top      = 138.0
+        flag_rl_y    = fy(row_top + flag_h_mm)
         for j, img in enumerate(valid):
             try:
                 c.drawImage(img,
