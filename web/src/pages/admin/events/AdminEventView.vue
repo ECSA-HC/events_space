@@ -1320,7 +1320,7 @@ async function loadAttendance() {
 async function resetSingleAttendance(a) {
   if (!confirm(`Remove check-in record for ${a.firstname} ${a.lastname}?`)) return
   try {
-    await api.delete(`/events/attendance/${a.id}`)
+    await api.delete(`/event_attendance/events/attendance/${a.id}`)
     attendance.value = attendance.value.filter(r => r.id !== a.id)
   } catch (err) {
     alert('Failed to reset attendance: ' + (err.response?.data?.detail || err.message))
