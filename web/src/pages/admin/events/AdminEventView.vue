@@ -477,6 +477,13 @@
                           </svg>
                           Payment Link
                         </a>
+                        <button v-if="canVerifyPayment" @click.stop="markPaidWithoutProof(p); pendingMenuId = null"
+                          class="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-green-50 text-green-700">
+                          <svg class="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                          </svg>
+                          Mark Paid (No POP)
+                        </button>
                         <router-link :to="{ name: 'AdminUserPerspective', params: { id: p.user_id } }"
                           @click="pendingMenuId = null"
                           class="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 text-gray-700">
@@ -1248,6 +1255,22 @@ async function togglePayment(p) {
     } catch (err) {
       alert('Failed to mark as paid: ' + (err.response?.data?.detail || err.message))
     }
+  }
+}
+
+async function markPaidWithoutProof(p) {
+  if (!confirm(
+    `Mark ${p.firstname} ${p.lastname} as paid without proof of payment?\n\n` +
+    `They have not uploaded a receipt — only do this if you've confirmed payment through ` +
+    `another channel. This will move them into Participants and send their login credentials.`
+  )) return
+  try {
+    await api.put(`/events/verify_payment/${p.id}`)
+    const refreshed = await api.get(`/events/${eventId}`)
+    participants.value = refreshed.data.participants
+    pendingRegistrations.value = refreshed.data.pending_registrations || []
+  } catch (err) {
+    alert('Failed to mark as paid: ' + (err.response?.data?.detail || err.message))
   }
 }
 
