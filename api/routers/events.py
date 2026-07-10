@@ -100,6 +100,15 @@ def convert_png_to_rgb(path):
     return ImageReader(img)
 
 
+def load_logo_with_transparency(path):
+    """Load a PNG preserving its alpha channel, for drawing with mask='auto'
+    so the badge's textured background shows through instead of a white box."""
+    img = Image.open(path)
+    if img.mode != "RGBA":
+        img = img.convert("RGBA")
+    return ImageReader(img)
+
+
 def normalize_event_name(name: str) -> str:
     return (
         name.replace("ᵗʰ", "th")
@@ -333,6 +342,31 @@ def _build_pending_list(pending_regs, db, event_id=None):
         }
         for r in pending_regs
     ]
+
+
+@router.get("/{event_id}/basic")
+async def get_event_basic(
+    event_id: int,
+    db: Session = Depends(get_db),
+):
+    """Lightweight event lookup for public pages (e.g. QR attendance check-in)
+    that only need the name, dates, location, and brand colors — not the full
+    participants/pending-registrations/abstract-stats payload from GET /{event_id},
+    which is expensive on events with hundreds of registrations."""
+    event = get_object(event_id, db, Event)
+    if not event:
+        raise HTTPException(status_code=404, detail="event not found")
+    return {
+        "event": {
+            "id": event.id,
+            "event": event.event,
+            "location": event.location,
+            "start_date": event.start_date,
+            "end_date": event.end_date,
+            "org_unit_primary_color": event.org_unit.primary_color if event.org_unit else "#0095B6",
+            "org_unit_secondary_color": event.org_unit.secondary_color if event.org_unit else "#F7941D",
+        }
+    }
 
 
 @router.get("/{event_id}")
@@ -1682,13 +1716,13 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
     if logo_left:
         try:
             c.drawImage(logo_left, 5*mm, fy(3 + logo_h_mm),
-                        width=27*mm, height=logo_h_mm*mm, preserveAspectRatio=True)
+                        width=27*mm, height=logo_h_mm*mm, preserveAspectRatio=True, mask='auto')
         except Exception:
             pass
     if logo_right:
         try:
             c.drawImage(logo_right, 58*mm, fy(3 + logo_h_mm),
-                        width=40*mm, height=logo_h_mm*mm, preserveAspectRatio=True)
+                        width=40*mm, height=logo_h_mm*mm, preserveAspectRatio=True, mask='auto')
         except Exception:
             pass
 
@@ -1940,8 +1974,8 @@ async def download_participant_badges_pdf(
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=(105 * mm, 148 * mm))
 
-    logo_left  = convert_png_to_rgb("assets/logo_left.png")
-    logo_right = convert_png_to_rgb("assets/logo_right.png")
+    logo_left  = load_logo_with_transparency("assets/logo_left.png")
+    logo_right = load_logo_with_transparency("assets/logo_right.png")
 
     for p in participants:
         _render_badge_page(c, p, logo_left, logo_right)
@@ -2021,8 +2055,8 @@ async def download_my_badge(
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=(105 * mm, 148 * mm))
 
-    logo_left  = convert_png_to_rgb("assets/logo_left.png")
-    logo_right = convert_png_to_rgb("assets/logo_right.png")
+    logo_left  = load_logo_with_transparency("assets/logo_left.png")
+    logo_right = load_logo_with_transparency("assets/logo_right.png")
 
     _render_badge_page(c, p, logo_left, logo_right)
 

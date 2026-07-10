@@ -131,7 +131,7 @@ function reset() {
 
 async function loadEvent() {
   try {
-    const res = await api.get(`/events/${eventId}`)
+    const res = await api.get(`/events/${eventId}/basic`)
     event.value = res.data.event
     if (res.data.event?.org_unit_primary_color) {
       primaryColor.value = res.data.event.org_unit_primary_color
