@@ -66,7 +66,8 @@ onMounted(loadDashboard)
 
         <!-- Full admin top cards -->
         <div v-if="isFullAdmin" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div class="bg-white rounded-2xl shadow p-5 flex items-center gap-5">
+          <router-link :to="{ name: 'Users' }"
+            class="bg-white rounded-2xl shadow p-5 flex items-center gap-5 transition hover:shadow-md hover:-translate-y-0.5 cursor-pointer">
             <div class="bg-blue-100 text-blue-600 rounded-full p-3">
               <UserIcon class="h-7 w-7" />
             </div>
@@ -74,8 +75,9 @@ onMounted(loadDashboard)
               <h3 class="text-sm text-gray-500">Total Users</h3>
               <p class="text-2xl font-extrabold">{{ totalUsers }}</p>
             </div>
-          </div>
-          <div class="bg-white rounded-2xl shadow p-5 flex items-center gap-5">
+          </router-link>
+          <router-link :to="{ name: 'AdminEvents' }"
+            class="bg-white rounded-2xl shadow p-5 flex items-center gap-5 transition hover:shadow-md hover:-translate-y-0.5 cursor-pointer">
             <div class="bg-green-100 text-green-600 rounded-full p-3">
               <CalendarDaysIcon class="h-7 w-7" />
             </div>
@@ -83,8 +85,9 @@ onMounted(loadDashboard)
               <h3 class="text-sm text-gray-500">Upcoming Events</h3>
               <p class="text-2xl font-extrabold">{{ upcomingEventsCount }}</p>
             </div>
-          </div>
-          <div class="bg-white rounded-2xl shadow p-5 flex items-center gap-5">
+          </router-link>
+          <router-link :to="{ name: 'AdminEvents' }"
+            class="bg-white rounded-2xl shadow p-5 flex items-center gap-5 transition hover:shadow-md hover:-translate-y-0.5 cursor-pointer">
             <div class="bg-yellow-100 text-yellow-600 rounded-full p-3">
               <CheckCircleIcon class="h-7 w-7" />
             </div>
@@ -92,8 +95,9 @@ onMounted(loadDashboard)
               <h3 class="text-sm text-gray-500">Completed Events</h3>
               <p class="text-2xl font-extrabold">{{ completedEventsCount }}</p>
             </div>
-          </div>
-          <div class="bg-white rounded-2xl shadow p-5 flex items-center gap-5">
+          </router-link>
+          <router-link :to="{ name: 'AdminAbstracts' }"
+            class="bg-white rounded-2xl shadow p-5 flex items-center gap-5 transition hover:shadow-md hover:-translate-y-0.5 cursor-pointer">
             <div class="bg-indigo-100 text-indigo-600 rounded-full p-3">
               <DocumentTextIcon class="h-7 w-7" />
             </div>
@@ -101,12 +105,13 @@ onMounted(loadDashboard)
               <h3 class="text-sm text-gray-500">Total Abstracts</h3>
               <p class="text-2xl font-extrabold">{{ totalAbstracts }}</p>
             </div>
-          </div>
+          </router-link>
         </div>
 
         <!-- Stats-only summary cards (always shown) -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div class="bg-white rounded-2xl shadow p-6 flex items-center gap-5">
+          <router-link :to="{ name: 'AdminAbstracts' }"
+            class="bg-white rounded-2xl shadow p-6 flex items-center gap-5 transition hover:shadow-md hover:-translate-y-0.5 cursor-pointer">
             <div class="bg-[#0095B6]/10 text-[#0095B6] rounded-full p-4">
               <DocumentTextIcon class="h-8 w-8" />
             </div>
@@ -114,8 +119,9 @@ onMounted(loadDashboard)
               <h3 class="text-sm text-gray-500">Total Abstracts Submitted</h3>
               <p class="text-3xl font-extrabold text-gray-800">{{ totalAbstracts }}</p>
             </div>
-          </div>
-          <div class="bg-white rounded-2xl shadow p-6 flex items-center gap-5">
+          </router-link>
+          <router-link :to="{ name: 'AdminRegistrations' }"
+            class="bg-white rounded-2xl shadow p-6 flex items-center gap-5 transition hover:shadow-md hover:-translate-y-0.5 cursor-pointer">
             <div class="bg-green-100 text-green-600 rounded-full p-4">
               <ClipboardDocumentCheckIcon class="h-8 w-8" />
             </div>
@@ -123,7 +129,7 @@ onMounted(loadDashboard)
               <h3 class="text-sm text-gray-500">Total Registrations</h3>
               <p class="text-3xl font-extrabold text-gray-800">{{ totalRegistrations }}</p>
             </div>
-          </div>
+          </router-link>
         </div>
 
         <!-- Per-event stats table (always shown) -->
