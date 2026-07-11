@@ -1810,6 +1810,7 @@ def notify_acceptance(
 async def send_registration_reminders(
     event_id: int = Query(...),
     deadline: str = Query("2026-07-17"),
+    deadline_extended: bool = Query(True),
     background_tasks: BackgroundTasks = None,
     current_user: user_dependency = None,
     db: Session = Depends(get_db),
@@ -1884,6 +1885,7 @@ async def send_registration_reminders(
             portal_url="https://events.ecsahc.org",
             deadline_label=_deadline_label,
             days_remaining=_days_remaining,
+            deadline_extended=deadline_extended,
             year=__import__("datetime").datetime.now().year,
         )
         messages.append({
