@@ -120,8 +120,8 @@
 />
 <ParticipantBadgeModal
   :visible="showBadgeModal"
-  :user-id="selectedUserId"
-  :event-id="selectedEventId"
+  :user="selectedParticipant"
+  :event="selectedBadgeEvent"
   @close="showBadgeModal = false"
 />
 
@@ -136,8 +136,8 @@ import RegisterEventModal from '@/components/specific/RegisterEventModal.vue'
 import ParticipantBadgeModal from '@/components/specific/ParticipantBadgeModal.vue'
 
 const showBadgeModal = ref(false)
-const selectedUserId = ref(null)
-const selectedEventId = ref(null)
+const selectedParticipant = ref(null)
+const selectedBadgeEvent = ref(null)
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -201,10 +201,23 @@ function handleRegistered({ registration_id, event_id }) {
   fetchEvents()
 }
 
-function viewBadge(event) {
-  selectedUserId.value = auth.user?.id
-  selectedEventId.value = event.id
-  showBadgeModal.value = true
+async function viewBadge(event) {
+  try {
+    const res = await api.get(`/events/${event.id}`)
+    const data = res.data
+    selectedBadgeEvent.value = data.event
+    selectedParticipant.value = (data.participants || []).find(
+      (p) => p.user_id === auth.user?.id
+    )
+    if (!selectedParticipant.value) {
+      alert('Could not find your registration details for this event.')
+      return
+    }
+    showBadgeModal.value = true
+  } catch (err) {
+    console.error(err)
+    alert('Failed to load badge details.')
+  }
 }
 
 async function deregisterEvent(event) {
