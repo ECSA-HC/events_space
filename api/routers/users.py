@@ -356,9 +356,19 @@ async def update_user(
         if conflict:
             raise HTTPException(status_code=400, detail="Email address is already in use by another account")
 
+    new_phone = user_schema.phone.strip() if user_schema.phone else None
+    if new_phone and new_phone != user_model.phone:
+        phone_conflict = db.query(User).filter(
+            User.phone == new_phone,
+            User.id != user_id,
+            User.deleted_at == None,
+        ).first()
+        if phone_conflict:
+            raise HTTPException(status_code=400, detail="Phone number is already in use by another account")
+
     user_model.firstname = user_schema.firstname
     user_model.lastname = user_schema.lastname
-    user_model.phone = user_schema.phone
+    user_model.phone = new_phone
     user_model.email = user_schema.email
 
     db.commit()
