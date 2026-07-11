@@ -1809,7 +1809,7 @@ def notify_acceptance(
 @router.post("/send-registration-reminders")
 async def send_registration_reminders(
     event_id: int = Query(...),
-    deadline: str = Query("2026-07-07"),
+    deadline: str = Query("2026-07-17"),
     background_tasks: BackgroundTasks = None,
     current_user: user_dependency = None,
     db: Session = Depends(get_db),
