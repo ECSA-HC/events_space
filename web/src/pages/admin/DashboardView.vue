@@ -120,7 +120,7 @@ onMounted(loadDashboard)
               <p class="text-3xl font-extrabold text-gray-800">{{ totalAbstracts }}</p>
             </div>
           </router-link>
-          <router-link :to="{ name: 'AdminRegistrations' }"
+          <router-link :to="{ name: 'AdminEvent', params: { id: 15 } }"
             class="bg-white rounded-2xl shadow p-6 flex items-center gap-5 transition hover:shadow-md hover:-translate-y-0.5 cursor-pointer">
             <div class="bg-green-100 text-green-600 rounded-full p-4">
               <ClipboardDocumentCheckIcon class="h-8 w-8" />
