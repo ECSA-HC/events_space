@@ -1427,6 +1427,36 @@ def create_reviewer(
     }
 
 
+def _sync_status_from_reviewer_consensus(abstract_id: int, db: Session):
+    """If every assigned reviewer has completed their review and all of them
+    recommended reject, auto-mark the abstract as rejected (unless it's
+    already been manually accepted)."""
+    from models.models import AbstractReview as _AbstractReview, ReviewRecommendation as _ReviewRecommendation
+
+    assignments = db.query(AbstractReviewer).filter(
+        AbstractReviewer.abstract_id == abstract_id
+    ).all()
+    if not assignments:
+        return
+    if not all(a.completed for a in assignments):
+        return
+
+    reviews = (
+        db.query(_AbstractReview)
+        .filter(_AbstractReview.assignment_id.in_([a.id for a in assignments]))
+        .all()
+    )
+    if len(reviews) != len(assignments):
+        return
+    if not all(r.recommendation == _ReviewRecommendation.reject for r in reviews):
+        return
+
+    abstract = db.query(Abstract).filter(Abstract.id == abstract_id).first()
+    if abstract and abstract.status != AbstractStatus.accepted:
+        abstract.status = AbstractStatus.rejected
+        db.commit()
+
+
 @router.post("/reviews/{assignment_id}", status_code=status.HTTP_201_CREATED)
 def submit_review(
     assignment_id: int,
@@ -1456,6 +1486,7 @@ def submit_review(
     db.add(review)
     assignment.completed = True
     db.commit()
+    _sync_status_from_reviewer_consensus(assignment.abstract_id, db)
     return {"message": "Review submitted successfully"}
 
 
@@ -1484,6 +1515,7 @@ def update_review(
     review.comments           = schema.comments
     review.confidential_comments = schema.confidential_comments
     db.commit()
+    _sync_status_from_reviewer_consensus(assignment.abstract_id, db)
     return {"message": "Review updated successfully"}
 
 
