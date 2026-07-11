@@ -14,8 +14,17 @@
       </div>
     </div>
 
+    <!-- Loading participation status -->
+    <div v-if="loading" class="bg-white p-6 rounded-2xl shadow flex items-center justify-center gap-2 text-gray-400 text-sm">
+      <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+      </svg>
+      Loading your registration status…
+    </div>
+
     <!-- Logged-in User Participation -->
-    <div v-if="userParticipant" class="bg-white p-6 rounded-2xl shadow">
+    <div v-else-if="userParticipant" class="bg-white p-6 rounded-2xl shadow">
       <h2 class="text-lg font-semibold text-gray-800 mb-4">Your Participation</h2>
       <div class="flex items-start gap-4">
         <img
@@ -102,8 +111,11 @@
     <div class="bg-white p-6 rounded-2xl shadow">
       <h2 class="text-lg font-semibold text-gray-800 mb-4">Documents</h2>
 
+      <!-- Loading -->
+      <p v-if="loading" class="text-sm text-gray-400 italic">Loading…</p>
+
       <!-- ✅ Paid — show files -->
-      <ul v-if="userParticipant?.paid && documents.length" class="space-y-2">
+      <ul v-else-if="userParticipant?.paid && documents.length" class="space-y-2">
         <li v-for="doc in documents" :key="doc.id" class="flex items-center justify-between bg-gray-50 px-4 py-2 rounded">
           <div>
             <p class="font-medium text-indigo-700">{{ doc.name }}</p>
@@ -153,8 +165,11 @@
     <div class="bg-white p-6 rounded-2xl shadow">
       <h2 class="text-lg font-semibold text-gray-800 mb-4">Useful Links</h2>
 
+      <!-- Loading -->
+      <p v-if="loading" class="text-sm text-gray-400 italic">Loading…</p>
+
       <!-- ✅ Paid — show links -->
-      <ul v-if="userParticipant?.paid && links.length" class="list-disc pl-5 space-y-1">
+      <ul v-else-if="userParticipant?.paid && links.length" class="list-disc pl-5 space-y-1">
         <li v-for="link in links" :key="link.id">
           <a :href="link.link" target="_blank" class="text-sm text-indigo-600 hover:underline">{{ link.name }}</a>
         </li>
@@ -225,6 +240,7 @@ const participants = ref([])
 const documents = ref([])
 const links = ref([])
 const errorMessage = ref('')
+const loading = ref(true)
 
 // Find logged-in user's participation (if any)
 const userParticipant = computed(() => {
@@ -233,6 +249,7 @@ const userParticipant = computed(() => {
 
 // Fetch data
 const fetchEvent = async () => {
+  loading.value = true
   try {
     const res = await api.get(`/events/${eventId}`)
     const data = res.data
@@ -243,6 +260,8 @@ const fetchEvent = async () => {
   } catch (error) {
     errorMessage.value = 'Failed to load event details.'
     console.error(error)
+  } finally {
+    loading.value = false
   }
 }
 
