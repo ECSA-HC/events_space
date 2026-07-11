@@ -1428,27 +1428,28 @@ def create_reviewer(
 
 
 def _sync_status_from_reviewer_consensus(abstract_id: int, db: Session):
-    """If every assigned reviewer has completed their review and all of them
-    recommended reject, auto-mark the abstract as rejected (unless it's
-    already been manually accepted)."""
+    """Auto-mark an abstract rejected once reviewer consensus is decisively
+    reject: 2+ reject recommendations (majority on a typical 3-reviewer
+    panel, e.g. 2 reject / 1 accept), or a unanimous reject when only one
+    reviewer is assigned. Never overrides a manual accept."""
     from models.models import AbstractReview as _AbstractReview, ReviewRecommendation as _ReviewRecommendation
 
     assignments = db.query(AbstractReviewer).filter(
         AbstractReviewer.abstract_id == abstract_id
     ).all()
-    if not assignments:
-        return
-    if not all(a.completed for a in assignments):
+    total_reviewers = len(assignments)
+    if not total_reviewers:
         return
 
-    reviews = (
+    reject_count = (
         db.query(_AbstractReview)
-        .filter(_AbstractReview.assignment_id.in_([a.id for a in assignments]))
-        .all()
+        .filter(
+            _AbstractReview.assignment_id.in_([a.id for a in assignments]),
+            _AbstractReview.recommendation == _ReviewRecommendation.reject,
+        )
+        .count()
     )
-    if len(reviews) != len(assignments):
-        return
-    if not all(r.recommendation == _ReviewRecommendation.reject for r in reviews):
+    if not (reject_count >= 2 or reject_count == total_reviewers):
         return
 
     abstract = db.query(Abstract).filter(Abstract.id == abstract_id).first()
