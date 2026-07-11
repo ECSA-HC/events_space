@@ -1061,20 +1061,23 @@ async def registration_reminder_preview(
     ), {"eid": event_id}).fetchall()
 
     registered_rows = db.execute(_sql_text(
-        "SELECT LOWER(u.email) as email FROM registration r "
+        "SELECT LOWER(u.email) as email, r.paid FROM registration r "
         "JOIN user u ON u.id = r.user_id "
         "WHERE r.event_id = :eid AND r.deleted_at IS NULL"
     ), {"eid": event_id}).fetchall()
-    registered_emails = {row.email for row in registered_rows}
+    paid_emails = {row.email for row in registered_rows if row.paid}
+    unpaid_emails = {row.email for row in registered_rows if not row.paid}
 
     to_send = []
     already_registered = []
     for row in author_rows:
         entry = {"firstname": row.firstname or "", "lastname": row.lastname or "", "email": row.email}
-        if row.email in registered_emails:
+        if row.email in paid_emails:
             already_registered.append(entry)
+        elif row.email in unpaid_emails:
+            to_send.append({**entry, "status": "unpaid"})
         else:
-            to_send.append(entry)
+            to_send.append({**entry, "status": "not_registered"})
 
     return {
         "event_name": event.event,
@@ -1840,23 +1843,25 @@ async def send_registration_reminders(
         return {"sent": 0, "total_authors": 0, "already_registered": 0,
                 "message": "No accepted presenting authors found for this event."}
 
-    # Authors who already have any registration (paid or pending) for this event
+    # Authors who already have a registration for this event, split by payment status
     registered_rows = db.execute(_sql_text(
-        "SELECT LOWER(u.email) as email FROM registration r "
+        "SELECT LOWER(u.email) as email, r.paid FROM registration r "
         "JOIN user u ON u.id = r.user_id "
         "WHERE r.event_id = :eid AND r.deleted_at IS NULL"
     ), {"eid": event_id}).fetchall()
-    registered_emails = {row.email for row in registered_rows}
+    paid_emails = {row.email for row in registered_rows if row.paid}
+    unpaid_emails = {row.email for row in registered_rows if not row.paid}
 
-    # Only send to those who have not registered at all
-    targets = [row for row in author_rows if row.email not in registered_emails]
+    # Send to everyone not fully paid: unregistered authors get a "register + pay"
+    # reminder, registered-but-unpaid authors get a "complete your payment" reminder.
+    targets = [row for row in author_rows if row.email not in paid_emails]
 
     if not targets:
         return {
             "sent": 0,
             "total_authors": len(author_rows),
             "already_registered": len(author_rows),
-            "message": "All accepted abstract authors have already registered for this event.",
+            "message": "All accepted presenting authors have already registered and paid for this event.",
         }
 
     from datetime import date as _date
@@ -1875,10 +1880,17 @@ async def send_registration_reminders(
 
     messages = []
     for author in targets:
-        subject = (
-            f"Action Required – {_days_remaining} Day{'s' if _days_remaining != 1 else ''}"
-            f" Left to Register: {event.event}"
-        )
+        is_unpaid = author.email in unpaid_emails
+        if is_unpaid:
+            subject = (
+                f"Action Required – {_days_remaining} Day{'s' if _days_remaining != 1 else ''}"
+                f" Left to Complete Payment: {event.event}"
+            )
+        else:
+            subject = (
+                f"Action Required – {_days_remaining} Day{'s' if _days_remaining != 1 else ''}"
+                f" Left to Register: {event.event}"
+            )
         body = _templates.get_template("registration_reminder_template.html").render(
             subject=subject,
             firstname=author.firstname or "Author",
@@ -1888,6 +1900,7 @@ async def send_registration_reminders(
             deadline_label=_deadline_label,
             days_remaining=_days_remaining,
             deadline_extended=deadline_extended,
+            registered_unpaid=is_unpaid,
             year=__import__("datetime").datetime.now().year,
         )
         messages.append({
@@ -1904,6 +1917,6 @@ async def send_registration_reminders(
         "sent": len(targets),
         "total_authors": len(author_rows),
         "already_registered": len(author_rows) - len(targets),
-        "message": f"Registration reminder queued for {len(targets)} author(s). {len(author_rows) - len(targets)} already registered.",
+        "message": f"Registration/payment reminder queued for {len(targets)} author(s). {len(author_rows) - len(targets)} already registered and paid.",
     }
 

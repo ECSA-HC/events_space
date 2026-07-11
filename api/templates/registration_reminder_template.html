@@ -56,6 +56,46 @@
         </p>
       </div>
 
+      {% if registered_unpaid %}
+      <h1>Complete Your Payment for {{ event_name }}</h1>
+      <p>Dear <strong>{{ firstname }}</strong>,</p>
+      <p>
+        Congratulations on having your abstract accepted for
+        <span class="event-name">{{ event_name }}</span>! You've registered, but our records show
+        that <strong>payment has not yet been completed or verified</strong>.
+      </p>
+      <p>
+        Please complete your payment <strong>by {{ deadline_label }}</strong> to confirm your place at the conference.
+      </p>
+
+      <!-- Pay -->
+      <p><strong>Complete your payment</strong></p>
+      <p style="font-size:14px;color:#4b5563;">
+        Log in to the portal and go to your payment page. We accept Online Card and Bank Transfer.
+        Once payment is made, upload your proof of payment so the secretariat can verify it.
+      </p>
+      <div style="text-align:center; margin: 20px 0;">
+        <a href="{{ event_url }}" class="btn">Go to Payment Page →</a>
+        <p style="font-size:12px;color:#9ca3af;margin-top:8px;">
+          Or copy this link: <a href="{{ event_url }}" style="color:#0095b6;">{{ event_url }}</a>
+        </p>
+      </div>
+
+      <div class="info-box">
+        <p><strong>Already paid?</strong> If you've already uploaded proof of payment, please disregard this reminder — verification can take 1–2 business days.</p>
+        <p style="margin-top:10px;font-size:12px;color:#6b7280;">
+          Accepted formats: JPG, PNG, or PDF · Your receipt, M-Pesa confirmation, or bank slip
+        </p>
+      </div>
+
+      <hr class="divider" />
+
+      <ul class="checklist">
+        <li>Go to your payment page on the portal</li>
+        <li>Complete your payment (Online Card or Bank Transfer)</li>
+        <li>Upload your proof of payment on the payment page</li>
+      </ul>
+      {% else %}
       <h1>Complete Your Registration for {{ event_name }}</h1>
       <p>Dear <strong>{{ firstname }}</strong>,</p>
       <p>
@@ -102,6 +142,7 @@
         <li>Complete your payment (Online Card or Bank Transfer)</li>
         <li>Upload your proof of payment on the payment page</li>
       </ul>
+      {% endif %}
 
       <div class="info-box">
         <p><strong>Event:</strong> {{ event_name }}</p>

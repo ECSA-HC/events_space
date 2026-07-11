@@ -925,7 +925,7 @@
             <div>
               <p class="font-bold text-gray-800 text-sm">Send Registration Reminder</p>
               <p class="text-xs text-gray-400 mt-0.5">
-                {{ regReminderModal.step === 'select' ? 'Email accepted abstract authors who haven\'t registered' : regReminderModal.step === 'preview' ? `Preview for: ${regReminderModal.preview.event_name}` : 'Reminders sent' }}
+                {{ regReminderModal.step === 'select' ? 'Email presenting authors who haven\'t registered or paid' : regReminderModal.step === 'preview' ? `Preview for: ${regReminderModal.preview.event_name}` : 'Reminders sent' }}
               </p>
             </div>
           </div>
@@ -946,14 +946,14 @@
                 <option :value="null">— Select an event —</option>
                 <option v-for="e in events" :key="e.id" :value="e.id">{{ e.event }}</option>
               </select>
-              <p class="text-xs text-gray-400 mt-1">Only accepted abstract authors for this event who haven't registered will receive the email.</p>
+              <p class="text-xs text-gray-400 mt-1">Only accepted, presenting abstract authors for this event will receive the email.</p>
             </div>
             <div class="flex items-start gap-3 px-4 py-3 rounded-xl text-sm" style="background:#fffbeb; border:1px solid #fcd34d;">
               <svg class="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
               </svg>
               <p class="text-amber-800 text-xs leading-relaxed">
-                Abstract authors who have already registered (even if payment is pending) will <strong>not</strong> receive this email.
+                Presenting authors who haven't registered get a <strong>register &amp; pay</strong> reminder; those who registered but haven't paid get a <strong>complete your payment</strong> reminder. Only authors who are registered <strong>and paid</strong> are skipped.
               </p>
             </div>
             <p v-if="regReminderModal.error" class="text-red-500 text-sm">{{ regReminderModal.error }}</p>
@@ -993,19 +993,22 @@
                       <p class="text-sm font-medium text-gray-800 truncate">{{ a.firstname }} {{ a.lastname }}</p>
                       <p class="text-xs text-gray-400 truncate">{{ a.email }}</p>
                     </div>
-                    <span class="ml-auto text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0" style="background:#fffbeb;color:#92400e;">Not registered</span>
+                    <span class="ml-auto text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0"
+                      :style="a.status === 'unpaid' ? 'background:#fef2f2;color:#b91c1c;' : 'background:#fffbeb;color:#92400e;'">
+                      {{ a.status === 'unpaid' ? 'Payment pending' : 'Not registered' }}
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
             <div v-else class="rounded-xl border border-gray-200 p-4 text-center text-gray-400 text-sm">
-              No authors to remind — all accepted abstract authors have already registered.
+              No authors to remind — all accepted presenting authors have registered and paid.
             </div>
 
             <!-- Already registered list -->
             <div v-if="regReminderModal.preview.already_registered.length > 0">
               <p class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
-                Already Registered – Will Be Skipped ({{ regReminderModal.preview.already_registered.length }})
+                Registered &amp; Paid – Will Be Skipped ({{ regReminderModal.preview.already_registered.length }})
               </p>
               <div class="rounded-xl border border-green-200 overflow-hidden">
                 <div class="max-h-40 overflow-y-auto divide-y divide-gray-100">
