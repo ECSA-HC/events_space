@@ -17,7 +17,8 @@
         {{ successMessage }}
       </div>
 
-      <div class="overflow-x-auto">
+      <!-- Table — md and up -->
+      <div class="hidden md:block overflow-x-auto">
         <table class="min-w-full text-sm text-left border border-gray-200 rounded-xl overflow-hidden">
           <thead class="bg-gray-50 text-gray-700 font-semibold">
             <tr>
@@ -102,6 +103,78 @@
             </tr>
           </tbody>
         </table>
+
+        <div v-if="events.length === 0" class="text-center text-gray-500 py-6">
+          No events found.
+        </div>
+      </div>
+
+      <!-- Cards — below md -->
+      <div class="md:hidden space-y-4">
+        <div
+          v-for="(event, index) in events"
+          :key="index"
+          class="border border-gray-200 rounded-xl p-4 space-y-3"
+        >
+          <div class="font-semibold text-gray-900">{{ event.name }}</div>
+          <div class="text-sm text-gray-600">{{ event.date }}</div>
+          <div class="text-sm text-gray-600">{{ event.location }}</div>
+          <div class="flex flex-wrap gap-2">
+            <span
+              :class="[ 'px-2 py-1 rounded-full text-xs font-semibold',
+                event.registered
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-gray-100 text-gray-600'
+              ]"
+            >
+              {{ event.registered ? 'Registered' : 'Not Registered' }}
+            </span>
+            <span
+              :class="[ 'px-2 py-1 rounded-full text-xs font-semibold',
+                event.registered && event.paid
+                  ? 'bg-green-100 text-green-700'
+                  : event.registered
+                  ? 'bg-yellow-100 text-yellow-700'
+                  : 'bg-gray-100 text-gray-500'
+              ]"
+            >
+              {{ event.registered ? (event.paid ? 'Paid' : 'Not Paid') : '-' }}
+            </span>
+          </div>
+          <div class="flex flex-wrap gap-3 items-center pt-1">
+            <router-link :to="{ name: 'MyEvent', params: { id: event.id } }" class="text-indigo-600 hover:underline text-sm">
+              View
+            </router-link>
+            <button
+              v-if="event.registered && !event.paid"
+              class="text-red-600 hover:underline text-sm"
+              @click="deregisterEvent(event)"
+            >
+              Deregister
+            </button>
+            <button
+              v-if="!event.registered"
+              class="text-blue-600 hover:underline text-sm"
+              @click="openRegisterModal(event)"
+            >
+              Register
+            </button>
+            <button
+              v-if="event.registered && !event.paid"
+              class="text-green-600 hover:underline text-sm"
+              @click="payEvent(event)"
+            >
+              Pay
+            </button>
+            <button
+              v-if="event.registered && event.paid"
+              class="text-purple-600 hover:underline text-sm"
+              @click="viewBadge(event)"
+            >
+              View Badge
+            </button>
+          </div>
+        </div>
 
         <div v-if="events.length === 0" class="text-center text-gray-500 py-6">
           No events found.
