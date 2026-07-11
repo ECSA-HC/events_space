@@ -1056,7 +1056,8 @@ async def registration_reminder_preview(
         "SELECT DISTINCT aa.firstname, aa.lastname, LOWER(aa.email) as email "
         "FROM abstract a "
         "JOIN abstract_author aa ON aa.abstract_id = a.id "
-        "WHERE a.event_id = :eid AND a.status = 'accepted' AND aa.email IS NOT NULL AND aa.email != ''"
+        "WHERE a.event_id = :eid AND a.status = 'accepted' AND aa.email IS NOT NULL AND aa.email != '' "
+        "AND aa.is_presenting = 1"
     ), {"eid": event_id}).fetchall()
 
     registered_rows = db.execute(_sql_text(
@@ -1826,17 +1827,18 @@ async def send_registration_reminders(
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    # All accepted abstract authors for this event (distinct by email)
+    # Presenting authors of accepted abstracts for this event (distinct by email)
     author_rows = db.execute(_sql_text(
         "SELECT DISTINCT aa.firstname, aa.lastname, LOWER(aa.email) as email "
         "FROM abstract a "
         "JOIN abstract_author aa ON aa.abstract_id = a.id "
-        "WHERE a.event_id = :eid AND a.status = 'accepted' AND aa.email IS NOT NULL AND aa.email != ''"
+        "WHERE a.event_id = :eid AND a.status = 'accepted' AND aa.email IS NOT NULL AND aa.email != '' "
+        "AND aa.is_presenting = 1"
     ), {"eid": event_id}).fetchall()
 
     if not author_rows:
         return {"sent": 0, "total_authors": 0, "already_registered": 0,
-                "message": "No accepted abstract authors found for this event."}
+                "message": "No accepted presenting authors found for this event."}
 
     # Authors who already have any registration (paid or pending) for this event
     registered_rows = db.execute(_sql_text(
