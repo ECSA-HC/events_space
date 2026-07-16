@@ -194,8 +194,81 @@
           </svg>
           Assign Reviewers to Selected
         </button>
+        <button @click="openBulkStatusModal"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-white font-semibold text-sm rounded-xl hover:bg-gray-50 transition flex-shrink-0"
+          style="color:#0095B6;">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Change Status of Selected
+        </button>
       </div>
     </transition>
+
+    <!-- ── Bulk Status Change Modal ─────────────────────────────────────────── -->
+    <div v-if="bulkStatusModal.open"
+      class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+      @click.self="bulkStatusModal.open = false">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh]">
+        <div class="flex items-center justify-between px-5 py-4 border-b flex-shrink-0">
+          <p class="font-bold text-gray-800 text-sm">Change Status of Selected Abstracts</p>
+          <button @click="bulkStatusModal.open = false" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="p-5 overflow-y-auto flex-1 space-y-4">
+          <div v-if="!bulkStatusModal.done">
+            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">
+              New status for {{ selectedIds.size }} abstract{{ selectedIds.size !== 1 ? 's' : '' }}
+            </label>
+            <select v-model="bulkStatusModal.status" class="input w-full" :disabled="bulkStatusModal.updating">
+              <option value="submitted">Submitted</option>
+              <option value="under_review">Under Review</option>
+              <option value="accepted">Accepted</option>
+              <option value="rejected">Rejected</option>
+              <option value="revision_required">Revision Required</option>
+            </select>
+          </div>
+
+          <div v-if="bulkStatusModal.updating" class="space-y-2">
+            <div class="flex justify-between text-xs text-gray-500">
+              <span>Updating… {{ bulkStatusModal.progress }} / {{ bulkStatusModal.total }}</span>
+              <span>{{ Math.round(bulkStatusModal.progress / bulkStatusModal.total * 100) }}%</span>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-2">
+              <div class="h-2 rounded-full transition-all" style="background-color:#0095B6;"
+                :style="{ width: `${Math.round(bulkStatusModal.progress / bulkStatusModal.total * 100)}%` }"></div>
+            </div>
+          </div>
+
+          <div v-if="bulkStatusModal.done" class="text-center py-4">
+            <p class="text-3xl mb-2">✅</p>
+            <p class="font-bold text-green-700 text-base mb-1">Status updated</p>
+            <p class="text-sm text-gray-500">
+              {{ bulkStatusModal.results_log.filter(r => r.ok).length }} succeeded,
+              {{ bulkStatusModal.results_log.filter(r => !r.ok).length }} failed.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 px-5 py-4 border-t flex-shrink-0">
+          <button @click="bulkStatusModal.open = false"
+            class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition font-medium">
+            {{ bulkStatusModal.done ? 'Close' : 'Cancel' }}
+          </button>
+          <button v-if="!bulkStatusModal.done" @click="runBulkStatusChange"
+            :disabled="bulkStatusModal.updating"
+            class="inline-flex items-center gap-2 px-5 py-2 text-sm text-white rounded-xl font-semibold transition disabled:opacity-50"
+            style="background-color:#0095B6;">
+            {{ bulkStatusModal.updating ? 'Updating…' : 'Update Status' }}
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- Table -->
     <div class="bg-white rounded-2xl shadow overflow-hidden">
@@ -1094,11 +1167,12 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AbstractStatsPanel from './AbstractStatsView.vue'
 import api from '@/plugins/axios'
 
 const route        = useRoute()
+const router        = useRouter()
 
 const abstracts    = ref([])   // current page only
 const total        = ref(0)    // total matching records from server
@@ -1215,6 +1289,47 @@ const bulkModal = ref({
 })
 const bulkDropdownOpen = ref(false)
 
+const bulkStatusModal = ref({
+  open: false, status: 'accepted',
+  updating: false, done: false,
+  progress: 0, total: 0, results_log: [],
+})
+
+function openBulkStatusModal() {
+  bulkStatusModal.value = {
+    open: true, status: 'accepted',
+    updating: false, done: false,
+    progress: 0, total: 0, results_log: [],
+  }
+}
+
+async function runBulkStatusChange() {
+  const abstractIds = [...selectedIds.value]
+  const newStatus = bulkStatusModal.value.status
+  if (!abstractIds.length) return
+
+  bulkStatusModal.value.updating = true
+  bulkStatusModal.value.done = false
+  bulkStatusModal.value.progress = 0
+  bulkStatusModal.value.total = abstractIds.length
+  bulkStatusModal.value.results_log = []
+
+  for (const id of abstractIds) {
+    try {
+      await api.put(`/abstracts/${id}/status`, { status: newStatus })
+      bulkStatusModal.value.results_log.push({ key: id, ok: true })
+    } catch (e) {
+      bulkStatusModal.value.results_log.push({ key: id, ok: false, msg: e.response?.data?.detail || 'failed' })
+    }
+    bulkStatusModal.value.progress++
+  }
+
+  bulkStatusModal.value.updating = false
+  bulkStatusModal.value.done = true
+  selectedItems.value = new Map()
+  fetchAbstracts()
+}
+
 const selectedAbstracts = computed(() => [...selectedItems.value.values()])
 
 // Reviewers filtered for bulk-assign: match search + not already chip-selected
@@ -1328,16 +1443,46 @@ async function fetchAbstracts() {
   }
 }
 
+// ── Persist filters/pagination in the URL so returning to this page (e.g. via
+// back navigation from an abstract's detail page) restores the same view ──
+let restoringFromUrl = false
+
+function syncFiltersToUrl() {
+  if (restoringFromUrl) return
+  const query = {}
+  if (search.value.trim())    query.search = search.value.trim()
+  if (filterEvent.value)      query.event_id = String(filterEvent.value)
+  if (filterStatus.value)     query.status = filterStatus.value
+  if (filterTracks.value.length) query.track_id = filterTracks.value.map(String)
+  if (filterType.value)       query.presentation_type = filterType.value
+  if (page.value > 1)         query.page = String(page.value)
+  router.replace({ query })
+}
+
 // Reset to page 1 and refetch when any filter changes
 watch([search, filterEvent, filterStatus, filterTracks, filterType], () => {
+  if (restoringFromUrl) return
   page.value = 1
+  syncFiltersToUrl()
   fetchAbstracts()
 })
 
-watch(page, fetchAbstracts)
+watch(page, () => {
+  if (restoringFromUrl) return
+  syncFiltersToUrl()
+  fetchAbstracts()
+})
 
 onMounted(async () => {
-  if (route.query.track_id) filterTracks.value = [Number(route.query.track_id)]
+  restoringFromUrl = true
+  if (route.query.search)             search.value = route.query.search
+  if (route.query.event_id)           filterEvent.value = Number(route.query.event_id)
+  if (route.query.status)             filterStatus.value = route.query.status
+  if (route.query.track_id)           filterTracks.value = (Array.isArray(route.query.track_id) ? route.query.track_id : [route.query.track_id]).map(Number)
+  if (route.query.presentation_type)  filterType.value = route.query.presentation_type
+  if (route.query.page)               page.value = Number(route.query.page) || 1
+  await nextTick()
+  restoringFromUrl = false
 
   try {
     const [evRes, trackRes] = await Promise.all([

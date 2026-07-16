@@ -4,11 +4,11 @@
 
     <!-- Header — fixed height, never scrolls -->
     <div class="flex items-center gap-4 mb-5 flex-shrink-0">
-      <router-link :to="{ name: 'AdminAbstracts' }" class="text-gray-400 hover:text-gray-700 flex-shrink-0">
+      <button @click="goBackToList" class="text-gray-400 hover:text-gray-700 flex-shrink-0">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
         </svg>
-      </router-link>
+      </button>
       <h1 class="text-xl font-semibold text-black flex-1 truncate">{{ abstract?.title }}</h1>
       <span v-if="abstract" :class="statusClass(abstract.status)"
         class="px-3 py-1 rounded-full text-sm font-semibold capitalize flex-shrink-0">
@@ -474,6 +474,14 @@ import api from '@/plugins/axios'
 
 const route  = useRoute()
 const router = useRouter()
+
+function goBackToList() {
+  if (window.history.state?.back) {
+    router.back()
+  } else {
+    router.push({ name: 'AdminAbstracts' })
+  }
+}
 
 const abstract         = ref(null)
 const loading          = ref(true)
