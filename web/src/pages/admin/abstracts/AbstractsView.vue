@@ -1018,10 +1018,20 @@
               </div>
 
               <div v-if="notifyTemplateModal.preview.to_send.length" class="rounded-xl border border-gray-200 overflow-hidden">
-                <div class="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                <div class="max-h-80 overflow-y-auto divide-y divide-gray-100">
                   <div v-for="r in notifyTemplateModal.preview.to_send" :key="r.email" class="px-4 py-2.5">
-                    <p class="text-sm font-medium text-gray-800">{{ r.firstname }}</p>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <p class="text-sm font-medium text-gray-800">{{ r.firstname }}</p>
+                      <span class="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-green-100 text-green-700">
+                        {{ r.status === 'accepted' ? 'Accepted' : r.status }}{{ r.paid ? ' · Paid' : '' }}
+                      </span>
+                    </div>
                     <p class="text-xs text-gray-400">{{ r.email }}</p>
+                    <ul class="mt-1 space-y-0.5" v-if="r.abstract_titles?.length">
+                      <li v-for="(t, idx) in r.abstract_titles" :key="idx" class="text-xs text-gray-600 leading-snug">
+                        📄 {{ t }}
+                      </li>
+                    </ul>
                   </div>
                 </div>
               </div>

@@ -512,6 +512,10 @@ def template_notify_preview(
         row = {
             "firstname": entry["firstname"], "email": entry["email"],
             "abstract_titles": [a.title for a in entry["abstracts"]],
+            # Every recipient here already passed the accepted+paid filter above —
+            # surfaced explicitly so the admin can verify it in the preview, not just trust it.
+            "status": "accepted",
+            "paid": True,
         }
         (already_notified if entry["email"].lower() in notified_emails else to_send).append(row)
 
