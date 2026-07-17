@@ -5,6 +5,7 @@ import shutil
 from typing import Annotated, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile, status, Query
 from fastapi.responses import StreamingResponse
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
@@ -1347,7 +1348,8 @@ def my_presentations(
 
     paid_event_ids = {
         r.event_id for r in db.query(Registration).filter(
-            Registration.user_id == current_user["user_id"], Registration.paid == True,
+            Registration.user_id == current_user["user_id"],
+            or_(Registration.paid == True, Registration.payment_proof.isnot(None)),
         ).all()
     }
     eligible = [a for a in mine if a.event_id in paid_event_ids]
@@ -1403,10 +1405,10 @@ async def upload_my_presentation(
     paid = db.query(Registration).filter(
         Registration.event_id == abstract.event_id,
         Registration.user_id == current_user["user_id"],
-        Registration.paid == True,
+        or_(Registration.paid == True, Registration.payment_proof.isnot(None)),
     ).first()
     if not paid:
-        raise HTTPException(status_code=403, detail="A paid registration for this event is required")
+        raise HTTPException(status_code=403, detail="A paid registration (or uploaded proof of payment) for this event is required")
 
     ext = os.path.splitext(file.filename)[1].lower()
     ptype = abstract.presentation_type.value if abstract.presentation_type else "either"

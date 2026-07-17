@@ -1023,7 +1023,11 @@
                     <div class="flex items-center gap-2 flex-wrap">
                       <p class="text-sm font-medium text-gray-800">{{ r.firstname }}</p>
                       <span class="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-green-100 text-green-700">
-                        {{ r.status === 'accepted' ? 'Accepted' : r.status }}{{ r.paid ? ' · Paid' : '' }}
+                        {{ r.status === 'accepted' ? 'Accepted' : r.status }}
+                      </span>
+                      <span class="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+                        :class="r.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'">
+                        {{ r.payment_status === 'paid' ? 'Paid' : 'Proof Uploaded' }}
                       </span>
                     </div>
                     <p class="text-xs text-gray-400">{{ r.email }}</p>

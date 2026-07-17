@@ -443,14 +443,21 @@ def _template_eligible_recipients(template, db: Session, event_id: int = None):
         abstracts_q = abstracts_q.filter(Abstract.presentation_type == PresentationType(template.presentation_type))
     abstracts = abstracts_q.all()
 
-    paid_user_ids = {
-        r.user_id for r in db.query(Registration).filter(
-            Registration.event_id == target_event_id, Registration.paid == True,
-        ).all()
+    # Eligible on payment: fully verified paid, or at least proof of payment
+    # submitted (admin just hasn't verified it yet) — don't lock someone out of
+    # their own accepted-abstract presentation just because verification is pending.
+    registrations = db.query(Registration).filter(
+        Registration.event_id == target_event_id,
+        or_(Registration.paid == True, Registration.payment_proof.isnot(None)),
+    ).all()
+    payment_status_by_user_id = {
+        r.user_id: ("paid" if r.paid else "proof_uploaded") for r in registrations
     }
-    paid_emails = {
-        u.email.lower() for u in db.query(User).filter(User.id.in_(paid_user_ids)).all() if u.email
-    } if paid_user_ids else set()
+    payment_status_by_email = {
+        u.email.lower(): payment_status_by_user_id[u.id]
+        for u in db.query(User).filter(User.id.in_(payment_status_by_user_id.keys())).all()
+        if u.email
+    } if payment_status_by_user_id else {}
 
     by_email = {}
     for a in abstracts:
@@ -464,10 +471,11 @@ def _template_eligible_recipients(template, db: Session, event_id: int = None):
             submitter = db.query(User).filter(User.id == a.submitted_by).first()
             if submitter and submitter.email:
                 firstname, email = submitter.firstname or "Presenter", submitter.email
-        if not email or email.lower() not in paid_emails:
+        payment_status = payment_status_by_email.get((email or "").lower())
+        if not email or not payment_status:
             continue
         key = email.lower()
-        by_email.setdefault(key, {"firstname": firstname or "Presenter", "email": email, "abstracts": []})
+        by_email.setdefault(key, {"firstname": firstname or "Presenter", "email": email, "payment_status": payment_status, "abstracts": []})
         by_email[key]["abstracts"].append(a)
     return by_email
 
@@ -512,10 +520,10 @@ def template_notify_preview(
         row = {
             "firstname": entry["firstname"], "email": entry["email"],
             "abstract_titles": [a.title for a in entry["abstracts"]],
-            # Every recipient here already passed the accepted+paid filter above —
-            # surfaced explicitly so the admin can verify it in the preview, not just trust it.
+            # Every recipient here already passed the accepted + (paid or proof-uploaded)
+            # filter above — surfaced explicitly so the admin can verify it, not just trust it.
             "status": "accepted",
-            "paid": True,
+            "payment_status": entry["payment_status"],
         }
         (already_notified if entry["email"].lower() in notified_emails else to_send).append(row)
 
