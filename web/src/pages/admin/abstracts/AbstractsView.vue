@@ -1435,7 +1435,7 @@ async function fetchAbstracts() {
     if (filterStatus.value)  params.set('status',            filterStatus.value)
     filterTracks.value.forEach(id => params.append('track_id', id))
     if (filterType.value)    params.set('presentation_type', filterType.value)
-    if (search.value.trim()) params.set('search',            search.value.trim())
+    if (debouncedSearch.value.trim()) params.set('search',   debouncedSearch.value.trim())
     const res = await api.get(`/abstracts/?${params}`)
     abstracts.value = res.data.data  || []
     total.value     = res.data.total ?? 0
@@ -1451,7 +1451,7 @@ let restoringFromUrl = false
 function syncFiltersToUrl() {
   if (restoringFromUrl) return
   const query = {}
-  if (search.value.trim())    query.search = search.value.trim()
+  if (debouncedSearch.value.trim()) query.search = debouncedSearch.value.trim()
   if (filterEvent.value)      query.event_id = String(filterEvent.value)
   if (filterStatus.value)     query.status = filterStatus.value
   if (filterTracks.value.length) query.track_id = filterTracks.value.map(String)
@@ -1471,8 +1471,13 @@ function applyFilterChange() {
 // Dropdown filters react immediately…
 watch([filterEvent, filterStatus, filterTracks, filterType], applyFilterChange)
 
-// …but free-text search waits until typing settles, so we don't refetch on every keystroke
-watch(search, debounce(applyFilterChange, 300))
+// …but free-text search waits until typing settles, so we don't refetch on every keystroke.
+// (A separate settled ref, rather than debouncing the watch callback itself, matches the
+// working pattern on the Registrations page.)
+const debouncedSearch = ref('')
+const updateDebouncedSearch = debounce((val) => { debouncedSearch.value = val }, 300)
+watch(search, updateDebouncedSearch)
+watch(debouncedSearch, applyFilterChange)
 
 watch(page, () => {
   if (restoringFromUrl) return
@@ -1482,7 +1487,7 @@ watch(page, () => {
 
 onMounted(async () => {
   restoringFromUrl = true
-  if (route.query.search)             search.value = route.query.search
+  if (route.query.search)             { search.value = route.query.search; debouncedSearch.value = route.query.search }
   if (route.query.event_id)           filterEvent.value = Number(route.query.event_id)
   if (route.query.status)             filterStatus.value = route.query.status
   if (route.query.track_id)           filterTracks.value = (Array.isArray(route.query.track_id) ? route.query.track_id : [route.query.track_id]).map(Number)
