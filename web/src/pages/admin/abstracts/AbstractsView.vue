@@ -1170,6 +1170,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AbstractStatsPanel from './AbstractStatsView.vue'
 import api from '@/plugins/axios'
+import { debounce } from 'lodash'
 
 const route        = useRoute()
 const router        = useRouter()
@@ -1460,12 +1461,18 @@ function syncFiltersToUrl() {
 }
 
 // Reset to page 1 and refetch when any filter changes
-watch([search, filterEvent, filterStatus, filterTracks, filterType], () => {
+function applyFilterChange() {
   if (restoringFromUrl) return
   page.value = 1
   syncFiltersToUrl()
   fetchAbstracts()
-})
+}
+
+// Dropdown filters react immediately…
+watch([filterEvent, filterStatus, filterTracks, filterType], applyFilterChange)
+
+// …but free-text search waits until typing settles, so we don't refetch on every keystroke
+watch(search, debounce(applyFilterChange, 300))
 
 watch(page, () => {
   if (restoringFromUrl) return
