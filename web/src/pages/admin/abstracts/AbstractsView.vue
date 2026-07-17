@@ -881,7 +881,7 @@
                     <span v-if="t.presentation_type"> · {{ t.presentation_type }}</span>
                   </p>
                 </div>
-                <button v-if="t.event_id" @click="openNotifyTemplate(t)"
+                <button @click="openNotifyTemplate(t)"
                   class="text-xs font-medium px-2 py-1 rounded-lg border transition flex-shrink-0"
                   style="color:#5b21b6; border-color:#c4b5fd; background:#f5f3ff;">
                   Notify
@@ -993,9 +993,20 @@
           <div v-if="notifyTemplateModal.loading" class="text-xs text-gray-400 py-4 text-center">Loading…</div>
 
           <template v-else-if="notifyTemplateModal.preview">
-            <p v-if="notifyTemplateModal.preview.error" class="text-amber-700 text-sm bg-amber-50 border border-amber-200 rounded-xl p-3">
-              {{ notifyTemplateModal.preview.error }}
-            </p>
+            <div v-if="notifyTemplateModal.preview.needs_event" class="space-y-3">
+              <p class="text-amber-700 text-sm bg-amber-50 border border-amber-200 rounded-xl p-3">
+                This template applies to all events — choose which event's presenters to notify.
+              </p>
+              <select v-model.number="notifyTemplateModal.eventId" class="input w-full">
+                <option :value="null" disabled>Select an event…</option>
+                <option v-for="e in notifyTemplateModal.preview.events" :key="e.id" :value="e.id">{{ e.event }}</option>
+              </select>
+              <button @click="loadNotifyTemplatePreview" :disabled="!notifyTemplateModal.eventId"
+                class="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white rounded-xl disabled:opacity-50 transition hover:opacity-90"
+                style="background-color:#5b21b6;">
+                Preview Recipients
+              </button>
+            </div>
             <template v-else>
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-xs px-2 py-1 rounded-full font-semibold" style="background:#f5f3ff;color:#5b21b6;">
@@ -1020,7 +1031,7 @@
 
           <p v-if="notifyTemplateModal.error" class="text-red-500 text-xs">{{ notifyTemplateModal.error }}</p>
 
-          <button v-if="notifyTemplateModal.preview && !notifyTemplateModal.preview.error && notifyTemplateModal.preview.to_send.length"
+          <button v-if="notifyTemplateModal.preview && !notifyTemplateModal.preview.needs_event && notifyTemplateModal.preview.to_send.length"
             @click="sendNotifyTemplate" :disabled="notifyTemplateModal.sending"
             class="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white rounded-xl disabled:opacity-50 transition hover:opacity-90"
             style="background-color:#5b21b6;">
@@ -2031,21 +2042,30 @@ const loadPresentations = async () => {
 // ── Notify Template (per-template dispatch) modal ───────────────────────────
 const notifyTemplateModal = ref({
   open: false, loading: false, sending: false, done: false, error: '',
-  template: null, preview: null,
+  template: null, preview: null, eventId: null,
 })
 
 const openNotifyTemplate = async (t) => {
   notifyTemplateModal.value = {
     open: true, loading: true, sending: false, done: false, error: '',
-    template: t, preview: null,
+    template: t, preview: null, eventId: t.event_id || null,
   }
+  await loadNotifyTemplatePreview()
+}
+
+const loadNotifyTemplatePreview = async () => {
+  const m = notifyTemplateModal.value
+  m.loading = true
+  m.error = ''
   try {
-    const res = await api.get(`/events/templates/${t.id}/notify-preview`)
-    notifyTemplateModal.value.preview = res.data
+    const params = m.eventId ? { event_id: m.eventId } : {}
+    const res = await api.get(`/events/templates/${m.template.id}/notify-preview`, { params })
+    m.preview = res.data
+    if (res.data.needs_event) m.eventId = null
   } catch (e) {
-    notifyTemplateModal.value.error = e.response?.data?.detail || 'Failed to load recipients'
+    m.error = e.response?.data?.detail || 'Failed to load recipients'
   } finally {
-    notifyTemplateModal.value.loading = false
+    m.loading = false
   }
 }
 
@@ -2054,7 +2074,7 @@ const sendNotifyTemplate = async () => {
   m.sending = true
   m.error = ''
   try {
-    await api.post(`/events/templates/${m.template.id}/notify`, {})
+    await api.post(`/events/templates/${m.template.id}/notify`, m.eventId ? { event_id: m.eventId } : {})
     m.done = true
     m.preview.already_notified = [...m.preview.already_notified, ...m.preview.to_send]
     m.preview.to_send = []

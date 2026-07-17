@@ -423,17 +423,19 @@ def delete_template(
     db.commit()
 
 
-def _template_eligible_recipients(template, db: Session):
-    """Accepted-abstract authors, paid for the template's event, whose abstract's
+def _template_eligible_recipients(template, db: Session, event_id: int = None):
+    """Accepted-abstract authors, paid for the given event, whose abstract's
     presentation_type matches the template (or any type if the template has none
-    set). Returns {} for "all events" templates — dispatch requires a specific
-    event so we never mass-notify across every event at once."""
-    if not template.event_id:
+    set). Templates scoped to a specific event use that event; "all events"
+    templates require the caller to pass event_id explicitly — dispatch always
+    targets one event so we never mass-notify across every event at once."""
+    target_event_id = template.event_id or event_id
+    if not target_event_id:
         return {}
     from models.models import Abstract, AbstractStatus, PresentationType
 
     abstracts_q = db.query(Abstract).options(joinedload(Abstract.authors)).filter(
-        Abstract.event_id == template.event_id,
+        Abstract.event_id == target_event_id,
         Abstract.status == AbstractStatus.accepted,
         Abstract.deleted_at == None,
     )
@@ -443,7 +445,7 @@ def _template_eligible_recipients(template, db: Session):
 
     paid_user_ids = {
         r.user_id for r in db.query(Registration).filter(
-            Registration.event_id == template.event_id, Registration.paid == True,
+            Registration.event_id == target_event_id, Registration.paid == True,
         ).all()
     }
     paid_emails = {
@@ -473,6 +475,7 @@ def _template_eligible_recipients(template, db: Session):
 @router.get("/templates/{template_id}/notify-preview")
 def template_notify_preview(
     template_id: int,
+    event_id: int = Query(None),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
     auth_dependency: Auth = Depends(lambda db=Depends(get_db): Auth(db)),
@@ -484,20 +487,22 @@ def template_notify_preview(
     template = db.query(EventTemplate).filter(EventTemplate.id == template_id).first()
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
-    if not template.event_id:
+    if not template.event_id and not event_id:
         return {
             "template_name": template.name, "event_name": None,
             "to_send": [], "already_notified": [], "total_recipients": 0,
-            "error": "This template applies to all events — assign it to a specific event to notify presenters.",
+            "needs_event": True,
+            "events": [{"id": e.id, "event": e.event} for e in db.query(Event).order_by(Event.start_date.desc()).all()],
         }
 
-    event = db.query(Event).filter(Event.id == template.event_id).first()
-    by_email = _template_eligible_recipients(template, db)
+    target_event_id = template.event_id or event_id
+    event = db.query(Event).filter(Event.id == target_event_id).first()
+    by_email = _template_eligible_recipients(template, db, event_id=target_event_id)
 
     notified_emails = {
         row.recipient_email.lower()
         for row in db.query(EmailLog.recipient_email).filter(
-            EmailLog.email_type == f"presentation_template_{template_id}",
+            EmailLog.email_type == f"presentation_template_{template_id}_{target_event_id}",
             EmailLog.status == "sent",
         ).all()
     }
@@ -520,6 +525,7 @@ def template_notify_preview(
 
 
 class NotifyTemplateSchema(BaseModel):
+    event_id: Optional[int] = None
     test_email: Optional[str] = None
 
 
@@ -541,13 +547,14 @@ def template_notify(
     template = db.query(EventTemplate).filter(EventTemplate.id == template_id).first()
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
-    if not template.event_id:
-        raise HTTPException(status_code=400, detail="Assign this template to a specific event before notifying presenters")
+    if not template.event_id and not schema.event_id:
+        raise HTTPException(status_code=400, detail="Choose an event to notify presenters for this template")
 
-    event = db.query(Event).filter(Event.id == template.event_id).first()
-    by_email = _template_eligible_recipients(template, db)
+    target_event_id = template.event_id or schema.event_id
+    event = db.query(Event).filter(Event.id == target_event_id).first()
+    by_email = _template_eligible_recipients(template, db, event_id=target_event_id)
 
-    email_type = f"presentation_template_{template_id}"
+    email_type = f"presentation_template_{template_id}_{target_event_id}"
     notified_emails = {
         row.recipient_email.lower()
         for row in db.query(EmailLog.recipient_email).filter(
