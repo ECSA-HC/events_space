@@ -1820,10 +1820,13 @@ const tmplModal = ref({
 const openTemplates = async () => {
   tmplModal.value.open = true
   tmplModal.value.loading = true
+  tmplModal.value.error = ''
   try {
     const res = await api.get('/events/templates')
     tmplModal.value.templates = res.data
-  } catch (_) {}
+  } catch (e) {
+    tmplModal.value.error = e.response?.data?.detail || 'Failed to load templates'
+  }
   finally { tmplModal.value.loading = false }
 }
 
