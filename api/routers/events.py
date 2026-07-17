@@ -423,6 +423,178 @@ def delete_template(
     db.commit()
 
 
+def _template_eligible_recipients(template, db: Session):
+    """Accepted-abstract authors, paid for the template's event, whose abstract's
+    presentation_type matches the template (or any type if the template has none
+    set). Returns {} for "all events" templates — dispatch requires a specific
+    event so we never mass-notify across every event at once."""
+    if not template.event_id:
+        return {}
+    from models.models import Abstract, AbstractStatus, PresentationType
+
+    abstracts_q = db.query(Abstract).options(joinedload(Abstract.authors)).filter(
+        Abstract.event_id == template.event_id,
+        Abstract.status == AbstractStatus.accepted,
+        Abstract.deleted_at == None,
+    )
+    if template.presentation_type:
+        abstracts_q = abstracts_q.filter(Abstract.presentation_type == PresentationType(template.presentation_type))
+    abstracts = abstracts_q.all()
+
+    paid_user_ids = {
+        r.user_id for r in db.query(Registration).filter(
+            Registration.event_id == template.event_id, Registration.paid == True,
+        ).all()
+    }
+    paid_emails = {
+        u.email.lower() for u in db.query(User).filter(User.id.in_(paid_user_ids)).all() if u.email
+    } if paid_user_ids else set()
+
+    by_email = {}
+    for a in abstracts:
+        firstname, email = None, None
+        if a.authors:
+            presenting = [au for au in a.authors if au.is_presenting and au.email]
+            candidates = presenting or [au for au in a.authors if au.email][:1]
+            if candidates:
+                firstname, email = candidates[0].firstname or "Presenter", candidates[0].email
+        if not email and a.submitted_by:
+            submitter = db.query(User).filter(User.id == a.submitted_by).first()
+            if submitter and submitter.email:
+                firstname, email = submitter.firstname or "Presenter", submitter.email
+        if not email or email.lower() not in paid_emails:
+            continue
+        key = email.lower()
+        by_email.setdefault(key, {"firstname": firstname or "Presenter", "email": email, "abstracts": []})
+        by_email[key]["abstracts"].append(a)
+    return by_email
+
+
+@router.get("/templates/{template_id}/notify-preview")
+def template_notify_preview(
+    template_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(lambda db=Depends(get_db): Auth(db)),
+):
+    """Preview who would receive a 'template available' notification (no emails sent)."""
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+    from models.models import EventTemplate, EmailLog
+
+    template = db.query(EventTemplate).filter(EventTemplate.id == template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    if not template.event_id:
+        return {
+            "template_name": template.name, "event_name": None,
+            "to_send": [], "already_notified": [], "total_recipients": 0,
+            "error": "This template applies to all events — assign it to a specific event to notify presenters.",
+        }
+
+    event = db.query(Event).filter(Event.id == template.event_id).first()
+    by_email = _template_eligible_recipients(template, db)
+
+    notified_emails = {
+        row.recipient_email.lower()
+        for row in db.query(EmailLog.recipient_email).filter(
+            EmailLog.email_type == f"presentation_template_{template_id}",
+            EmailLog.status == "sent",
+        ).all()
+    }
+
+    to_send, already_notified = [], []
+    for entry in by_email.values():
+        row = {
+            "firstname": entry["firstname"], "email": entry["email"],
+            "abstract_titles": [a.title for a in entry["abstracts"]],
+        }
+        (already_notified if entry["email"].lower() in notified_emails else to_send).append(row)
+
+    return {
+        "template_name": template.name,
+        "event_name": event.event if event else None,
+        "to_send": to_send,
+        "already_notified": already_notified,
+        "total_recipients": len(by_email),
+    }
+
+
+class NotifyTemplateSchema(BaseModel):
+    test_email: Optional[str] = None
+
+
+@router.post("/templates/{template_id}/notify")
+def template_notify(
+    template_id: int,
+    schema: NotifyTemplateSchema,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(lambda db=Depends(get_db): Auth(db)),
+):
+    """Email paid, accepted presenters (matching the template's type) that a
+    presentation template is now available in their account."""
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+    from models.models import EventTemplate, EmailLog
+    import utils.mailer_util as _mailer
+
+    template = db.query(EventTemplate).filter(EventTemplate.id == template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    if not template.event_id:
+        raise HTTPException(status_code=400, detail="Assign this template to a specific event before notifying presenters")
+
+    event = db.query(Event).filter(Event.id == template.event_id).first()
+    by_email = _template_eligible_recipients(template, db)
+
+    email_type = f"presentation_template_{template_id}"
+    notified_emails = {
+        row.recipient_email.lower()
+        for row in db.query(EmailLog.recipient_email).filter(
+            EmailLog.email_type == email_type, EmailLog.status == "sent",
+        ).all()
+    }
+    jobs = [v for v in by_email.values() if v["email"].lower() not in notified_emails]
+
+    if not jobs and not schema.test_email:
+        return {"sent": 0, "message": "No unnotified eligible presenters found for this template."}
+    if schema.test_email and not jobs:
+        jobs = [{"firstname": "Test", "email": schema.test_email, "abstracts": []}]
+
+    subject = f"Presentation Template Available – {event.event if event else ''}"
+    ptype = template.presentation_type or "either"
+
+    messages = []
+    for j in jobs:
+        recipient = schema.test_email or j["email"]
+        body = _mailer.templates.get_template("presentation_template_notify.html").render(
+            subject=subject,
+            firstname=j["firstname"],
+            event_name=event.event if event else "",
+            abstract_titles=[a.title for a in j["abstracts"]],
+            presentation_type=ptype,
+            portal_url=_mailer.APP_BASE_URL,
+            year=_mailer.YEAR,
+        )
+        messages.append({
+            "recipient_email": recipient,
+            "subject": subject,
+            "body": body,
+            "email_type": email_type if not schema.test_email else "presentation_template_test",
+            "sent_by_user_id": current_user["user_id"],
+        })
+
+    background_tasks.add_task(_mailer.send_bulk_emails, messages, db)
+
+    return {
+        "sent": len(messages),
+        "message": (
+            f"Notification queued for {len(messages)} presenter(s)."
+            if not schema.test_email else "Test email queued."
+        ),
+    }
+
+
 @router.get("/templates/for-me")
 def my_templates(
     current_user: dict = Depends(get_current_user),

@@ -1009,3 +1009,17 @@ class EventTemplate(Base):
 
     event      = relationship("Event")
     uploader   = relationship("User", foreign_keys=[uploaded_by])
+
+
+class AbstractPresentation(Base):
+    __tablename__ = "abstract_presentation"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    abstract_id = Column(Integer, ForeignKey("abstract.id", ondelete="CASCADE"), nullable=False, unique=True)
+    file_path   = Column(Text, nullable=False)
+    uploaded_by = Column(Integer, ForeignKey("user.id"), nullable=True)
+    uploaded_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    updated_at  = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    abstract    = relationship("Abstract")
+    uploader    = relationship("User", foreign_keys=[uploaded_by])

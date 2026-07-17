@@ -57,6 +57,7 @@ import ReviewersView from "@/pages/admin/abstracts/ReviewersView.vue";
 import RegistrationsView from "@/pages/admin/registrations/RegistrationsView.vue";
 import IncompleteRegistrationsView from "@/pages/admin/users/IncompleteRegistrationsView.vue";
 import MyAbstractsView from "@/pages/my_account/MyAbstractsView.vue";
+import MyAbstractPresentationView from "@/pages/my_account/MyAbstractPresentationView.vue";
 import MyReviewsView from "@/pages/my_account/MyReviewsView.vue";
 
 // Error Pages
@@ -147,6 +148,12 @@ const routes = [
         path: "my-abstracts",
         name: "MyAbstracts",
         component: MyAbstractsView,
+        meta: { requiresAuth: true },
+      },
+      {
+        path: "my-abstract-presentation",
+        name: "MyAbstractPresentation",
+        component: MyAbstractPresentationView,
         meta: { requiresAuth: true },
       },
       {

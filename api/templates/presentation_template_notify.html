@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ subject }}</title>
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; color: #333333; }
+      .email-container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 40px; box-sizing: border-box; border-top: 6px solid #0095b6; }
+      p { font-size: 15px; line-height: 1.7; margin: 12px 0; }
+      .abstract-box { background-color: #f9fafb; border-left: 4px solid #0095b6; padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 20px 0; }
+      .abstract-box p { margin: 4px 0; font-size: 14px; }
+      .note-box { background-color: #fffbeb; border: 1px solid #fde68a; color: #92400e; padding: 14px 18px; border-radius: 8px; margin: 20px 0; font-size: 14px; line-height: 1.6; }
+      .cta { display: inline-block; margin: 8px 0 20px; padding: 12px 24px; background-color: #0095b6; color: #ffffff !important; text-decoration: none; font-weight: 600; font-size: 14px; border-radius: 8px; }
+      .footer { font-size: 12px; color: #9ca3af; text-align: center; margin-top: 28px; }
+    </style>
+  </head>
+  <body>
+    <div class="email-container">
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+        <tr>
+          <td>
+            <span style="font-size:19px;font-weight:900;color:#0095b6;">ECSA</span><span style="font-size:19px;font-weight:900;color:#F7941D;">-HC</span>
+            <span style="font-size:13px;color:#6b7280;margin-left:6px;">Events Portal</span>
+          </td>
+        </tr>
+      </table>
+
+      <p>Dear <strong>{{ firstname }}</strong>,</p>
+
+      <p>The {{ "PowerPoint presentation template" if presentation_type == "oral" else "poster guidance document" }} for the {{ event_name }} is now available in your ECSA-HC Events account.</p>
+
+      {% if abstract_titles %}
+      <div class="abstract-box">
+        <p><strong>{{ abstract_titles|length > 1 and "Your accepted abstracts:" or "Your accepted abstract:" }}</strong></p>
+        {% for title in abstract_titles %}
+        <p>&ldquo;{{ title }}&rdquo;</p>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if presentation_type == "oral" %}
+      <div class="note-box">
+        Please note that each presentation is strictly limited to <strong>10 minutes per presenter</strong>. Once you have prepared your slides using the template, please upload them through your account so that the secretariat can have them ahead of the event.
+      </div>
+      {% else %}
+      <div class="note-box">
+        Please prepare your poster (PDF or image) using the provided guidance, and upload it through your account so the secretariat has a copy ahead of the event.
+      </div>
+      {% endif %}
+
+      <p>You can view the template and upload your presentation under <strong>Abstract Presentation</strong> in your account menu:</p>
+
+      <a href="{{ portal_url }}/my-account/my-abstract-presentation" class="cta">Go to Abstract Presentation</a>
+
+      <p>Kind regards,<br/>ECSA-HC Secretariat</p>
+
+      <div class="footer">
+        <p>&copy; {{ year }} ECSA-HC Events Portal. All rights reserved.</p>
+        <p>East, Central and Southern Africa Health Community</p>
+      </div>
+    </div>
+  </body>
+</html>

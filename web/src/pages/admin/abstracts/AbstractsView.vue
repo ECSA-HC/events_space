@@ -33,6 +33,17 @@
           Templates
         </button>
 
+        <!-- All Presentations -->
+        <button @click="openPresentations"
+          class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition hover:opacity-90"
+          style="background-color:#fff; color:#0095B6; border:1.5px solid #b3e4f0;">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 6a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm4 14h8"/>
+          </svg>
+          All Presentations
+        </button>
+
         <!-- Notifications dropdown -->
         <div class="relative" ref="notifDropdownRef">
           <button type="button" @click="notifDropdownOpen = !notifDropdownOpen"
@@ -870,6 +881,11 @@
                     <span v-if="t.presentation_type"> · {{ t.presentation_type }}</span>
                   </p>
                 </div>
+                <button v-if="t.event_id" @click="openNotifyTemplate(t)"
+                  class="text-xs font-medium px-2 py-1 rounded-lg border transition flex-shrink-0"
+                  style="color:#5b21b6; border-color:#c4b5fd; background:#f5f3ff;">
+                  Notify
+                </button>
                 <a :href="t.url" target="_blank"
                   class="text-xs font-medium px-2 py-1 rounded-lg border transition flex-shrink-0"
                   style="color:#0095B6; border-color:#b3e4f0; background:#e6f7fb;">
@@ -884,6 +900,136 @@
             </div>
           </div>
 
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         ALL PRESENTATIONS MODAL
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div v-if="presentationsModal.open"
+      class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+      @click.self="presentationsModal.open = false">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+
+        <div class="flex items-center justify-between px-5 py-4 border-b flex-shrink-0">
+          <div>
+            <p class="font-bold text-gray-800 text-sm">All Presentations</p>
+            <p class="text-xs text-gray-400 mt-0.5">Every presenter-uploaded slide or poster</p>
+          </div>
+          <button @click="presentationsModal.open = false" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="px-5 pt-4 flex-shrink-0">
+          <select v-model.number="presentationsModal.eventId" @change="loadPresentations" class="input w-full">
+            <option :value="null">All Events</option>
+            <option v-for="e in events" :key="e.id" :value="e.id">{{ e.event }}</option>
+          </select>
+        </div>
+
+        <div class="p-5 space-y-2 overflow-y-auto flex-1">
+          <div v-if="presentationsModal.loading" class="text-xs text-gray-400 py-4 text-center">Loading…</div>
+          <div v-else-if="presentationsModal.items.length === 0" class="text-xs text-gray-400 py-4 text-center">No presentations uploaded yet.</div>
+
+          <div v-else v-for="p in presentationsModal.items" :key="p.id" class="rounded-xl border border-gray-100 overflow-hidden">
+            <button @click="p._expanded = !p._expanded" class="w-full flex items-center gap-3 px-3 py-2.5 bg-gray-50 hover:bg-gray-100 text-left">
+              <svg class="w-5 h-5 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-700 truncate">{{ p.abstract_title }}</p>
+                <p class="text-xs text-gray-400 truncate">
+                  {{ p.uploader_name || 'Unknown' }} · {{ p.event_name }}
+                  <span v-if="p.presentation_type"> · {{ p.presentation_type }}</span>
+                </p>
+              </div>
+              <a :href="fileUrl(p.url)" target="_blank" @click.stop
+                class="text-xs font-medium px-2 py-1 rounded-lg border transition flex-shrink-0"
+                style="color:#0095B6; border-color:#b3e4f0; background:#e6f7fb;">
+                Download
+              </a>
+            </button>
+            <div v-if="p._expanded" class="p-3 border-t border-gray-100">
+              <img v-if="isImage(p.url)" :src="fileUrl(p.url)" class="max-w-full max-h-[40vh] object-contain rounded-lg border" />
+              <div v-else-if="isPdf(p.url)" style="height:40vh;" class="rounded-lg border overflow-hidden">
+                <iframe :src="fileUrl(p.url)" class="w-full h-full" frameborder="0"></iframe>
+              </div>
+              <div v-else-if="isOffice(p.url)" style="height:40vh;" class="rounded-lg border overflow-hidden">
+                <iframe :src="officeViewerUrl(p.url)" class="w-full h-full" frameborder="0"></iframe>
+              </div>
+              <p v-else class="text-xs text-gray-400">Preview not available for this file type — use Download.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         NOTIFY TEMPLATE (per-template dispatch) MODAL
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div v-if="notifyTemplateModal.open"
+      class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+      @click.self="notifyTemplateModal.open = false">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
+
+        <div class="flex items-center justify-between px-5 py-4 border-b flex-shrink-0">
+          <div>
+            <p class="font-bold text-gray-800 text-sm">Notify Presenters</p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ notifyTemplateModal.template?.name }}</p>
+          </div>
+          <button @click="notifyTemplateModal.open = false" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="p-5 space-y-4 overflow-y-auto flex-1">
+          <div v-if="notifyTemplateModal.loading" class="text-xs text-gray-400 py-4 text-center">Loading…</div>
+
+          <template v-else-if="notifyTemplateModal.preview">
+            <p v-if="notifyTemplateModal.preview.error" class="text-amber-700 text-sm bg-amber-50 border border-amber-200 rounded-xl p-3">
+              {{ notifyTemplateModal.preview.error }}
+            </p>
+            <template v-else>
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs px-2 py-1 rounded-full font-semibold" style="background:#f5f3ff;color:#5b21b6;">
+                  {{ notifyTemplateModal.preview.to_send.length }} to notify
+                </span>
+                <span v-if="notifyTemplateModal.preview.already_notified.length" class="text-xs px-2 py-1 rounded-full font-semibold bg-gray-100 text-gray-500">
+                  {{ notifyTemplateModal.preview.already_notified.length }} already notified
+                </span>
+              </div>
+
+              <div v-if="notifyTemplateModal.preview.to_send.length" class="rounded-xl border border-gray-200 overflow-hidden">
+                <div class="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                  <div v-for="r in notifyTemplateModal.preview.to_send" :key="r.email" class="px-4 py-2.5">
+                    <p class="text-sm font-medium text-gray-800">{{ r.firstname }}</p>
+                    <p class="text-xs text-gray-400">{{ r.email }}</p>
+                  </div>
+                </div>
+              </div>
+              <p v-else class="text-xs text-gray-400 text-center py-3">Everyone eligible has already been notified.</p>
+            </template>
+          </template>
+
+          <p v-if="notifyTemplateModal.error" class="text-red-500 text-xs">{{ notifyTemplateModal.error }}</p>
+
+          <button v-if="notifyTemplateModal.preview && !notifyTemplateModal.preview.error && notifyTemplateModal.preview.to_send.length"
+            @click="sendNotifyTemplate" :disabled="notifyTemplateModal.sending"
+            class="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white rounded-xl disabled:opacity-50 transition hover:opacity-90"
+            style="background-color:#5b21b6;">
+            {{ notifyTemplateModal.sending ? 'Sending…' : `Send to ${notifyTemplateModal.preview.to_send.length} Presenter${notifyTemplateModal.preview.to_send.length === 1 ? '' : 's'}` }}
+          </button>
+
+          <p v-if="notifyTemplateModal.done" class="text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl p-3 text-center">
+            Notification queued.
+          </p>
         </div>
       </div>
     </div>
@@ -1366,6 +1512,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AbstractStatsPanel from './AbstractStatsView.vue'
 import api from '@/plugins/axios'
 import { debounce } from 'lodash'
+import { fileUrl, isImage, isPdf, isOffice, officeViewerUrl } from '@/utils/filePreview'
 
 const route        = useRoute()
 const router        = useRouter()
@@ -1856,6 +2003,66 @@ const deleteTemplate = async (t) => {
     await api.delete(`/events/templates/${t.id}`)
     tmplModal.value.templates = tmplModal.value.templates.filter(x => x.id !== t.id)
   } catch (_) {}
+}
+
+// ── All Presentations modal ──────────────────────────────────────────────────
+const presentationsModal = ref({
+  open: false, loading: false, eventId: null, items: [],
+})
+
+const openPresentations = async () => {
+  presentationsModal.value.open = true
+  await loadPresentations()
+}
+
+const loadPresentations = async () => {
+  presentationsModal.value.loading = true
+  try {
+    const params = presentationsModal.value.eventId ? { event_id: presentationsModal.value.eventId } : {}
+    const res = await api.get('/abstracts/presentations', { params })
+    presentationsModal.value.items = res.data.map(p => ({ ...p, _expanded: false }))
+  } catch (_) {
+    presentationsModal.value.items = []
+  } finally {
+    presentationsModal.value.loading = false
+  }
+}
+
+// ── Notify Template (per-template dispatch) modal ───────────────────────────
+const notifyTemplateModal = ref({
+  open: false, loading: false, sending: false, done: false, error: '',
+  template: null, preview: null,
+})
+
+const openNotifyTemplate = async (t) => {
+  notifyTemplateModal.value = {
+    open: true, loading: true, sending: false, done: false, error: '',
+    template: t, preview: null,
+  }
+  try {
+    const res = await api.get(`/events/templates/${t.id}/notify-preview`)
+    notifyTemplateModal.value.preview = res.data
+  } catch (e) {
+    notifyTemplateModal.value.error = e.response?.data?.detail || 'Failed to load recipients'
+  } finally {
+    notifyTemplateModal.value.loading = false
+  }
+}
+
+const sendNotifyTemplate = async () => {
+  const m = notifyTemplateModal.value
+  m.sending = true
+  m.error = ''
+  try {
+    await api.post(`/events/templates/${m.template.id}/notify`, {})
+    m.done = true
+    m.preview.already_notified = [...m.preview.already_notified, ...m.preview.to_send]
+    m.preview.to_send = []
+  } catch (e) {
+    m.error = e.response?.data?.detail || 'Failed to send notifications'
+  } finally {
+    m.sending = false
+  }
 }
 
 // ── Reports slide-over ───────────────────────────────────────────────────────

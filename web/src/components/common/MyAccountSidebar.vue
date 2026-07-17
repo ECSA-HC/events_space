@@ -37,6 +37,15 @@
       </router-link>
 
       <router-link
+        :to="{ name: 'MyAbstractPresentation' }"
+        class="flex items-center gap-3 px-4 py-2 rounded-xl transition hover:bg-gray-100"
+        active-class="bg-gray-100 text-bondi-blue font-semibold"
+      >
+        <PresentationIcon class="w-5 h-5" />
+        Abstract Presentation
+      </router-link>
+
+      <router-link
         :to="{ name: 'MyReviews' }"
         class="flex items-center gap-3 px-4 py-2 rounded-xl transition hover:bg-gray-100"
         active-class="bg-gray-100 text-bondi-blue font-semibold"
@@ -90,6 +99,7 @@ import {
   ShieldIcon,
   FileTextIcon,
   ClipboardListIcon,
+  PresentationIcon,
 } from 'lucide-vue-next'
 import { computed } from "vue";
 import { useAuthStore } from "@/stores/auth";

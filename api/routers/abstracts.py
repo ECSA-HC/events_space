@@ -1,6 +1,9 @@
 import io
+import os
+import uuid
+import shutil
 from typing import Annotated, Optional
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile, status, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from openpyxl import Workbook
@@ -11,7 +14,10 @@ from core.database import get_db
 from dependencies.auth_dependency import Auth, get_current_user, get_optional_current_user
 from dependencies.dependency import Dependency
 import utils.mailer_util as mailer_util
-from models.models import Abstract, AbstractAuthor, AbstractReviewer, AbstractReview, AbstractStatus, User, UserRole, Role, EventTrack
+from models.models import (
+    Abstract, AbstractAuthor, AbstractReviewer, AbstractReview, AbstractStatus, AbstractPresentation,
+    User, UserRole, Role, EventTrack, EventTemplate, Registration,
+)
 from datetime import datetime
 from schemas.events_space import (
     AbstractSubmitSchema, AbstractUpdateSchema,
@@ -1274,6 +1280,217 @@ def notify_rejection(
         "sent": len(jobs),
         "message": f"Rejection notification queued for {len(jobs)} author(s).",
     }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  ABSTRACT PRESENTATIONS  (presenter-uploaded slides/posters for accepted+paid
+#  abstracts). NOTE: must stay before the generic /{abstract_id} route below,
+#  same route-ordering gotcha fixed earlier for rejection-notify-preview.
+# ══════════════════════════════════════════════════════════════════════════════
+
+PRESENTATION_DIR = "uploads/abstract_presentations"
+if not os.path.exists(PRESENTATION_DIR):
+    os.makedirs(PRESENTATION_DIR)
+
+ORAL_EXTS = {".pptx", ".ppt", ".pdf"}
+POSTER_EXTS = {".pdf", ".jpg", ".jpeg", ".png", ".webp"}
+
+
+def _can_manage_presentation(abstract: Abstract, current_user: dict, db: Session) -> bool:
+    """True if the current user is the submitter or a listed author of this abstract."""
+    if abstract.submitted_by == current_user["user_id"]:
+        return True
+    user = db.query(User).filter(User.id == current_user["user_id"]).first()
+    if not user or not user.email:
+        return False
+    email = user.email.lower()
+    return any((au.email or "").lower() == email for au in abstract.authors)
+
+
+def _serialize_event_template(t: EventTemplate):
+    return {
+        "id": t.id,
+        "event_id": t.event_id,
+        "name": t.name,
+        "url": f"/uploads/templates/{os.path.basename(t.file_path)}",
+        "presentation_type": t.presentation_type,
+        "uploaded_at": t.uploaded_at,
+    }
+
+
+def _serialize_presentation(p: AbstractPresentation):
+    return {
+        "id": p.id,
+        "abstract_id": p.abstract_id,
+        "url": f"/uploads/abstract_presentations/{os.path.basename(p.file_path)}",
+        "uploaded_by": p.uploaded_by,
+        "uploader_name": f"{p.uploader.firstname} {p.uploader.lastname}" if p.uploader else None,
+        "uploaded_at": p.uploaded_at,
+        "updated_at": p.updated_at,
+    }
+
+
+@router.get("/my-presentations")
+def my_presentations(
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+):
+    """Accepted + paid abstracts for the logged-in presenter, with any matching
+    admin-provided template and their own uploaded presentation (if any)."""
+    abstracts = db.query(Abstract).options(
+        joinedload(Abstract.authors), joinedload(Abstract.event),
+    ).filter(
+        Abstract.status == AbstractStatus.accepted,
+        Abstract.deleted_at == None,
+    ).all()
+    mine = [a for a in abstracts if _can_manage_presentation(a, current_user, db)]
+
+    paid_event_ids = {
+        r.event_id for r in db.query(Registration).filter(
+            Registration.user_id == current_user["user_id"], Registration.paid == True,
+        ).all()
+    }
+    eligible = [a for a in mine if a.event_id in paid_event_ids]
+
+    submissions = {
+        p.abstract_id: p for p in db.query(AbstractPresentation).filter(
+            AbstractPresentation.abstract_id.in_([a.id for a in eligible])
+        ).all()
+    } if eligible else {}
+
+    result = []
+    for a in eligible:
+        ptype = a.presentation_type.value if a.presentation_type else None
+        templates = [
+            _serialize_event_template(t) for t in
+            db.query(EventTemplate).filter(
+                (EventTemplate.event_id == a.event_id) | (EventTemplate.event_id == None)
+            ).all()
+            if not t.presentation_type or t.presentation_type == ptype
+        ]
+        own = submissions.get(a.id)
+        result.append({
+            "abstract_id": a.id,
+            "title": a.title,
+            "event_id": a.event_id,
+            "event_name": a.event.event if a.event else None,
+            "presentation_type": ptype,
+            "templates": templates,
+            "submission": _serialize_presentation(own) if own else None,
+        })
+    return result
+
+
+@router.post("/{abstract_id}/presentation", status_code=201)
+async def upload_my_presentation(
+    abstract_id: int,
+    current_user: user_dependency,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Presenter uploads (or replaces) their own presentation/poster for an
+    accepted, paid abstract."""
+    abstract = db.query(Abstract).options(joinedload(Abstract.authors)).filter(
+        Abstract.id == abstract_id, Abstract.deleted_at == None,
+    ).first()
+    if not abstract:
+        raise HTTPException(status_code=404, detail="Abstract not found")
+    if not _can_manage_presentation(abstract, current_user, db):
+        raise HTTPException(status_code=403, detail="You are not an author of this abstract")
+    if abstract.status != AbstractStatus.accepted:
+        raise HTTPException(status_code=400, detail="Only accepted abstracts can have a presentation uploaded")
+
+    paid = db.query(Registration).filter(
+        Registration.event_id == abstract.event_id,
+        Registration.user_id == current_user["user_id"],
+        Registration.paid == True,
+    ).first()
+    if not paid:
+        raise HTTPException(status_code=403, detail="A paid registration for this event is required")
+
+    ext = os.path.splitext(file.filename)[1].lower()
+    ptype = abstract.presentation_type.value if abstract.presentation_type else "either"
+    allowed = ORAL_EXTS if ptype == "oral" else POSTER_EXTS if ptype == "poster" else (ORAL_EXTS | POSTER_EXTS)
+    if ext not in allowed:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type for {ptype} presentations. Allowed: {', '.join(sorted(allowed))}",
+        )
+
+    unique_name = f"{uuid.uuid4().hex}{ext}"
+    file_path = os.path.join(PRESENTATION_DIR, unique_name)
+    with open(file_path, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    existing = db.query(AbstractPresentation).filter(AbstractPresentation.abstract_id == abstract_id).first()
+    if existing:
+        old_path = existing.file_path
+        existing.file_path = file_path
+        existing.uploaded_by = current_user["user_id"]
+        db.commit()
+        db.refresh(existing)
+        if old_path and old_path != file_path and os.path.exists(old_path):
+            os.remove(old_path)
+        record = existing
+    else:
+        record = AbstractPresentation(
+            abstract_id=abstract_id, file_path=file_path, uploaded_by=current_user["user_id"],
+        )
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+    return _serialize_presentation(record)
+
+
+@router.delete("/{abstract_id}/presentation", status_code=204)
+def delete_my_presentation(
+    abstract_id: int,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+):
+    """Presenter deletes their own uploaded presentation/poster."""
+    record = db.query(AbstractPresentation).filter(AbstractPresentation.abstract_id == abstract_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="No presentation uploaded for this abstract")
+    if record.uploaded_by != current_user["user_id"]:
+        abstract = db.query(Abstract).options(joinedload(Abstract.authors)).filter(
+            Abstract.id == abstract_id
+        ).first()
+        if not abstract or not _can_manage_presentation(abstract, current_user, db):
+            raise HTTPException(status_code=403, detail="Not authorized to delete this presentation")
+    if os.path.exists(record.file_path):
+        os.remove(record.file_path)
+    db.delete(record)
+    db.commit()
+
+
+@router.get("/presentations")
+def all_presentations(
+    event_id: int = Query(None),
+    current_user: user_dependency = None,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+):
+    """Admin/abstract-manager: list every presenter-uploaded presentation/poster."""
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+
+    q = db.query(AbstractPresentation).options(
+        joinedload(AbstractPresentation.abstract).joinedload(Abstract.event),
+        joinedload(AbstractPresentation.uploader),
+    )
+    if event_id:
+        q = q.join(Abstract, Abstract.id == AbstractPresentation.abstract_id).filter(Abstract.event_id == event_id)
+    records = q.order_by(AbstractPresentation.uploaded_at.desc()).all()
+    return [
+        {
+            **_serialize_presentation(p),
+            "abstract_title": p.abstract.title if p.abstract else None,
+            "event_id": p.abstract.event_id if p.abstract else None,
+            "event_name": p.abstract.event.event if p.abstract and p.abstract.event else None,
+            "presentation_type": p.abstract.presentation_type.value if p.abstract and p.abstract.presentation_type else None,
+        }
+        for p in records
+    ]
 
 
 @router.get("/{abstract_id}")
