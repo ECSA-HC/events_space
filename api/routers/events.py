@@ -338,6 +338,7 @@ def _build_pending_list(pending_regs, db, event_id=None):
             ),
             "participation_role": r.participation_role,
             "registered_at": r.registered_at,
+            "notes": getattr(r, "notes", None),
             "is_abstract_author": (r.user.email or "").lower() in abstract_author_emails,
             "abstract_reminder_sent": (r.user.email or "").lower() in reminded_emails,
         }
@@ -547,6 +548,7 @@ async def get_event(
                     ),
                     "paid": getattr(r, "paid", None),
                     "payment_proof": getattr(r, "payment_proof", None),
+                    "notes": getattr(r, "notes", None),
                     "payment_method": payment_by_reg[r.id].payment_method if r.id in payment_by_reg else None,
                     "payment_amount": float(payment_by_reg[r.id].payment_amount) if r.id in payment_by_reg and payment_by_reg[r.id].payment_amount else None,
                     "payment_date": str(payment_by_reg[r.id].payment_date) if r.id in payment_by_reg and payment_by_reg[r.id].payment_date else None,

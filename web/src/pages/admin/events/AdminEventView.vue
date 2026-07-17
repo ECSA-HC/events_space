@@ -243,6 +243,25 @@
                         class="hover:underline hover:text-[#0095B6] transition-colors">
                         {{ p.firstname }} {{ p.lastname }}
                       </router-link>
+                      <div v-if="noteEditingId !== p.id">
+                        <span v-if="p.notes"
+                          @click.stop="startEditNote(p)"
+                          class="inline-block mt-0.5 px-1.5 py-0.5 text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 rounded-full cursor-pointer hover:bg-amber-100"
+                          title="Click to edit note">
+                          📌 {{ p.notes }}
+                        </span>
+                        <button v-else @click.stop="startEditNote(p)"
+                          class="block mt-0.5 text-[10px] text-gray-300 hover:text-gray-500 underline">
+                          + note
+                        </button>
+                      </div>
+                      <div v-else class="mt-0.5 flex items-center gap-1" @click.stop>
+                        <input v-model="noteDraft" type="text" placeholder="e.g. MPA Sponsored"
+                          class="text-xs border border-gray-300 rounded-md px-1.5 py-0.5 w-28"
+                          @keyup.enter="saveNote(p)" @keyup.esc="noteEditingId = null" />
+                        <button @click.stop="saveNote(p)" class="text-green-600 hover:text-green-800 text-xs">✓</button>
+                        <button @click.stop="noteEditingId = null" class="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                      </div>
                     </td>
                     <td class="px-4 py-2 text-sm text-gray-600">{{ p.country }}</td>
                     <td class="px-4 py-2 text-sm text-gray-600">{{ p.email }}</td>
@@ -441,6 +460,25 @@
                         title="Registration reminder already sent via Abstracts page">
                         Reminded
                       </span>
+                      <div v-if="noteEditingId !== p.id">
+                        <span v-if="p.notes"
+                          @click.stop="startEditNote(p)"
+                          class="inline-block mt-0.5 px-1.5 py-0.5 text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 rounded-full cursor-pointer hover:bg-amber-100"
+                          title="Click to edit note">
+                          📌 {{ p.notes }}
+                        </span>
+                        <button v-else @click.stop="startEditNote(p)"
+                          class="block mt-0.5 text-[10px] text-gray-300 hover:text-gray-500 underline">
+                          + note
+                        </button>
+                      </div>
+                      <div v-else class="mt-0.5 flex items-center gap-1" @click.stop>
+                        <input v-model="noteDraft" type="text" placeholder="e.g. MPA Sponsored"
+                          class="text-xs border border-gray-300 rounded-md px-1.5 py-0.5 w-28"
+                          @keyup.enter="saveNote(p)" @keyup.esc="noteEditingId = null" />
+                        <button @click.stop="saveNote(p)" class="text-green-600 hover:text-green-800 text-xs">✓</button>
+                        <button @click.stop="noteEditingId = null" class="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                      </div>
                     </td>
                     <td class="px-4 py-2 text-gray-600">{{ p.email }}</td>
                     <td class="px-4 py-2 text-gray-600">{{ p.country || '—' }}</td>
@@ -972,6 +1010,26 @@ const canVerifyPayment = computed(() => auth.hasPermission('VERIFY_PAYMENT') || 
 const event = ref(null)
 const participants = ref([])
 const pendingRegistrations = ref([])
+
+// Inline note editing (e.g. "MPA Sponsored")
+const noteEditingId = ref(null)
+const noteDraft = ref('')
+
+function startEditNote(p) {
+  noteEditingId.value = p.id
+  noteDraft.value = p.notes || ''
+}
+
+async function saveNote(p) {
+  try {
+    const res = await api.put(`/registrations/${p.id}/notes`, { notes: noteDraft.value })
+    p.notes = res.data.notes
+  } catch (e) {
+    alert('Failed to save note: ' + (e.response?.data?.detail || e.message))
+  } finally {
+    noteEditingId.value = null
+  }
+}
 const abstractAuthorStats = ref({ total_authors: 0, registered: 0, not_registered: 0 })
 const documents = ref([])
 const links = ref([])
