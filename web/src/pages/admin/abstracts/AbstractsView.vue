@@ -1251,22 +1251,26 @@
                 Will Receive Notification ({{ rejectNotifyModal.preview.to_send.length }})
               </p>
               <div class="rounded-xl border border-red-200 overflow-hidden">
-                <div class="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                <div class="max-h-80 overflow-y-auto divide-y divide-gray-100">
                   <div v-for="a in rejectNotifyModal.preview.to_send" :key="a.email"
-                    class="flex items-start gap-3 px-4 py-2.5 hover:bg-red-50">
+                    class="flex items-start gap-3 px-4 py-3 hover:bg-red-50">
                     <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5" style="background:#fef2f2;color:#b91c1c;">
                       {{ (a.firstname?.[0] || '') }}
                     </div>
                     <div class="min-w-0 flex-1">
-                      <p class="text-sm font-medium text-gray-800 truncate">{{ a.firstname }}</p>
+                      <div class="flex items-center gap-2">
+                        <p class="text-sm font-medium text-gray-800 truncate">{{ a.firstname }}</p>
+                        <span v-if="a.abstract_titles.length > 1" class="text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0" style="background:#fef2f2;color:#b91c1c;">
+                          {{ a.abstract_titles.length }} abstracts
+                        </span>
+                      </div>
                       <p class="text-xs text-gray-400 truncate">{{ a.email }}</p>
-                      <p class="text-xs text-gray-400 truncate italic" v-if="a.abstract_titles.length">
-                        {{ a.abstract_titles.join('; ') }}
-                      </p>
+                      <ul class="mt-1 space-y-0.5" v-if="a.abstract_titles.length">
+                        <li v-for="(t, idx) in a.abstract_titles" :key="idx" class="text-xs text-gray-600 leading-snug">
+                          📄 {{ t }}
+                        </li>
+                      </ul>
                     </div>
-                    <span v-if="a.abstract_titles.length > 1" class="ml-auto text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0" style="background:#fef2f2;color:#b91c1c;">
-                      {{ a.abstract_titles.length }} abstracts
-                    </span>
                   </div>
                 </div>
               </div>
