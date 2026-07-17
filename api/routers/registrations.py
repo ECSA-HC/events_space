@@ -40,6 +40,7 @@ def _serialize_reg(r: Registration) -> dict:
         "participation_role": r.participation_role.name if r.participation_role else "",
         "paid": r.paid,
         "payment_proof": getattr(r, "payment_proof", None),
+        "notes": getattr(r, "notes", None),
         "reminder_sent_at": getattr(r, "reminder_sent_at", None),
         "registered_at": r.registered_at,
     }
@@ -147,6 +148,27 @@ async def list_registrations(
         "total": total,
         "data": [_serialize_reg(r) for r in registrations],
     }
+
+
+@router.put("/{registration_id}/notes")
+async def update_registration_notes(
+    registration_id: int,
+    payload: dict,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+):
+    auth_dependency.secure_access("VIEW_REGISTRATIONS", current_user["user_id"])
+
+    registration = db.query(Registration).filter(
+        Registration.id == registration_id, Registration.deleted_at == None
+    ).first()
+    if not registration:
+        raise HTTPException(status_code=404, detail="Registration not found")
+
+    registration.notes = (payload.get("notes") or "").strip() or None
+    db.commit()
+    return {"id": registration.id, "notes": registration.notes}
 
 
 @router.get("/export")

@@ -85,6 +85,25 @@
               <td class="px-4 py-3 font-medium">
                 {{ reg.title ? reg.title + ' ' : '' }}{{ reg.firstname }} {{ reg.lastname }}
                 <div class="text-xs text-gray-400">{{ reg.phone }}</div>
+                <div v-if="noteEditingId !== reg.id" class="mt-1">
+                  <span v-if="reg.notes"
+                    @click="startEditNote(reg)"
+                    class="inline-block px-1.5 py-0.5 text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 rounded-full cursor-pointer hover:bg-amber-100"
+                    title="Click to edit note">
+                    📌 {{ reg.notes }}
+                  </span>
+                  <button v-else @click="startEditNote(reg)"
+                    class="text-[10px] text-gray-300 hover:text-gray-500 underline">
+                    + note
+                  </button>
+                </div>
+                <div v-else class="mt-1 flex items-center gap-1">
+                  <input v-model="noteDraft" type="text" placeholder="e.g. MPA Sponsored"
+                    class="text-xs border border-gray-300 rounded-md px-1.5 py-0.5 w-32"
+                    @keyup.enter="saveNote(reg)" @keyup.esc="noteEditingId = null" />
+                  <button @click="saveNote(reg)" class="text-green-600 hover:text-green-800 text-xs">✓</button>
+                  <button @click="noteEditingId = null" class="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                </div>
               </td>
               <td class="px-4 py-3 text-gray-600">{{ reg.email }}</td>
               <td class="px-4 py-3 text-gray-600">{{ reg.event || '—' }}</td>
@@ -318,6 +337,26 @@ const exporting = ref(false)
 // Proof modal state
 const showProofModal = ref(false)
 const proofRegistration = ref(null)
+
+// Inline note editing (e.g. "MPA Sponsored")
+const noteEditingId = ref(null)
+const noteDraft = ref('')
+
+function startEditNote(reg) {
+  noteEditingId.value = reg.id
+  noteDraft.value = reg.notes || ''
+}
+
+async function saveNote(reg) {
+  try {
+    const res = await api.put(`/registrations/${reg.id}/notes`, { notes: noteDraft.value })
+    reg.notes = res.data.notes
+  } catch (e) {
+    alert('Failed to save note: ' + (e.response?.data?.detail || e.message))
+  } finally {
+    noteEditingId.value = null
+  }
+}
 
 const canExport = computed(() => auth.hasPermission('EXPORT_REGISTRATIONS'))
 
