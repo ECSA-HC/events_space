@@ -40,7 +40,7 @@ function exitImpersonation() {
     <!-- Push content down when banner is visible -->
     <div :class="auth.isImpersonating ? 'pt-10' : ''" class="flex flex-col flex-1">
       <transition name="fade" mode="out-in">
-        <router-view :key="$route.fullPath" />
+        <router-view :key="$route.path" />
       </transition>
     </div>
 
