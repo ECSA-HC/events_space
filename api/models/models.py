@@ -707,6 +707,7 @@ class Abstract(BaseWithSoftDelete):
     status = Column(Enum(AbstractStatus), nullable=False, server_default="submitted")
     word_count = Column(Integer, nullable=True)
     acceptance_notified_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    rejection_notified_at = Column(TIMESTAMP(timezone=True), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 

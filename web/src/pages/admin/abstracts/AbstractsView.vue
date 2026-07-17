@@ -55,6 +55,17 @@
           Registration Reminder
         </button>
 
+        <!-- Notify Rejected Authors -->
+        <button @click="openRejectNotify"
+          class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition hover:opacity-90"
+          style="background-color:#fef2f2; color:#b91c1c; border:1.5px solid #fca5a5;">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+          Notify Rejected Authors
+        </button>
+
         <!-- PDF Book of Abstracts -->
         <button @click="exportPdf" :disabled="exportingPdf || loading || total === 0"
           class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition hover:opacity-90 disabled:opacity-50"
@@ -1162,6 +1173,169 @@
       </div>
     </div>
 
+    <!-- ══════════════════════════════════════════════════════════════════════
+         NOTIFY REJECTED AUTHORS MODAL
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div v-if="rejectNotifyModal.open"
+      class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+      @click.self="rejectNotifyModal.open = false">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl flex flex-col max-h-[92vh]">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between px-5 py-4 border-b flex-shrink-0">
+          <div class="flex items-center gap-3">
+            <div class="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background-color:#fef2f2;">
+              <svg class="w-5 h-5" style="color:#b91c1c;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </div>
+            <div>
+              <p class="font-bold text-gray-800 text-sm">Notify Rejected Authors</p>
+              <p class="text-xs text-gray-400 mt-0.5">
+                {{ rejectNotifyModal.step === 'select' ? 'Email authors of rejected abstracts' : rejectNotifyModal.step === 'preview' ? `Preview for: ${rejectNotifyModal.preview.event_name}` : 'Notifications sent' }}
+              </p>
+            </div>
+          </div>
+          <button @click="rejectNotifyModal.open = false" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="p-5 overflow-y-auto flex-1">
+
+          <!-- Step 1: Select event -->
+          <div v-if="rejectNotifyModal.step === 'select'" class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Event <span class="text-red-500">*</span></label>
+              <select v-model.number="rejectNotifyModal.eventId" class="input w-full">
+                <option :value="null">— Select an event —</option>
+                <option v-for="e in events" :key="e.id" :value="e.id">{{ e.event }}</option>
+              </select>
+              <p class="text-xs text-gray-400 mt-1">One email per author — someone with multiple rejected abstracts is emailed once.</p>
+            </div>
+            <div class="flex items-start gap-3 px-4 py-3 rounded-xl text-sm" style="background:#f0f9fb; border:1px solid #b3e4f0;">
+              <svg class="w-4 h-4 flex-shrink-0 mt-0.5" style="color:#0095B6;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <p class="text-xs leading-relaxed" style="color:#006f87;">
+                Sent from <strong>ECSA Events &lt;admission@cosecsa.org&gt;</strong>, cc'd to <strong>smyeni@ecsahc.org</strong>.
+                Authors already notified for a given abstract are skipped automatically.
+              </p>
+            </div>
+            <p v-if="rejectNotifyModal.error" class="text-red-500 text-sm">{{ rejectNotifyModal.error }}</p>
+          </div>
+
+          <!-- Step 2: Preview -->
+          <div v-if="rejectNotifyModal.step === 'preview'" class="space-y-4">
+            <!-- Summary badges -->
+            <div class="grid grid-cols-3 gap-3">
+              <div class="rounded-xl p-3 text-center" style="background:#f0f9fb; border:1px solid #b3e4f0;">
+                <p class="text-2xl font-bold" style="color:#0095B6;">{{ rejectNotifyModal.preview.total_rejected_abstracts }}</p>
+                <p class="text-xs text-gray-500 mt-0.5">Rejected Abstracts</p>
+              </div>
+              <div class="rounded-xl p-3 text-center" style="background:#fef2f2; border:1px solid #fca5a5;">
+                <p class="text-2xl font-bold" style="color:#b91c1c;">{{ rejectNotifyModal.preview.to_send.length }}</p>
+                <p class="text-xs text-gray-500 mt-0.5">Will Receive</p>
+              </div>
+              <div class="rounded-xl p-3 text-center" style="background:#f0fdf4; border:1px solid #bbf7d0;">
+                <p class="text-2xl font-bold text-green-600">{{ rejectNotifyModal.preview.already_notified.length }}</p>
+                <p class="text-xs text-gray-500 mt-0.5">Already Notified</p>
+              </div>
+            </div>
+
+            <!-- Will receive list -->
+            <div v-if="rejectNotifyModal.preview.to_send.length > 0">
+              <p class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+                Will Receive Notification ({{ rejectNotifyModal.preview.to_send.length }})
+              </p>
+              <div class="rounded-xl border border-red-200 overflow-hidden">
+                <div class="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                  <div v-for="a in rejectNotifyModal.preview.to_send" :key="a.email"
+                    class="flex items-start gap-3 px-4 py-2.5 hover:bg-red-50">
+                    <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5" style="background:#fef2f2;color:#b91c1c;">
+                      {{ (a.firstname?.[0] || '') }}
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm font-medium text-gray-800 truncate">{{ a.firstname }}</p>
+                      <p class="text-xs text-gray-400 truncate">{{ a.email }}</p>
+                      <p class="text-xs text-gray-400 truncate italic" v-if="a.abstract_titles.length">
+                        {{ a.abstract_titles.join('; ') }}
+                      </p>
+                    </div>
+                    <span v-if="a.abstract_titles.length > 1" class="ml-auto text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0" style="background:#fef2f2;color:#b91c1c;">
+                      {{ a.abstract_titles.length }} abstracts
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-else class="rounded-xl border border-gray-200 p-4 text-center text-gray-400 text-sm">
+              No authors to notify — every rejected abstract's author has already been emailed.
+            </div>
+
+            <p v-if="rejectNotifyModal.error" class="text-red-500 text-sm">{{ rejectNotifyModal.error }}</p>
+          </div>
+
+          <!-- Step 3: Done -->
+          <div v-if="rejectNotifyModal.step === 'done'" class="space-y-4">
+            <div class="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
+              <p class="text-3xl mb-2">✅</p>
+              <p class="font-bold text-green-700 text-base mb-1">
+                {{ rejectNotifyModal.result.sent }} notification{{ rejectNotifyModal.result.sent !== 1 ? 's' : '' }} queued
+              </p>
+              <p class="text-sm text-gray-500">
+                Sending in the background — check Email Logs to confirm delivery.
+              </p>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="flex items-center justify-between gap-3 px-5 py-4 border-t flex-shrink-0">
+          <button v-if="rejectNotifyModal.step === 'preview'" @click="rejectNotifyModal.step = 'select'"
+            class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium">
+            ← Back
+          </button>
+          <div v-else></div>
+
+          <div class="flex gap-3">
+            <button @click="rejectNotifyModal.open = false"
+              class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium">
+              {{ rejectNotifyModal.step === 'done' ? 'Close' : 'Cancel' }}
+            </button>
+            <!-- Select step: Preview button -->
+            <button v-if="rejectNotifyModal.step === 'select'"
+              @click="loadRejectNotifyPreview"
+              :disabled="rejectNotifyModal.loading || !rejectNotifyModal.eventId"
+              class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-xl disabled:opacity-50 transition hover:opacity-90"
+              style="background-color:#0095B6;">
+              <svg v-if="rejectNotifyModal.loading" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+              {{ rejectNotifyModal.loading ? 'Loading…' : 'Preview Recipients →' }}
+            </button>
+            <!-- Preview step: Send button -->
+            <button v-if="rejectNotifyModal.step === 'preview'"
+              @click="runRejectNotify"
+              :disabled="rejectNotifyModal.sending || rejectNotifyModal.preview.to_send.length === 0"
+              class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-xl disabled:opacity-50 transition hover:opacity-90"
+              style="background-color:#b91c1c;">
+              <svg v-if="rejectNotifyModal.sending" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+              {{ rejectNotifyModal.sending ? 'Sending…' : `Send to ${rejectNotifyModal.preview.to_send.length} Author${rejectNotifyModal.preview.to_send.length !== 1 ? 's' : ''}` }}
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -1741,6 +1915,61 @@ const runRegReminder = async () => {
     m.step = 'done'
   } catch (e) {
     m.error = e.response?.data?.detail || 'Failed to send reminders. Please try again.'
+  } finally {
+    m.sending = false
+  }
+}
+
+// ── Notify Rejected Authors ──────────────────────────────────────────────────
+const rejectNotifyModal = ref({
+  open: false,
+  step: 'select',   // 'select' | 'preview' | 'done'
+  eventId: null,
+  loading: false,
+  sending: false,
+  preview: { event_name: '', to_send: [], already_notified: [], total_rejected_abstracts: 0, total_recipients: 0 },
+  result: { sent: 0 },
+  error: '',
+})
+
+const openRejectNotify = () => {
+  const m = rejectNotifyModal.value
+  m.step = 'select'
+  m.eventId = filterEvent.value ? Number(filterEvent.value) : null
+  m.loading = false
+  m.sending = false
+  m.preview = { event_name: '', to_send: [], already_notified: [], total_rejected_abstracts: 0, total_recipients: 0 }
+  m.result = { sent: 0 }
+  m.error = ''
+  m.open = true
+}
+
+const loadRejectNotifyPreview = async () => {
+  const m = rejectNotifyModal.value
+  if (!m.eventId) { m.error = 'Please select an event.'; return }
+  m.loading = true
+  m.error = ''
+  try {
+    const res = await api.get(`/abstracts/rejection-notify-preview?event_id=${m.eventId}`)
+    m.preview = res.data
+    m.step = 'preview'
+  } catch (e) {
+    m.error = e.response?.data?.detail || 'Failed to load preview. Please try again.'
+  } finally {
+    m.loading = false
+  }
+}
+
+const runRejectNotify = async () => {
+  const m = rejectNotifyModal.value
+  m.sending = true
+  m.error = ''
+  try {
+    const res = await api.post('/abstracts/notify-rejection', { event_id: m.eventId })
+    m.result = { sent: res.data.sent }
+    m.step = 'done'
+  } catch (e) {
+    m.error = e.response?.data?.detail || 'Failed to send notifications. Please try again.'
   } finally {
     m.sending = false
   }
