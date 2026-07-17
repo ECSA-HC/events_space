@@ -1226,6 +1226,7 @@ def notify_rejection(
             try:
                 body = templates.get_template("abstract_rejection_template.html").render(
                     subject=subject, firstname=j["firstname"], event_name=event.event,
+                    abstract_titles=[a.title for a in j["abstracts"]],
                     year=_mailer.YEAR,
                 )
                 msg = MIMEMultipart()

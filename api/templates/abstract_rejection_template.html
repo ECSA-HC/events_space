@@ -8,6 +8,8 @@
       body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; color: #333333; }
       .email-container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 40px; box-sizing: border-box; border-top: 6px solid #0095b6; }
       p { font-size: 15px; line-height: 1.7; margin: 12px 0; }
+      .abstract-box { background-color: #f9fafb; border-left: 4px solid #b91c1c; padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 20px 0; }
+      .abstract-box p { margin: 4px 0; font-size: 14px; }
       .footer { font-size: 12px; color: #9ca3af; text-align: center; margin-top: 28px; }
     </style>
   </head>
@@ -27,6 +29,13 @@
       <p>Kindly consider this message for reject outcome:</p>
 
       <p>Thank you for submitting your abstract to the {{ event_name }}. We sincerely appreciate your interest and the effort invested in your submission.</p>
+
+      <div class="abstract-box">
+        <p><strong>{{ abstract_titles|length > 1 and "Abstracts:" or "Abstract:" }}</strong></p>
+        {% for title in abstract_titles %}
+        <p>&ldquo;{{ title }}&rdquo;</p>
+        {% endfor %}
+      </div>
 
       <p>Following a competitive peer-review process, we regret to inform you that your abstract was not selected for presentation. Due to the high number of quality submissions received and the limited presentation slots available, we were unable to accommodate all abstracts.</p>
 
