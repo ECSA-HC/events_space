@@ -868,34 +868,70 @@
             <div v-if="tmplModal.loading" class="text-xs text-gray-400 py-4 text-center">Loading…</div>
             <div v-else-if="tmplModal.templates.length === 0" class="text-xs text-gray-400 py-4 text-center">No templates uploaded yet.</div>
             <div v-else class="space-y-2">
-              <div v-for="t in tmplModal.templates" :key="t.id"
-                class="flex items-center gap-3 px-3 py-2.5 bg-gray-50 rounded-xl">
-                <svg class="w-5 h-5 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
-                <div class="flex-1 min-w-0">
-                  <p class="text-sm font-medium text-gray-700 truncate">{{ t.name }}</p>
-                  <p class="text-xs text-gray-400">
-                    {{ t.event_id ? events.find(e => e.id === t.event_id)?.event || 'Unknown event' : 'All events' }}
-                    <span v-if="t.presentation_type"> · {{ t.presentation_type }}</span>
-                  </p>
+              <div v-for="t in tmplModal.templates" :key="t.id" class="bg-gray-50 rounded-xl">
+
+                <!-- Edit mode -->
+                <div v-if="editTemplate.id === t.id" class="p-3 space-y-2">
+                  <input v-model="editTemplate.name" type="text" class="input w-full" placeholder="Template name" />
+                  <div class="grid grid-cols-2 gap-2">
+                    <select v-model.number="editTemplate.eventId" class="input w-full">
+                      <option :value="null">All Events</option>
+                      <option v-for="e in events" :key="e.id" :value="e.id">{{ e.event }}</option>
+                    </select>
+                    <select v-model="editTemplate.ptype" class="input w-full">
+                      <option value="">All Types</option>
+                      <option value="oral">Oral</option>
+                      <option value="poster">Poster</option>
+                    </select>
+                  </div>
+                  <p v-if="editTemplate.error" class="text-red-500 text-xs">{{ editTemplate.error }}</p>
+                  <div class="flex items-center gap-2">
+                    <button @click="saveTemplateEdit" :disabled="editTemplate.saving"
+                      class="text-xs font-semibold px-3 py-1.5 rounded-lg text-white disabled:opacity-50"
+                      style="background-color:#0095B6;">
+                      {{ editTemplate.saving ? 'Saving…' : 'Save' }}
+                    </button>
+                    <button @click="editTemplate.id = null" class="text-xs font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500">
+                      Cancel
+                    </button>
+                  </div>
                 </div>
-                <button @click="openNotifyTemplate(t)"
-                  class="text-xs font-medium px-2 py-1 rounded-lg border transition flex-shrink-0"
-                  style="color:#5b21b6; border-color:#c4b5fd; background:#f5f3ff;">
-                  Notify
-                </button>
-                <a :href="t.url" target="_blank"
-                  class="text-xs font-medium px-2 py-1 rounded-lg border transition flex-shrink-0"
-                  style="color:#0095B6; border-color:#b3e4f0; background:#e6f7fb;">
-                  Download
-                </a>
-                <button @click="deleteTemplate(t)" class="text-red-400 hover:text-red-600 flex-shrink-0">
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+
+                <!-- Display mode -->
+                <div v-else class="flex items-center gap-3 px-3 py-2.5">
+                  <svg class="w-5 h-5 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                   </svg>
-                </button>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-700 truncate">{{ t.name }}</p>
+                    <p class="text-xs text-gray-400">
+                      {{ t.event_id ? events.find(e => e.id === t.event_id)?.event || 'Unknown event' : 'All events' }}
+                      <span v-if="t.presentation_type"> · {{ t.presentation_type }}</span>
+                    </p>
+                  </div>
+                  <button @click="openTemplateEdit(t)" class="text-gray-400 hover:text-gray-600 flex-shrink-0" title="Edit">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                  </button>
+                  <button @click="openNotifyTemplate(t)"
+                    class="text-xs font-medium px-2 py-1 rounded-lg border transition flex-shrink-0"
+                    style="color:#5b21b6; border-color:#c4b5fd; background:#f5f3ff;">
+                    Notify
+                  </button>
+                  <a :href="t.url" target="_blank"
+                    class="text-xs font-medium px-2 py-1 rounded-lg border transition flex-shrink-0"
+                    style="color:#0095B6; border-color:#b3e4f0; background:#e6f7fb;">
+                    Download
+                  </a>
+                  <button @click="deleteTemplate(t)" class="text-red-400 hover:text-red-600 flex-shrink-0">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -2028,6 +2064,34 @@ const deleteTemplate = async (t) => {
     await api.delete(`/events/templates/${t.id}`)
     tmplModal.value.templates = tmplModal.value.templates.filter(x => x.id !== t.id)
   } catch (_) {}
+}
+
+// ── Edit template (name/event/type) ──────────────────────────────────────────
+const editTemplate = ref({ id: null, name: '', eventId: null, ptype: '', saving: false, error: '' })
+
+const openTemplateEdit = (t) => {
+  editTemplate.value = {
+    id: t.id, name: t.name, eventId: t.event_id || null, ptype: t.presentation_type || '',
+    saving: false, error: '',
+  }
+}
+
+const saveTemplateEdit = async () => {
+  const e = editTemplate.value
+  e.saving = true
+  e.error = ''
+  try {
+    const res = await api.patch(`/events/templates/${e.id}`, {
+      name: e.name, event_id: e.eventId || 0, presentation_type: e.ptype || '',
+    })
+    const idx = tmplModal.value.templates.findIndex(x => x.id === e.id)
+    if (idx !== -1) tmplModal.value.templates[idx] = res.data
+    editTemplate.value.id = null
+  } catch (err) {
+    e.error = err.response?.data?.detail || 'Failed to save'
+  } finally {
+    e.saving = false
+  }
 }
 
 // ── All Presentations modal ──────────────────────────────────────────────────

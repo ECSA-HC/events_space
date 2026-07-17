@@ -405,6 +405,38 @@ def list_templates(
     return [_serialize_template(t) for t in q.order_by(EventTemplate.uploaded_at.desc()).all()]
 
 
+class TemplateUpdateSchema(BaseModel):
+    name: Optional[str] = None
+    event_id: Optional[int] = None
+    presentation_type: Optional[str] = None
+
+
+@router.patch("/templates/{template_id}")
+def update_template(
+    template_id: int,
+    schema: TemplateUpdateSchema,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(lambda db=Depends(get_db): Auth(db)),
+):
+    """Correct a template's name/event/type without deleting and re-uploading the file."""
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+    from models.models import EventTemplate
+    t = db.query(EventTemplate).filter(EventTemplate.id == template_id).first()
+    if not t:
+        raise HTTPException(status_code=404, detail="Template not found")
+    if schema.name is not None:
+        t.name = schema.name
+    # event_id/presentation_type: 0 or "" from the frontend means "clear to All"
+    if schema.event_id is not None:
+        t.event_id = schema.event_id or None
+    if schema.presentation_type is not None:
+        t.presentation_type = schema.presentation_type or None
+    db.commit()
+    db.refresh(t)
+    return _serialize_template(t)
+
+
 @router.delete("/templates/{template_id}", status_code=204)
 def delete_template(
     template_id: int,
