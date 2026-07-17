@@ -556,10 +556,11 @@ def template_notify(
     }
     jobs = [v for v in by_email.values() if v["email"].lower() not in notified_emails]
 
-    if not jobs and not schema.test_email:
+    if schema.test_email:
+        # A dry run always sends exactly one email, regardless of recipient count.
+        jobs = jobs[:1] or [{"firstname": "Test", "email": schema.test_email, "abstracts": []}]
+    elif not jobs:
         return {"sent": 0, "message": "No unnotified eligible presenters found for this template."}
-    if schema.test_email and not jobs:
-        jobs = [{"firstname": "Test", "email": schema.test_email, "abstracts": []}]
 
     subject = f"Presentation Template Available – {event.event if event else ''}"
     ptype = template.presentation_type or "either"
