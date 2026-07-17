@@ -33,38 +33,55 @@
           Templates
         </button>
 
-        <!-- Notify Accepted Authors -->
-        <button @click="notifyModal.singleAbstract = null; notifyModal.done = false; notifyModal.error = ''; notifyModal.open = true"
-          class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition hover:opacity-90"
-          style="background-color:#d1fae5; color:#065f46; border:1.5px solid #6ee7b7;">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-          </svg>
-          Notify Accepted Authors
-        </button>
+        <!-- Notifications dropdown -->
+        <div class="relative" ref="notifDropdownRef">
+          <button type="button" @click="notifDropdownOpen = !notifDropdownOpen"
+            class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition hover:opacity-90"
+            style="background-color:#f5f3ff; color:#5b21b6; border:1.5px solid #c4b5fd;">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+            </svg>
+            Notifications
+            <svg class="w-4 h-4 flex-shrink-0 transition-transform" :class="notifDropdownOpen ? 'rotate-180' : ''"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
 
-        <!-- Registration Reminder -->
-        <button @click="openRegReminder"
-          class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition hover:opacity-90"
-          style="background-color:#fffbeb; color:#92400e; border:1.5px solid #F7941D;">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-          </svg>
-          Registration Reminder
-        </button>
-
-        <!-- Notify Rejected Authors -->
-        <button @click="openRejectNotify"
-          class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition hover:opacity-90"
-          style="background-color:#fef2f2; color:#b91c1c; border:1.5px solid #fca5a5;">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"/>
-          </svg>
-          Notify Rejected Authors
-        </button>
+          <div v-if="notifDropdownOpen"
+            class="absolute left-0 mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-xl z-30 py-1.5 overflow-hidden">
+            <button @click="notifDropdownOpen = false; notifyModal.singleAbstract = null; notifyModal.done = false; notifyModal.error = ''; notifyModal.open = true"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-gray-50 transition">
+              <div class="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background-color:#d1fae5;">
+                <svg class="w-4 h-4" style="color:#065f46;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+              </div>
+              <span class="font-medium text-gray-700">Notify Accepted Authors</span>
+            </button>
+            <button @click="notifDropdownOpen = false; openRegReminder()"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-gray-50 transition">
+              <div class="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background-color:#fffbeb;">
+                <svg class="w-4 h-4" style="color:#92400e;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                </svg>
+              </div>
+              <span class="font-medium text-gray-700">Registration Reminder</span>
+            </button>
+            <button @click="notifDropdownOpen = false; openRejectNotify()"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-gray-50 transition">
+              <div class="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background-color:#fef2f2;">
+                <svg class="w-4 h-4" style="color:#b91c1c;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </div>
+              <span class="font-medium text-gray-700">Notify Rejected Authors</span>
+            </button>
+          </div>
+        </div>
 
         <!-- PDF Book of Abstracts -->
         <button @click="exportPdf" :disabled="exportingPdf || loading || total === 0"
@@ -1369,6 +1386,8 @@ const page          = ref(1)
 const pageSize      = 50
 const trackPickerOpen = ref(false)
 const trackPickerRef  = ref(null)
+const notifDropdownOpen = ref(false)
+const notifDropdownRef  = ref(null)
 
 // Cross-page selection: Map<id, abstractObj>
 const selectedItems = ref(new Map())
@@ -1775,6 +1794,9 @@ const pageNumbers = computed(() => {
 function handleOutsideClick(e) {
   if (trackPickerRef.value && !trackPickerRef.value.contains(e.target)) {
     trackPickerOpen.value = false
+  }
+  if (notifDropdownRef.value && !notifDropdownRef.value.contains(e.target)) {
+    notifDropdownOpen.value = false
   }
 }
 onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
