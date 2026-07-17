@@ -1088,6 +1088,193 @@ async def registration_reminder_preview(
     }
 
 
+def _rejected_recipients(event_id: int, db: Session):
+    """Dedupe rejected abstracts for an event down to one recipient per person
+    (presenting author, else first listed author, else submitter), grouping
+    all of that person's rejected abstracts together."""
+    abstracts = (
+        db.query(Abstract)
+        .options(joinedload(Abstract.authors))
+        .filter(
+            Abstract.event_id == event_id,
+            Abstract.status == AbstractStatus.rejected,
+            Abstract.deleted_at == None,
+        )
+        .all()
+    )
+
+    by_email = {}
+    for a in abstracts:
+        firstname, email = None, None
+        if a.authors:
+            presenting = [au for au in a.authors if au.is_presenting and au.email]
+            candidates = presenting or [au for au in a.authors if au.email][:1]
+            if candidates:
+                firstname, email = candidates[0].firstname or "Author", candidates[0].email
+        if not email and a.submitted_by:
+            submitter = db.query(User).filter(User.id == a.submitted_by).first()
+            if submitter and submitter.email:
+                firstname, email = submitter.firstname or "Author", submitter.email
+        if not email:
+            continue
+        key = email.lower()
+        by_email.setdefault(key, {"firstname": firstname or "Author", "email": email, "abstracts": []})
+        by_email[key]["abstracts"].append(a)
+
+    return abstracts, by_email
+
+
+@router.get("/rejection-notify-preview")
+async def rejection_notify_preview(
+    event_id: int = Query(...),
+    current_user: user_dependency = None,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+):
+    """Preview who will receive a rejection notification (no emails sent)."""
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+
+    from models.models import Event
+
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    abstracts, by_email = _rejected_recipients(event_id, db)
+
+    to_send, already_notified = [], []
+    for entry in by_email.values():
+        titles = [a.title for a in entry["abstracts"]]
+        notified = all(a.rejection_notified_at for a in entry["abstracts"])
+        row = {
+            "firstname": entry["firstname"], "lastname": "", "email": entry["email"],
+            "abstract_titles": titles,
+        }
+        (already_notified if notified else to_send).append(row)
+
+    return {
+        "event_name": event.event,
+        "to_send": to_send,
+        "already_notified": already_notified,
+        "total_rejected_abstracts": len(abstracts),
+        "total_recipients": len(by_email),
+    }
+
+
+from pydantic import BaseModel as _RejectSchemaBase
+
+
+class NotifyRejectedSchema(_RejectSchemaBase):
+    event_id: int
+    cc_email: Optional[str] = "smyeni@ecsahc.org"
+    test_email: Optional[str] = None
+
+
+@router.post("/notify-rejection")
+def notify_rejection(
+    schema: NotifyRejectedSchema,
+    background_tasks: BackgroundTasks,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+):
+    """Send rejection notification emails to (deduped) authors of rejected abstracts."""
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+
+    from models.models import Event
+
+    event = db.query(Event).filter(Event.id == schema.event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    _, by_email = _rejected_recipients(schema.event_id, db)
+    jobs = [v for v in by_email.values() if not all(a.rejection_notified_at for a in v["abstracts"])]
+
+    if not jobs:
+        return {"sent": 0, "message": "No unnotified rejected abstracts found for this event."}
+
+    import utils.mailer_util as _mailer
+    import smtplib, os, time
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    from datetime import datetime, timezone
+
+    sent, failed = [], []
+
+    def _send_all(jobs, cc_email, test_email, sent_by_user_id, db_session):
+        smtp_host     = os.getenv("SMTP_HOST", "")
+        smtp_port     = int(os.getenv("SMTP_PORT", "587"))
+        smtp_username = os.getenv("SMTP_USERNAME", "")
+        smtp_password = os.getenv("SMTP_PASSWORD", "")
+        from_email    = os.getenv("SMTP_FROM_EMAIL", smtp_username)
+        templates     = _mailer.templates
+        subject = f"Abstract Submission Outcome – {event.event}"
+
+        try:
+            server = smtplib.SMTP(smtp_host, smtp_port)
+            server.starttls()
+            server.login(smtp_username, smtp_password)
+        except Exception as e:
+            for j in jobs:
+                failed.append({"email": j["email"], "error": str(e)})
+            return
+
+        for j in jobs:
+            recipient = test_email or j["email"]
+            use_cc = bool(cc_email) and not test_email
+            rcpt_list = [recipient] + ([cc_email] if use_cc else [])
+            try:
+                body = templates.get_template("abstract_rejection_template.html").render(
+                    subject=subject, firstname=j["firstname"], event_name=event.event,
+                    year=_mailer.YEAR,
+                )
+                msg = MIMEMultipart()
+                msg["From"] = f"{_mailer.FROM_NAME} <{from_email}>"
+                msg["To"] = recipient
+                if use_cc:
+                    msg["Cc"] = cc_email
+                msg["Subject"] = subject
+                msg.attach(MIMEText(body, "html"))
+                server.sendmail(smtp_username, rcpt_list, msg.as_string())
+                sent.append({"email": recipient})
+                log_id = _mailer._create_email_log(db_session, recipient, subject,
+                                                   "abstract_rejection", sent_by_user_id,
+                                                   cc_email if use_cc else None, body)
+                if log_id:
+                    _mailer._update_email_log(db_session, log_id, "sent")
+                if not test_email:
+                    for a in j["abstracts"]:
+                        a.rejection_notified_at = datetime.now(timezone.utc)
+                        db_session.add(a)
+                time.sleep(0.3)   # stay within Gmail's rate limit
+            except smtplib.SMTPServerDisconnected:
+                try:
+                    server = smtplib.SMTP(smtp_host, smtp_port)
+                    server.starttls()
+                    server.login(smtp_username, smtp_password)
+                    server.sendmail(smtp_username, rcpt_list, msg.as_string())
+                    sent.append({"email": recipient})
+                except Exception as retry_e:
+                    failed.append({"email": recipient, "error": str(retry_e)})
+            except Exception as exc:
+                failed.append({"email": recipient, "error": str(exc)})
+
+        try:
+            server.quit()
+        except Exception:
+            pass
+        db_session.commit()
+
+    background_tasks.add_task(
+        _send_all, jobs, schema.cc_email, schema.test_email, current_user["user_id"], db,
+    )
+
+    return {
+        "sent": len(jobs),
+        "message": f"Rejection notification queued for {len(jobs)} author(s).",
+    }
+
+
 @router.get("/{abstract_id}")
 def get_abstract(
     abstract_id: int,
@@ -1844,188 +2031,6 @@ def notify_acceptance(
     }
 
 
-def _rejected_recipients(event_id: int, db: Session):
-    """Dedupe rejected abstracts for an event down to one recipient per person
-    (presenting author, else first listed author, else submitter), grouping
-    all of that person's rejected abstracts together."""
-    abstracts = (
-        db.query(Abstract)
-        .options(joinedload(Abstract.authors))
-        .filter(
-            Abstract.event_id == event_id,
-            Abstract.status == AbstractStatus.rejected,
-            Abstract.deleted_at == None,
-        )
-        .all()
-    )
-
-    by_email = {}
-    for a in abstracts:
-        firstname, email = None, None
-        if a.authors:
-            presenting = [au for au in a.authors if au.is_presenting and au.email]
-            candidates = presenting or [au for au in a.authors if au.email][:1]
-            if candidates:
-                firstname, email = candidates[0].firstname or "Author", candidates[0].email
-        if not email and a.submitted_by:
-            submitter = db.query(User).filter(User.id == a.submitted_by).first()
-            if submitter and submitter.email:
-                firstname, email = submitter.firstname or "Author", submitter.email
-        if not email:
-            continue
-        key = email.lower()
-        by_email.setdefault(key, {"firstname": firstname or "Author", "email": email, "abstracts": []})
-        by_email[key]["abstracts"].append(a)
-
-    return abstracts, by_email
-
-
-@router.get("/rejection-notify-preview")
-async def rejection_notify_preview(
-    event_id: int = Query(...),
-    current_user: user_dependency = None,
-    db: Session = Depends(get_db),
-    auth_dependency: Auth = Depends(get_auth_dep),
-):
-    """Preview who will receive a rejection notification (no emails sent)."""
-    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
-
-    from models.models import Event
-
-    event = db.query(Event).filter(Event.id == event_id).first()
-    if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
-
-    abstracts, by_email = _rejected_recipients(event_id, db)
-
-    to_send, already_notified = [], []
-    for entry in by_email.values():
-        titles = [a.title for a in entry["abstracts"]]
-        notified = all(a.rejection_notified_at for a in entry["abstracts"])
-        row = {
-            "firstname": entry["firstname"], "lastname": "", "email": entry["email"],
-            "abstract_titles": titles,
-        }
-        (already_notified if notified else to_send).append(row)
-
-    return {
-        "event_name": event.event,
-        "to_send": to_send,
-        "already_notified": already_notified,
-        "total_rejected_abstracts": len(abstracts),
-        "total_recipients": len(by_email),
-    }
-
-
-class NotifyRejectedSchema(_PydanticBase):
-    event_id: int
-    cc_email: Optional[str] = "smyeni@ecsahc.org"
-    test_email: Optional[str] = None
-
-
-@router.post("/notify-rejection")
-def notify_rejection(
-    schema: NotifyRejectedSchema,
-    background_tasks: BackgroundTasks,
-    current_user: user_dependency,
-    db: Session = Depends(get_db),
-    auth_dependency: Auth = Depends(get_auth_dep),
-):
-    """Send rejection notification emails to (deduped) authors of rejected abstracts."""
-    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
-
-    from models.models import Event
-
-    event = db.query(Event).filter(Event.id == schema.event_id).first()
-    if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
-
-    _, by_email = _rejected_recipients(schema.event_id, db)
-    jobs = [v for v in by_email.values() if not all(a.rejection_notified_at for a in v["abstracts"])]
-
-    if not jobs:
-        return {"sent": 0, "message": "No unnotified rejected abstracts found for this event."}
-
-    import utils.mailer_util as _mailer
-    import smtplib, os, time
-    from email.mime.multipart import MIMEMultipart
-    from email.mime.text import MIMEText
-    from datetime import datetime, timezone
-
-    sent, failed = [], []
-
-    def _send_all(jobs, cc_email, test_email, sent_by_user_id, db_session):
-        smtp_host     = os.getenv("SMTP_HOST", "")
-        smtp_port     = int(os.getenv("SMTP_PORT", "587"))
-        smtp_username = os.getenv("SMTP_USERNAME", "")
-        smtp_password = os.getenv("SMTP_PASSWORD", "")
-        from_email    = os.getenv("SMTP_FROM_EMAIL", smtp_username)
-        templates     = _mailer.templates
-        subject = f"Abstract Submission Outcome – {event.event}"
-
-        try:
-            server = smtplib.SMTP(smtp_host, smtp_port)
-            server.starttls()
-            server.login(smtp_username, smtp_password)
-        except Exception as e:
-            for j in jobs:
-                failed.append({"email": j["email"], "error": str(e)})
-            return
-
-        for j in jobs:
-            recipient = test_email or j["email"]
-            use_cc = bool(cc_email) and not test_email
-            rcpt_list = [recipient] + ([cc_email] if use_cc else [])
-            try:
-                body = templates.get_template("abstract_rejection_template.html").render(
-                    subject=subject, firstname=j["firstname"], event_name=event.event,
-                    year=_mailer.YEAR,
-                )
-                msg = MIMEMultipart()
-                msg["From"] = f"{_mailer.FROM_NAME} <{from_email}>"
-                msg["To"] = recipient
-                if use_cc:
-                    msg["Cc"] = cc_email
-                msg["Subject"] = subject
-                msg.attach(MIMEText(body, "html"))
-                server.sendmail(smtp_username, rcpt_list, msg.as_string())
-                sent.append({"email": recipient})
-                log_id = _mailer._create_email_log(db_session, recipient, subject,
-                                                   "abstract_rejection", sent_by_user_id,
-                                                   cc_email if use_cc else None, body)
-                if log_id:
-                    _mailer._update_email_log(db_session, log_id, "sent")
-                if not test_email:
-                    for a in j["abstracts"]:
-                        a.rejection_notified_at = datetime.now(timezone.utc)
-                        db_session.add(a)
-                time.sleep(0.3)   # stay within Gmail's rate limit
-            except smtplib.SMTPServerDisconnected:
-                try:
-                    server = smtplib.SMTP(smtp_host, smtp_port)
-                    server.starttls()
-                    server.login(smtp_username, smtp_password)
-                    server.sendmail(smtp_username, rcpt_list, msg.as_string())
-                    sent.append({"email": recipient})
-                except Exception as retry_e:
-                    failed.append({"email": recipient, "error": str(retry_e)})
-            except Exception as exc:
-                failed.append({"email": recipient, "error": str(exc)})
-
-        try:
-            server.quit()
-        except Exception:
-            pass
-        db_session.commit()
-
-    background_tasks.add_task(
-        _send_all, jobs, schema.cc_email, schema.test_email, current_user["user_id"], db,
-    )
-
-    return {
-        "sent": len(jobs),
-        "message": f"Rejection notification queued for {len(jobs)} author(s).",
-    }
 
 
 @router.post("/send-registration-reminders")
