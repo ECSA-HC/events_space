@@ -2859,7 +2859,7 @@ async def admin_add_participant(
             firstname=body.firstname,
             lastname=body.lastname,
             email=body.email,
-            phone="",
+            phone=None,
             hashed_password=hashed,
             verified=1,
         )
@@ -3253,7 +3253,7 @@ async def bulk_import_participants(
         hashed = bcrypt_hash.hash(temp_password)
         user = User(
             firstname=firstname, lastname=lastname, email=email,
-            phone="", hashed_password=hashed, verified=1,
+            phone=None, hashed_password=hashed, verified=1,
         )
         db.add(user)
         db.commit()
