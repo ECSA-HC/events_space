@@ -3067,6 +3067,7 @@ async def bulk_import_participants(
     categorized report: imported, mismatches (imported but flagged), already
     registered, and rejected (with a reason)."""
     auth_dependency.secure_access("ADMIN_DASHBOARD", current_user["user_id"])
+    import utils.mailer_util as mailer_util
 
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
