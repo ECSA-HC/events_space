@@ -126,6 +126,17 @@
                 Add Participant
               </button>
 
+              <!-- Import Participants (admin only) -->
+              <button v-if="isFullAdmin" @click="openImportModal"
+                class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition hover:opacity-90"
+                style="background-color:#5b21b6;">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                Import Participants
+              </button>
+
               <select v-if="isFullAdmin" @change="downloadParticipants($event.target.value)"
                 class="bg-bondi-blue text-white px-4 pr-4 py-2 rounded-full hover:bg-bondi-blue-700">
                 <option disabled selected>{{ roleFilter === 'all' ? 'Download List' : `Download List (${roleCategoryLabel})` }}</option>
@@ -913,6 +924,155 @@
         </div>
       </div>
 
+      <!-- Import Participants Modal -->
+      <div v-if="showImportModal"
+        class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+        @click.self="!importing && closeImportModal()">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[92vh]">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+            <div class="flex items-center gap-3">
+              <div class="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#f5f3ff;">
+                <svg class="w-5 h-5" style="color:#5b21b6;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+              </div>
+              <div>
+                <p class="font-bold text-gray-800 text-sm">Import Participants</p>
+                <p class="text-xs text-gray-400">Bulk-register participants from a spreadsheet</p>
+              </div>
+            </div>
+            <button @click="closeImportModal" :disabled="importing" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition disabled:opacity-40">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="p-5 space-y-4 overflow-y-auto flex-1">
+
+            <!-- Upload form (hidden once a report exists) -->
+            <template v-if="!importReport">
+              <p class="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-xl p-3 leading-relaxed">
+                Expected columns: <strong>Name, Title, Organization, Country, Email, payment_status</strong> (the "No" column is ignored). One row per person — rows with more than one email will be rejected so you can split them.
+              </p>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Spreadsheet (.xlsx) *</label>
+                <input type="file" accept=".xlsx" @change="importFile = $event.target.files[0]"
+                  class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#f5f3ff] file:text-[#5b21b6] hover:file:opacity-80" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Participation Role (applied to every row) *</label>
+                <select v-model="importRole" class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5b21b6]">
+                  <option value="" disabled>Select a role…</option>
+                  <option value="secretariat">ECSA-HC Secretariat</option>
+                  <option value="djcc">DJCC Member</option>
+                  <option value="moh">Country Delegate (Ministry of Health)</option>
+                  <option value="member_state">Participant – ECSA Member State</option>
+                  <option value="other_africa">Participant – Other African Country</option>
+                  <option value="world">International Participant</option>
+                  <option value="delegate">Delegate</option>
+                  <option value="presenter">Presenter</option>
+                  <option value="speaker">Speaker</option>
+                  <option value="moderator">Moderator</option>
+                  <option value="participant">General Participant</option>
+                  <option value="student">Student</option>
+                  <option value="exhibitor">Sponsor / Exhibitor</option>
+                  <option value="sponsor">Sponsor</option>
+                </select>
+              </div>
+              <label class="flex items-center gap-3 cursor-pointer p-3 rounded-xl bg-gray-50 border border-gray-200 select-none">
+                <input type="checkbox" v-model="importSendInvitation" class="w-4 h-4 accent-[#5b21b6] rounded" />
+                <div>
+                  <p class="text-sm font-semibold text-gray-700">Send invitation emails</p>
+                  <p class="text-xs text-gray-400 mt-0.5">Email each imported participant their login details and event information.</p>
+                </div>
+              </label>
+              <p v-if="importError" class="text-red-500 text-sm bg-red-50 border border-red-200 rounded-xl p-3">{{ importError }}</p>
+            </template>
+
+            <!-- Report -->
+            <template v-else>
+              <div class="grid grid-cols-4 gap-2 text-center">
+                <div class="rounded-xl p-3 bg-green-50 border border-green-200">
+                  <p class="text-xl font-bold text-green-700">{{ importReport.summary.imported }}</p>
+                  <p class="text-[11px] text-green-700 font-semibold uppercase tracking-wide">Imported</p>
+                </div>
+                <div class="rounded-xl p-3 bg-amber-50 border border-amber-200">
+                  <p class="text-xl font-bold text-amber-700">{{ importReport.summary.mismatches }}</p>
+                  <p class="text-[11px] text-amber-700 font-semibold uppercase tracking-wide">Mismatches</p>
+                </div>
+                <div class="rounded-xl p-3 bg-gray-100 border border-gray-200">
+                  <p class="text-xl font-bold text-gray-600">{{ importReport.summary.already_there }}</p>
+                  <p class="text-[11px] text-gray-500 font-semibold uppercase tracking-wide">Already There</p>
+                </div>
+                <div class="rounded-xl p-3 bg-red-50 border border-red-200">
+                  <p class="text-xl font-bold text-red-700">{{ importReport.summary.rejected }}</p>
+                  <p class="text-[11px] text-red-700 font-semibold uppercase tracking-wide">Rejected</p>
+                </div>
+              </div>
+
+              <div v-if="importReport.imported.length" class="rounded-xl border border-green-200 overflow-hidden">
+                <p class="text-xs font-semibold text-green-700 bg-green-50 px-3 py-1.5">✅ Imported ({{ importReport.imported.length }})</p>
+                <div class="max-h-40 overflow-y-auto divide-y divide-gray-100">
+                  <div v-for="r in importReport.imported" :key="'i'+r.row" class="px-3 py-1.5 text-xs text-gray-600 flex justify-between gap-2">
+                    <span>{{ r.name }}</span><span class="text-gray-400">{{ r.email }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="importReport.mismatches.length" class="rounded-xl border border-amber-200 overflow-hidden">
+                <p class="text-xs font-semibold text-amber-700 bg-amber-50 px-3 py-1.5">⚠️ Mismatches — imported, but review these ({{ importReport.mismatches.length }})</p>
+                <div class="max-h-40 overflow-y-auto divide-y divide-gray-100">
+                  <div v-for="r in importReport.mismatches" :key="'m'+r.row" class="px-3 py-1.5 text-xs">
+                    <div class="flex justify-between gap-2 text-gray-700"><span>{{ r.name }}</span><span class="text-gray-400">{{ r.email }}</span></div>
+                    <p class="text-amber-700 mt-0.5">{{ r.reason }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="importReport.already_there.length" class="rounded-xl border border-gray-200 overflow-hidden">
+                <p class="text-xs font-semibold text-gray-600 bg-gray-100 px-3 py-1.5">↩︎ Already There ({{ importReport.already_there.length }})</p>
+                <div class="max-h-40 overflow-y-auto divide-y divide-gray-100">
+                  <div v-for="r in importReport.already_there" :key="'a'+r.row" class="px-3 py-1.5 text-xs">
+                    <div class="flex justify-between gap-2 text-gray-700"><span>{{ r.name }}</span><span class="text-gray-400">{{ r.email }}</span></div>
+                    <p class="text-gray-500 mt-0.5">Existing account: {{ r.existing_name }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="importReport.rejected.length" class="rounded-xl border border-red-200 overflow-hidden">
+                <p class="text-xs font-semibold text-red-700 bg-red-50 px-3 py-1.5">❌ Rejected ({{ importReport.rejected.length }})</p>
+                <div class="max-h-40 overflow-y-auto divide-y divide-gray-100">
+                  <div v-for="r in importReport.rejected" :key="'r'+r.row" class="px-3 py-1.5 text-xs">
+                    <div class="flex justify-between gap-2 text-gray-700"><span>{{ r.name || '(no name)' }}</span><span class="text-gray-400">{{ r.email || '(no email)' }}</span></div>
+                    <p class="text-red-700 mt-0.5">{{ r.reason }}</p>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <div class="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-100 flex-shrink-0">
+            <button v-if="!importReport" @click="closeImportModal" :disabled="importing"
+              class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition font-medium disabled:opacity-40">Cancel</button>
+            <button v-if="!importReport" @click="submitImport"
+              :disabled="importing || !importFile || !importRole"
+              class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-xl transition hover:opacity-90 disabled:opacity-50"
+              style="background-color:#5b21b6;">
+              <svg v-if="importing" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+              {{ importing ? 'Importing…' : 'Import' }}
+            </button>
+            <button v-else @click="closeImportModal"
+              class="px-5 py-2 text-sm font-semibold text-white rounded-xl transition hover:opacity-90"
+              style="background-color:#5b21b6;">Done</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Edit Role Modal -->
       <div v-if="showEditRoleModal"
         class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
@@ -1221,6 +1381,51 @@ const loadingUsers = ref(false)
 const userPickerSearch = ref('')
 const userPickerOpen = ref(false)
 const selectedUser = ref(null)
+
+const showImportModal = ref(false)
+const importFile = ref(null)
+const importRole = ref('')
+const importSendInvitation = ref(true)
+const importing = ref(false)
+const importError = ref('')
+const importReport = ref(null)
+
+function openImportModal() {
+  showImportModal.value = true
+}
+
+function closeImportModal() {
+  showImportModal.value = false
+  importFile.value = null
+  importRole.value = ''
+  importSendInvitation.value = true
+  importError.value = ''
+  const hadReport = !!importReport.value
+  importReport.value = null
+  if (hadReport) {
+    api.get(`/events/${eventId}`).then(res => { participants.value = res.data.participants })
+  }
+}
+
+async function submitImport() {
+  if (!importFile.value || !importRole.value) return
+  importing.value = true
+  importError.value = ''
+  try {
+    const fd = new FormData()
+    fd.append('file', importFile.value)
+    fd.append('participation_role', importRole.value)
+    fd.append('send_invitation', importSendInvitation.value)
+    const res = await api.post(`/events/${eventId}/bulk-import-participants`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    importReport.value = res.data
+  } catch (e) {
+    importError.value = e.response?.data?.detail || 'Import failed'
+  } finally {
+    importing.value = false
+  }
+}
 
 const showEditRoleModal = ref(false)
 const editRoleParticipant = ref(null)

@@ -3026,3 +3026,274 @@ async def admin_add_participant(
             f"{' Invitation email sent.' if email_sent else ''}"
         ),
     }
+
+
+# ── Admin: bulk-import participants from a spreadsheet ───────────────────────
+_ROLE_LABELS = {
+    "secretariat": "ECSA-HC Secretariat",
+    "djcc": "DJCC Member",
+    "moh": "Country Delegate (Ministry of Health)",
+    "member_state": "Participant from ECSA Member States",
+    "other_africa": "Participant from other African countries",
+    "world": "International Participant",
+    "student": "Student",
+    "exhibitor": "Sponsor / Exhibitor",
+    "participant": "Participant",
+    "delegate": "Delegate",
+    "presenter": "Presenter",
+    "speaker": "Speaker",
+    "sponsor": "Sponsor",
+    "moderator": "Moderator",
+}
+_HONORIFICS = {"dr", "mr", "mrs", "ms", "prof", "rev", "eng", "hon"}
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_NO_PAYMENT_ROLES = {"secretariat"}
+
+
+@router.post("/{event_id}/bulk-import-participants")
+async def bulk_import_participants(
+    event_id: int,
+    background_tasks: BackgroundTasks,
+    current_user: user_dependency,
+    file: UploadFile = File(...),
+    participation_role: str = Form(...),
+    send_invitation: bool = Form(True),
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    """Bulk-import participants from an uploaded spreadsheet (columns: Name,
+    Title, Organization, Country, Email, payment_status — 'No' is ignored).
+    Creates/registers each row like admin_add_participant, and returns a
+    categorized report: imported, mismatches (imported but flagged), already
+    registered, and rejected (with a reason)."""
+    auth_dependency.secure_access("ADMIN_DASHBOARD", current_user["user_id"])
+
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    try:
+        role_enum = ParticipationRole[participation_role]
+    except KeyError:
+        raise HTTPException(status_code=400, detail=f"Invalid participation role: {participation_role}")
+
+    from openpyxl import load_workbook
+    contents = await file.read()
+    try:
+        wb = load_workbook(BytesIO(contents), data_only=True)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not read file — please upload a valid .xlsx file")
+    sheet = wb.active
+    rows = list(sheet.iter_rows(values_only=True))
+    if not rows:
+        raise HTTPException(status_code=400, detail="File is empty")
+
+    header = [str(c).strip().lower() if c is not None else "" for c in rows[0]]
+
+    def find_col(*names):
+        for n in names:
+            if n in header:
+                return header.index(n)
+        return None
+
+    col_name = find_col("name")
+    col_title = find_col("title")
+    col_org = find_col("organization", "organisation")
+    col_country = find_col("country")
+    col_email = find_col("email")
+    col_payment = find_col("payment_status", "payment status")
+
+    if col_name is None or col_email is None:
+        raise HTTPException(status_code=400, detail="File must have at least 'Name' and 'Email' columns")
+
+    def cell(row, idx):
+        if idx is None or idx >= len(row):
+            return None
+        v = row[idx]
+        return str(v).strip() if v is not None else None
+
+    event_dates = None
+    if event.start_date and event.end_date:
+        def _fmt(d):
+            return d.strftime("%-d %B %Y") if hasattr(d, "strftime") else str(d)
+        event_dates = f"{_fmt(event.start_date)} – {_fmt(event.end_date)}"
+    role_label = _ROLE_LABELS.get(participation_role, participation_role)
+    auto_paid_role = participation_role in _NO_PAYMENT_ROLES
+
+    imported, mismatches, already_there, rejected = [], [], [], []
+
+    for i, row in enumerate(rows[1:], start=2):
+        raw_name = cell(row, col_name)
+        raw_title = cell(row, col_title)
+        raw_org = cell(row, col_org)
+        raw_country = cell(row, col_country)
+        raw_email = cell(row, col_email)
+        raw_payment = cell(row, col_payment)
+
+        if not raw_name and not raw_email:
+            continue  # fully blank row
+
+        row_ref = {"row": i, "name": raw_name, "email": raw_email}
+
+        if not raw_name:
+            rejected.append({**row_ref, "reason": "Missing name"})
+            continue
+        if not raw_email:
+            rejected.append({**row_ref, "reason": "Missing email"})
+            continue
+
+        email_parts = [e.strip() for e in re.split(r"[;,]", raw_email) if e.strip()]
+        if len(email_parts) > 1:
+            rejected.append({
+                **row_ref,
+                "reason": f"Multiple emails in one row ({', '.join(email_parts)}) — split into separate rows and re-upload",
+            })
+            continue
+        email = email_parts[0].lower()
+        if not _EMAIL_RE.match(email):
+            rejected.append({**row_ref, "reason": f"Invalid email format: {raw_email}"})
+            continue
+
+        parts = raw_name.split()
+        honorific = None
+        if parts and parts[0].strip(".").lower() in _HONORIFICS:
+            honorific = parts[0].strip(".")
+            parts = parts[1:]
+        if not parts:
+            rejected.append({**row_ref, "reason": "Name has no content after removing honorific"})
+            continue
+        firstname = parts[0]
+        lastname = " ".join(parts[1:]) if len(parts) > 1 else parts[0]
+
+        payment_flag = (raw_payment or "").strip().lower()
+        paid = payment_flag in {"paid", "yes", "true", "1", "y"}
+        payment_note = None
+        if raw_payment and not paid and payment_flag not in {"unpaid", "no", "false", "0", "n", ""}:
+            payment_note = f"Unrecognized payment_status value '{raw_payment}' — treated as unpaid"
+
+        notes_parts = []
+        if honorific:
+            notes_parts.append(f"Title: {honorific}")
+        if raw_title:
+            notes_parts.append(f"Position: {raw_title}")
+        if raw_org:
+            notes_parts.append(f"Organization: {raw_org}")
+        if raw_country:
+            notes_parts.append(f"Country: {raw_country}")
+        notes = " | ".join(notes_parts) if notes_parts else None
+
+        existing_user = db.query(User).filter(User.email == email, User.deleted_at == None).first()
+
+        if existing_user:
+            existing_reg = db.query(Registration).filter(
+                Registration.user_id == existing_user.id,
+                Registration.event_id == event_id,
+                Registration.deleted_at == None,
+            ).first()
+            if existing_reg:
+                already_there.append({
+                    **row_ref, "email": email,
+                    "existing_name": f"{existing_user.firstname} {existing_user.lastname}",
+                    "reason": "Already registered for this event",
+                })
+                continue
+
+            name_mismatch = (
+                existing_user.firstname.strip().lower() != firstname.strip().lower()
+                or existing_user.lastname.strip().lower() != lastname.strip().lower()
+            )
+            new_reg = Registration(
+                user_id=existing_user.id, event_id=event_id,
+                participation_role=role_enum, paid=paid or auto_paid_role, notes=notes,
+            )
+            db.add(new_reg)
+            db.commit()
+            db.refresh(new_reg)
+
+            row_result = {**row_ref, "email": email, "registration_id": new_reg.id, "is_new_user": False}
+
+            if send_invitation:
+                if not existing_user.credentials_sent:
+                    from passlib.hash import bcrypt as bcrypt_hash
+                    fresh_password = auth_dependency.generate_random_password()
+                    existing_user.hashed_password = bcrypt_hash.hash(fresh_password)
+                    existing_user.credentials_sent = True
+                    db.commit()
+                    mailer_util.event_invitation_email(
+                        recipient_email=existing_user.email, firstname=existing_user.firstname,
+                        event_name=event.event, participation_role=role_label,
+                        event_location=event.location, event_dates=event_dates,
+                        is_new_user=True, password=fresh_password, no_payment=(paid or auto_paid_role),
+                        portal_url="https://events.ecsahc.org", payment_url="https://ecsahc.org/payment/",
+                        background_tasks=background_tasks, db=db, sent_by_user_id=current_user["user_id"],
+                    )
+                else:
+                    mailer_util.event_invitation_email(
+                        recipient_email=existing_user.email, firstname=existing_user.firstname,
+                        event_name=event.event, participation_role=role_label,
+                        event_location=event.location, event_dates=event_dates,
+                        is_new_user=False, password=None, no_payment=(paid or auto_paid_role),
+                        portal_url="https://events.ecsahc.org", payment_url="https://ecsahc.org/payment/",
+                        background_tasks=background_tasks, db=db, sent_by_user_id=current_user["user_id"],
+                    )
+
+            reasons = []
+            if name_mismatch:
+                reasons.append(f"Sheet name '{raw_name}' differs from existing account name '{existing_user.firstname} {existing_user.lastname}'")
+            if payment_note:
+                reasons.append(payment_note)
+            (mismatches if reasons else imported).append(
+                {**row_result, "reason": "; ".join(reasons)} if reasons else row_result
+            )
+            continue
+
+        # Brand-new user
+        from passlib.hash import bcrypt as bcrypt_hash
+        temp_password = auth_dependency.generate_random_password()
+        hashed = bcrypt_hash.hash(temp_password)
+        user = User(
+            firstname=firstname, lastname=lastname, email=email,
+            phone="", hashed_password=hashed, verified=1,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        new_reg = Registration(
+            user_id=user.id, event_id=event_id,
+            participation_role=role_enum, paid=paid or auto_paid_role, notes=notes,
+        )
+        db.add(new_reg)
+        db.commit()
+        db.refresh(new_reg)
+
+        row_result = {**row_ref, "email": email, "registration_id": new_reg.id, "is_new_user": True}
+
+        if send_invitation:
+            user.credentials_sent = True
+            db.commit()
+            mailer_util.event_invitation_email(
+                recipient_email=user.email, firstname=user.firstname, event_name=event.event,
+                participation_role=role_label, event_location=event.location, event_dates=event_dates,
+                is_new_user=True, password=temp_password, no_payment=(paid or auto_paid_role),
+                portal_url="https://events.ecsahc.org", payment_url="https://ecsahc.org/payment/",
+                background_tasks=background_tasks, db=db, sent_by_user_id=current_user["user_id"],
+            )
+
+        if payment_note:
+            mismatches.append({**row_result, "reason": payment_note})
+        else:
+            imported.append(row_result)
+
+    return {
+        "total_rows": len(rows) - 1,
+        "imported": imported,
+        "mismatches": mismatches,
+        "already_there": already_there,
+        "rejected": rejected,
+        "summary": {
+            "imported": len(imported),
+            "mismatches": len(mismatches),
+            "already_there": len(already_there),
+            "rejected": len(rejected),
+        },
+    }
