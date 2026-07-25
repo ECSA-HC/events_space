@@ -468,8 +468,11 @@ def export_abstracts_pdf(
     db: Session = Depends(get_db),
     auth_dependency: Auth = Depends(get_auth_dep),
     event_id: int = None,
-    status_filter: str = Query(None, alias="status"),
 ):
+    """Generate the official Book of Abstracts. Always accepted-only — this is
+    the published proceedings document, not a generic filtered export, so it
+    must not depend on whatever status filter the admin's list view happens
+    to have selected."""
     auth_dependency.secure_access("EXPORT_ABSTRACTS", current_user["user_id"])
 
     import unicodedata, re
@@ -493,11 +496,9 @@ def export_abstracts_pdf(
         joinedload(Abstract.submitter),
         joinedload(Abstract.event),
         joinedload(Abstract.event_track),
-    ).filter(Abstract.deleted_at == None)
+    ).filter(Abstract.deleted_at == None, Abstract.status == AbstractStatus.accepted)
     if event_id:
         q = q.filter(Abstract.event_id == event_id)
-    if status_filter:
-        q = q.filter(Abstract.status == status_filter)
     abstracts = q.order_by(
         sa_case((Abstract.track_id == None, 1), else_=0),
         Abstract.track_id,

@@ -1948,9 +1948,10 @@ const exportExcel = async () => {
 const exportPdf = async () => {
   exportingPdf.value = true
   try {
+    // Book of Abstracts is always accepted-only, regardless of the list's
+    // current status filter — it's the published proceedings, not a filtered export.
     const params = new URLSearchParams()
-    if (filterEvent.value)  params.append('event_id', filterEvent.value)
-    if (filterStatus.value) params.append('status',   filterStatus.value)
+    if (filterEvent.value) params.append('event_id', filterEvent.value)
     const res = await api.get(`/abstracts/export/pdf?${params.toString()}`, { responseType: 'blob' })
     const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
     const a = document.createElement('a')
