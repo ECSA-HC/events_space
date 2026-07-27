@@ -1130,15 +1130,30 @@
 
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <p class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Recipients</p>
+                  <div class="flex items-center justify-between mb-2">
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-widest">Recipients</p>
+                    <label v-if="updateInfoPreview.to_send.length > 0" class="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
+                      <input type="checkbox" :checked="selectedUserIds.size === updateInfoPreview.to_send.length && updateInfoPreview.to_send.length > 0"
+                        @change="toggleSelectAll"
+                        class="rounded border-gray-300 text-[#5b21b6] focus:ring-[#5b21b6]" />
+                      Select all
+                    </label>
+                  </div>
                   <div class="rounded-xl border border-gray-200 overflow-hidden">
                     <div class="max-h-72 overflow-y-auto divide-y divide-gray-100">
                       <div v-if="updateInfoPreview.to_send.length === 0" class="text-xs text-gray-400 text-center py-6">
                         Everyone confirmed has already been notified.
                       </div>
-                      <div v-for="r in updateInfoPreview.to_send" :key="r.email" class="px-3 py-2">
-                        <p class="text-sm font-medium text-gray-800">{{ r.firstname }}</p>
-                        <p class="text-xs text-gray-400">{{ r.email }}</p>
+                      <div v-for="r in updateInfoPreview.to_send" :key="r.email"
+                        class="px-3 py-2 flex items-center gap-2 cursor-pointer hover:bg-gray-50 transition"
+                        @click="toggleUserSelection(r.user_id)">
+                        <input type="checkbox" :checked="selectedUserIds.has(r.user_id)"
+                          @click.stop="toggleUserSelection(r.user_id)"
+                          class="rounded border-gray-300 text-[#5b21b6] focus:ring-[#5b21b6]" />
+                        <div class="min-w-0">
+                          <p class="text-sm font-medium text-gray-800 truncate">{{ r.firstname }}</p>
+                          <p class="text-xs text-gray-400 truncate">{{ r.email }}</p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1165,7 +1180,7 @@
               @click="sendUpdateInfo" :disabled="updateInfoSending || !updateInfoDeadline"
               class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-xl transition hover:opacity-90 disabled:opacity-50"
               style="background-color:#5b21b6;">
-              {{ updateInfoSending ? 'Sending…' : `Send to ${updateInfoPreview.to_send.length} Participant${updateInfoPreview.to_send.length === 1 ? '' : 's'}` }}
+              {{ updateInfoSending ? 'Sending…' : `Send to ${selectedUserIds.size || updateInfoPreview.to_send.length} Participant${(selectedUserIds.size || updateInfoPreview.to_send.length) === 1 ? '' : 's'}` }}
             </button>
           </div>
         </div>
@@ -1781,6 +1796,7 @@ const updateInfoSending = ref(false)
 const updateInfoError = ref('')
 const updateInfoDone = ref(false)
 const updateInfoPreview = ref(null)
+const selectedUserIds = ref(new Set())
 
 function defaultDeadlineLabel() {
   const d = new Date()
@@ -1795,6 +1811,7 @@ async function openUpdateInfoModal() {
   updateInfoError.value = ''
   updateInfoDone.value = false
   updateInfoPreview.value = null
+  selectedUserIds.value = new Set()
   await loadUpdateInfoPreview()
 }
 
@@ -1814,6 +1831,8 @@ async function loadUpdateInfoPreview() {
       params: { deadline_label: updateInfoDeadline.value },
     })
     updateInfoPreview.value = res.data
+    // Initialize selection with all to_send users
+    selectedUserIds.value = new Set(res.data.to_send.map(r => r.user_id))
   } catch (e) {
     updateInfoError.value = e.response?.data?.detail || 'Failed to load preview'
   } finally {
@@ -1825,19 +1844,45 @@ async function sendUpdateInfo() {
   updateInfoSending.value = true
   updateInfoError.value = ''
   try {
+    const userIdsToSend = [...selectedUserIds.value]
     await api.post(`/events/${eventId}/notify-update-info`, {
       deadline_label: updateInfoDeadline.value,
+      user_ids: userIdsToSend.length > 0 ? userIdsToSend : undefined,
     })
     updateInfoDone.value = true
+    // Move sent users to already_notified
+    const sentSet = new Set(userIdsToSend)
+    const sentUsers = updateInfoPreview.value.to_send.filter(r => sentSet.has(r.user_id))
     updateInfoPreview.value.already_notified = [
       ...updateInfoPreview.value.already_notified,
-      ...updateInfoPreview.value.to_send,
+      ...sentUsers,
     ]
-    updateInfoPreview.value.to_send = []
+    updateInfoPreview.value.to_send = updateInfoPreview.value.to_send.filter(r => !sentSet.has(r.user_id))
+    selectedUserIds.value = new Set()
   } catch (e) {
     updateInfoError.value = e.response?.data?.detail || 'Failed to send notifications'
   } finally {
     updateInfoSending.value = false
+  }
+}
+
+function toggleUserSelection(userId) {
+  const s = new Set(selectedUserIds.value)
+  if (s.has(userId)) {
+    s.delete(userId)
+  } else {
+    s.add(userId)
+  }
+  selectedUserIds.value = s
+}
+
+function toggleSelectAll() {
+  if (!updateInfoPreview.value) return
+  const allIds = new Set(updateInfoPreview.value.to_send.map(r => r.user_id))
+  if (selectedUserIds.value.size === allIds.size) {
+    selectedUserIds.value = new Set()
+  } else {
+    selectedUserIds.value = allIds
   }
 }
 

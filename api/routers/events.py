@@ -2177,11 +2177,13 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
     #   Name label     (7.8, 89.1)→(29.1, 95.8)  content (29.2, 89.1)→(97.8, 95.8)
     #   Designation    (7.8, 98.4)→(41.5, 105.0) content (41.2, 98.3)→(97.8, 105.0)
     #   Organization   (7.8, 107.6)→(41.9, 114.3)content (41.9, 107.7)→(97.8, 114.3)
-    full_name = " ".join(filter(None, [
-        str(p.get("title")       or "").strip(),
-        str(p.get("firstname")   or "").strip(),
-        str(p.get("lastname")    or "").strip(),
-    ]))
+    title_raw = str(p.get("title") or "").strip().rstrip(".")
+    firstname = str(p.get("firstname") or "").strip()
+    lastname  = str(p.get("lastname")  or "").strip()
+    if title_raw:
+        full_name = f"{title_raw}. ({firstname} {lastname})".strip()
+    else:
+        full_name = f"{firstname} {lastname}".strip()
     row_specs = [
         # (label, lbl_x0, lbl_x1, y0, y1, value)
         ("Name",         7.8, 29.1,  89.1,  95.8, full_name[:42]),
@@ -2676,13 +2678,14 @@ def _confirmed_participants(event_id: int, db: Session):
         if not user or not user.email:
             continue
         key = user.email.lower()
-        by_email.setdefault(key, {"firstname": user.firstname or "Participant", "email": user.email})
+        by_email.setdefault(key, {"user_id": user.id, "firstname": user.firstname or "Participant", "email": user.email})
     return by_email
 
 
 class NotifyUpdateInfoSchema(BaseModel):
     deadline_label: str
     test_email: Optional[str] = None
+    user_ids: Optional[list[int]] = None
 
 
 @router.get("/{event_id}/update-info-notify-preview")
@@ -2690,6 +2693,7 @@ def update_info_notify_preview(
     event_id: int,
     current_user: user_dependency,
     deadline_label: str = Query(...),
+    user_ids: Optional[str] = Query(None, description="Comma-separated user IDs to include"),
     db: Session = Depends(get_db),
     auth_dependency: Auth = Depends(get_auth_dependency),
 ):
@@ -2713,6 +2717,12 @@ def update_info_notify_preview(
 
     to_send = [v for k, v in by_email.items() if k not in notified_emails]
     already_notified = [v for k, v in by_email.items() if k in notified_emails]
+
+    # Filter by specific user IDs if provided
+    if user_ids:
+        selected_ids = {int(uid) for uid in user_ids.split(",") if uid.strip().isdigit()}
+        if selected_ids:
+            to_send = [v for v in to_send if v.get("user_id") in selected_ids]
 
     sample_name = to_send[0]["firstname"] if to_send else "Participant"
     email_preview_html = _mailer.templates.get_template("update_info_reminder_template.html").render(
@@ -2761,6 +2771,11 @@ def notify_update_info(
         ).all()
     }
     jobs = [v for k, v in by_email.items() if k not in notified_emails]
+
+    # Filter by specific user IDs if provided
+    if schema.user_ids:
+        selected_ids = set(schema.user_ids)
+        jobs = [v for v in jobs if v.get("user_id") in selected_ids]
 
     if schema.test_email:
         jobs = jobs[:1] or [{"firstname": "Test", "email": schema.test_email}]

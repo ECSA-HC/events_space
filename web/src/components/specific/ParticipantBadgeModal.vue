@@ -253,23 +253,29 @@ const theme = computed(() => props.event?.theme || '')
 
 // ── Info rows with variable label widths matching official template ────────────
 // Official (105mm page): Name=20.3%, Designation=32.1%, Organization=32.5%
-const infoRows = computed(() => [
-  {
-    label:    'Name',
-    value:    [props.user?.firstname, props.user?.lastname].filter(Boolean).join(' '),
-    labelPct: '20.3%',
-  },
-  {
-    label:    'Designation',
-    value:    props.user?.position || '',
-    labelPct: '32.1%',
-  },
-  {
-    label:    'Organization',
-    value:    props.user?.organisation || '',
-    labelPct: '32.5%',
-  },
-])
+const infoRows = computed(() => {
+  const title = (props.user?.title || '').trim().replace(/\.$/, '')
+  const first = props.user?.firstname || ''
+  const last  = props.user?.lastname  || ''
+  const displayName = title ? `${title}. (${first} ${last})` : [first, last].filter(Boolean).join(' ')
+  return [
+    {
+      label:    'Name',
+      value:    displayName,
+      labelPct: '20.3%',
+    },
+    {
+      label:    'Designation',
+      value:    props.user?.position || '',
+      labelPct: '32.1%',
+    },
+    {
+      label:    'Organization',
+      value:    props.user?.organisation || '',
+      labelPct: '32.5%',
+    },
+  ]
+})
 
 // Row top positions — shifted slightly to match enlarged logo area
 const rowTops = ['62%', '68%', '74%']
