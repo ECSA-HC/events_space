@@ -2261,6 +2261,25 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
     c.showPage()
 
 
+def _badge_fields_from_notes(notes):
+    """Fallback for participants with no UserProfile (e.g. bulk-imported):
+    pull title/position/organisation out of the "Title: X | Position: Y |
+    Organization: Z | Country: W" string bulk_import_participants writes to
+    Registration.notes."""
+    result = {"title": "", "position": "", "organisation": ""}
+    if not notes:
+        return result
+    field_map = {"title": "title", "position": "position", "organization": "organisation"}
+    for part in notes.split("|"):
+        if ":" not in part:
+            continue
+        key, _, value = part.partition(":")
+        key = field_map.get(key.strip().lower())
+        if key:
+            result[key] = value.strip()
+    return result
+
+
 @router.get("/{event_id}/participants/badges")
 async def download_participant_badges_pdf(
     request: Request,
@@ -2298,6 +2317,7 @@ async def download_participant_badges_pdf(
         profile = user.user_profile[0] if user.user_profile else None
         country = profile.country.country if profile and profile.country else None
         organisation = profile.organisation if profile else None
+        notes_fallback = _badge_fields_from_notes(reg.notes) if not profile else None
         role_key = (
             reg.participation_role.name
             if hasattr(reg.participation_role, "name")
@@ -2308,12 +2328,12 @@ async def download_participant_badges_pdf(
                 "registration_id": reg.id,
                 "user_id": user.id,
                 "event_id": event_id,
-                "title": profile.title if profile else "",
+                "title": (profile.title if profile else notes_fallback["title"]),
                 "firstname": user.firstname,
                 "middle_name": profile.middle_name if profile else "",
                 "lastname": user.lastname,
-                "position": profile.position if profile else "",
-                "organisation": organisation,
+                "position": (profile.position if profile else notes_fallback["position"]),
+                "organisation": organisation or (notes_fallback["organisation"] if notes_fallback else None),
                 "country": country,
                 "participation_role": PARTICIPATION_ROLE_MAP.get(role_key, role_key),
                 "event_name": event.event,
@@ -2398,6 +2418,7 @@ async def download_my_badge(
     profile = user.user_profile[0] if user.user_profile else None
     country = profile.country.country if profile and profile.country else None
     organisation = profile.organisation if profile else None
+    notes_fallback = _badge_fields_from_notes(reg.notes) if not profile else None
     role_key = (
         reg.participation_role.name
         if hasattr(reg.participation_role, "name")
@@ -2412,12 +2433,12 @@ async def download_my_badge(
     p = {
         "registration_id": reg.id,
         "event_id": event_id,
-        "title": profile.title if profile else "",
+        "title": (profile.title if profile else notes_fallback["title"]),
         "firstname": user.firstname,
         "middle_name": profile.middle_name if profile else "",
         "lastname": user.lastname,
-        "position": profile.position if profile else "",
-        "organisation": organisation,
+        "position": (profile.position if profile else notes_fallback["position"]),
+        "organisation": organisation or (notes_fallback["organisation"] if notes_fallback else None),
         "country": country,
         "participation_role": PARTICIPATION_ROLE_MAP.get(role_key, role_key),
         "event_name": event.event,
@@ -2652,6 +2673,150 @@ async def send_payment_reminders(
     return {
         "sent": len(targets),
         "message": f"Payment reminder sent to {len(targets)} participant(s).",
+    }
+
+
+def _confirmed_participants(event_id: int, db: Session):
+    """Paid OR proof-of-payment-uploaded registrants for an event, deduped by
+    user — matches the "confirmed" definition already used for badges."""
+    regs = (
+        db.query(Registration)
+        .join(User, Registration.user_id == User.id)
+        .filter(
+            Registration.event_id == event_id,
+            Registration.deleted_at == None,
+            User.deleted_at == None,
+            or_(Registration.paid == True, Registration.payment_proof.isnot(None)),
+        )
+        .options(joinedload(Registration.user))
+        .all()
+    )
+    by_email = {}
+    for reg in regs:
+        user = reg.user
+        if not user or not user.email:
+            continue
+        key = user.email.lower()
+        by_email.setdefault(key, {"firstname": user.firstname or "Participant", "email": user.email})
+    return by_email
+
+
+class NotifyUpdateInfoSchema(BaseModel):
+    deadline_label: str
+    test_email: Optional[str] = None
+
+
+@router.get("/{event_id}/update-info-notify-preview")
+def update_info_notify_preview(
+    event_id: int,
+    current_user: user_dependency,
+    deadline_label: str = Query(...),
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    """Preview who would receive a 'please update your info' email (no emails sent)."""
+    auth_dependency.secure_access("VIEW_EVENT", current_user["user_id"])
+    from models.models import EmailLog
+    import utils.mailer_util as _mailer
+
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    by_email = _confirmed_participants(event_id, db)
+
+    notified_emails = {
+        row.recipient_email.lower()
+        for row in db.query(EmailLog.recipient_email).filter(
+            EmailLog.email_type == f"update_info_{event_id}", EmailLog.status == "sent",
+        ).all()
+    }
+
+    to_send = [v for k, v in by_email.items() if k not in notified_emails]
+    already_notified = [v for k, v in by_email.items() if k in notified_emails]
+
+    sample_name = to_send[0]["firstname"] if to_send else "Participant"
+    email_preview_html = _mailer.templates.get_template("update_info_reminder_template.html").render(
+        subject=f"Action Required: Please Verify Your Registration Details – {event.event}",
+        firstname=sample_name,
+        event_name=event.event,
+        deadline_label=deadline_label,
+        portal_url=_mailer.APP_BASE_URL,
+        year=_mailer.YEAR,
+    )
+
+    return {
+        "event_name": event.event,
+        "to_send": to_send,
+        "already_notified": already_notified,
+        "total_recipients": len(by_email),
+        "email_preview_html": email_preview_html,
+    }
+
+
+@router.post("/{event_id}/notify-update-info")
+def notify_update_info(
+    event_id: int,
+    schema: NotifyUpdateInfoSchema,
+    background_tasks: BackgroundTasks,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    """Email paid/confirmed participants asking them to log in and verify
+    their profile details before the given deadline."""
+    auth_dependency.secure_access("VIEW_EVENT", current_user["user_id"])
+    from models.models import EmailLog
+    import utils.mailer_util as _mailer
+
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    email_type = f"update_info_{event_id}"
+    by_email = _confirmed_participants(event_id, db)
+    notified_emails = {
+        row.recipient_email.lower()
+        for row in db.query(EmailLog.recipient_email).filter(
+            EmailLog.email_type == email_type, EmailLog.status == "sent",
+        ).all()
+    }
+    jobs = [v for k, v in by_email.items() if k not in notified_emails]
+
+    if schema.test_email:
+        jobs = jobs[:1] or [{"firstname": "Test", "email": schema.test_email}]
+    elif not jobs:
+        return {"sent": 0, "message": "No unnotified confirmed participants found for this event."}
+
+    subject = f"Action Required: Please Verify Your Registration Details – {event.event}"
+
+    messages = []
+    for j in jobs:
+        recipient = schema.test_email or j["email"]
+        body = _mailer.templates.get_template("update_info_reminder_template.html").render(
+            subject=subject,
+            firstname=j["firstname"],
+            event_name=event.event,
+            deadline_label=schema.deadline_label,
+            portal_url=_mailer.APP_BASE_URL,
+            year=_mailer.YEAR,
+        )
+        messages.append({
+            "recipient_email": recipient,
+            "subject": subject,
+            "body": body,
+            "email_type": email_type if not schema.test_email else "update_info_test",
+            "sent_by_user_id": current_user["user_id"],
+        })
+
+    background_tasks.add_task(_mailer.send_bulk_emails, messages, db)
+
+    return {
+        "sent": len(messages),
+        "message": (
+            f"Notification queued for {len(messages)} participant(s)."
+            if not schema.test_email else "Test email queued."
+        ),
     }
 
 
@@ -3111,6 +3276,18 @@ async def bulk_import_participants(
             return None
         v = row[idx]
         return str(v).strip() if v is not None else None
+
+    # Some sheets carry a payment column with no header text at all — fall back
+    # to the column immediately after Email if it holds recognizable payment
+    # values (e.g. "PAID"), so an unlabeled column doesn't silently get ignored.
+    if col_payment is None and col_email is not None:
+        candidate = col_email + 1
+        recognized = {"paid", "unpaid", "yes", "no", "true", "false", "1", "0", "y", "n"}
+        if any(
+            (v := cell(row, candidate)) is not None and v.strip().lower() in recognized
+            for row in rows[1:]
+        ):
+            col_payment = candidate
 
     event_dates = None
     if event.start_date and event.end_date:

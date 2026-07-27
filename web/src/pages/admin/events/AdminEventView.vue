@@ -169,6 +169,16 @@
                 <span v-else-if="selectedUnpaid.length > 0">Send to Selected ({{ selectedUnpaid.length }})</span>
                 <span v-else>Send to All Not Yet Reminded ({{ unpaidParticipants.length }})</span>
               </button>
+
+              <button v-if="isFullAdmin" @click="openUpdateInfoModal"
+                class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition hover:opacity-90"
+                style="background-color:#5b21b6;">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                Request Info Update
+              </button>
             </div>
 
             <!-- Reminder feedback -->
@@ -1073,6 +1083,94 @@
         </div>
       </div>
 
+      <!-- Request Info Update Modal -->
+      <div v-if="showUpdateInfoModal"
+        class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+        @click.self="!updateInfoSending && closeUpdateInfoModal()">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col max-h-[92vh]">
+
+          <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+            <div class="flex items-center gap-3">
+              <div class="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#f5f3ff;">
+                <svg class="w-5 h-5" style="color:#5b21b6;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+              </div>
+              <div>
+                <p class="font-bold text-gray-800 text-sm">Request Info Update</p>
+                <p class="text-xs text-gray-400">Ask paid participants to log in and verify their details</p>
+              </div>
+            </div>
+            <button @click="closeUpdateInfoModal" :disabled="updateInfoSending" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition disabled:opacity-40">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="p-5 space-y-4 overflow-y-auto flex-1">
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Deadline shown in the email *</label>
+              <input v-model="updateInfoDeadline" type="text" class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5b21b6]"
+                placeholder="e.g. 6:00 PM, Tuesday 28 July 2026" @change="loadUpdateInfoPreview" />
+            </div>
+
+            <div v-if="updateInfoLoading" class="text-sm text-gray-400 py-4 text-center">Loading preview…</div>
+
+            <template v-else-if="updateInfoPreview">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs px-2 py-1 rounded-full font-semibold" style="background:#f5f3ff;color:#5b21b6;">
+                  {{ updateInfoPreview.to_send.length }} to notify
+                </span>
+                <span v-if="updateInfoPreview.already_notified.length" class="text-xs px-2 py-1 rounded-full font-semibold bg-gray-100 text-gray-500">
+                  {{ updateInfoPreview.already_notified.length }} already notified
+                </span>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Recipients</p>
+                  <div class="rounded-xl border border-gray-200 overflow-hidden">
+                    <div class="max-h-72 overflow-y-auto divide-y divide-gray-100">
+                      <div v-if="updateInfoPreview.to_send.length === 0" class="text-xs text-gray-400 text-center py-6">
+                        Everyone confirmed has already been notified.
+                      </div>
+                      <div v-for="r in updateInfoPreview.to_send" :key="r.email" class="px-3 py-2">
+                        <p class="text-sm font-medium text-gray-800">{{ r.firstname }}</p>
+                        <p class="text-xs text-gray-400">{{ r.email }}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <p class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Email Preview</p>
+                  <iframe :srcdoc="updateInfoPreview.email_preview_html"
+                    class="w-full rounded-xl border border-gray-200" style="height:288px;"></iframe>
+                </div>
+              </div>
+            </template>
+
+            <p v-if="updateInfoError" class="text-red-500 text-sm bg-red-50 border border-red-200 rounded-xl p-3">{{ updateInfoError }}</p>
+
+            <p v-if="updateInfoDone" class="text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl p-3 text-center">
+              Notification queued.
+            </p>
+          </div>
+
+          <div class="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-100 flex-shrink-0">
+            <button @click="closeUpdateInfoModal" :disabled="updateInfoSending"
+              class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition font-medium disabled:opacity-40">Cancel</button>
+            <button v-if="updateInfoPreview && !updateInfoDone && updateInfoPreview.to_send.length"
+              @click="sendUpdateInfo" :disabled="updateInfoSending || !updateInfoDeadline"
+              class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-xl transition hover:opacity-90 disabled:opacity-50"
+              style="background-color:#5b21b6;">
+              {{ updateInfoSending ? 'Sending…' : `Send to ${updateInfoPreview.to_send.length} Participant${updateInfoPreview.to_send.length === 1 ? '' : 's'}` }}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Edit Role Modal -->
       <div v-if="showEditRoleModal"
         class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
@@ -1672,6 +1770,74 @@ async function sendPaymentReminders() {
   } finally {
     sendingReminders.value = false
     setTimeout(() => reminderMessage.value = '', 8000)
+  }
+}
+
+// ── Request Info Update modal ────────────────────────────────────────────────
+const showUpdateInfoModal = ref(false)
+const updateInfoDeadline = ref('')
+const updateInfoLoading = ref(false)
+const updateInfoSending = ref(false)
+const updateInfoError = ref('')
+const updateInfoDone = ref(false)
+const updateInfoPreview = ref(null)
+
+function defaultDeadlineLabel() {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  const dateStr = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  return `6:00 PM, ${dateStr}`
+}
+
+async function openUpdateInfoModal() {
+  showUpdateInfoModal.value = true
+  updateInfoDeadline.value = defaultDeadlineLabel()
+  updateInfoError.value = ''
+  updateInfoDone.value = false
+  updateInfoPreview.value = null
+  await loadUpdateInfoPreview()
+}
+
+function closeUpdateInfoModal() {
+  showUpdateInfoModal.value = false
+  updateInfoPreview.value = null
+  updateInfoError.value = ''
+  updateInfoDone.value = false
+}
+
+async function loadUpdateInfoPreview() {
+  if (!updateInfoDeadline.value) return
+  updateInfoLoading.value = true
+  updateInfoError.value = ''
+  try {
+    const res = await api.get(`/events/${eventId}/update-info-notify-preview`, {
+      params: { deadline_label: updateInfoDeadline.value },
+    })
+    updateInfoPreview.value = res.data
+  } catch (e) {
+    updateInfoError.value = e.response?.data?.detail || 'Failed to load preview'
+  } finally {
+    updateInfoLoading.value = false
+  }
+}
+
+async function sendUpdateInfo() {
+  updateInfoSending.value = true
+  updateInfoError.value = ''
+  try {
+    await api.post(`/events/${eventId}/notify-update-info`, {
+      deadline_label: updateInfoDeadline.value,
+    })
+    updateInfoDone.value = true
+    updateInfoPreview.value.already_notified = [
+      ...updateInfoPreview.value.already_notified,
+      ...updateInfoPreview.value.to_send,
+    ]
+    updateInfoPreview.value.to_send = []
+  } catch (e) {
+    updateInfoError.value = e.response?.data?.detail || 'Failed to send notifications'
+  } finally {
+    updateInfoSending.value = false
   }
 }
 
