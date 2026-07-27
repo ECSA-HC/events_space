@@ -570,30 +570,36 @@ def export_abstracts_pdf(
         # Top strip
         c.setFillColor(Color(0.14, 0.26, 0.48))
         c.rect(0, H - 3.8 * cm, W, 3.8 * cm, fill=1, stroke=0)
-        # Logos (Eswatini MoH left, ECSA-HC right) — kept small and pinned to
-        # the very top corners so they sit clear above the heading text below
-        # (the ECSA-HC logo already has its own text lockup baked in).
-        logo_h = 0.8 * cm
-        logo_y = H - 0.25 * cm - logo_h
-        if logo_left:
+        # Logos (Eswatini MoH left, ECSA-HC right), on white chips so they
+        # stay visible against the navy strip — pinned to the top corners,
+        # clear of the heading text (moved down slightly to make room).
+        logo_h = 1.6 * cm
+        logo_y = H - 0.2 * cm - logo_h
+        chip_pad = 0.12 * cm
+
+        def _logo_chip(img, x0, w, anchor_right=False):
+            if not img:
+                return
             try:
-                c.drawImage(logo_left, LM, logo_y, height=logo_h, width=logo_h * 1.9,
-                            preserveAspectRatio=True, anchor='w', mask='auto')
+                chip_x = x0 - chip_pad if not anchor_right else x0 - w - chip_pad
+                c.setFillColor(WHITE)
+                c.roundRect(chip_x, logo_y - chip_pad, w + 2 * chip_pad, logo_h + 2 * chip_pad,
+                            radius=0.08 * cm, fill=1, stroke=0)
+                c.drawImage(img, chip_x + chip_pad, logo_y, height=logo_h, width=w,
+                            preserveAspectRatio=True, mask='auto')
             except Exception:
                 pass
-        if logo_right:
-            try:
-                c.drawImage(logo_right, W - RM - logo_h * 2.7, logo_y, height=logo_h, width=logo_h * 2.7,
-                            preserveAspectRatio=True, anchor='e', mask='auto')
-            except Exception:
-                pass
+
+        _logo_chip(logo_left, LM, logo_h * 1.9)
+        _logo_chip(logo_right, W - RM, logo_h * 2.7, anchor_right=True)
+
         # Organisation name
         c.setFont("Helvetica-Bold", 11)
         c.setFillColor(WHITE)
-        c.drawCentredString(W / 2, H - 1.7 * cm, "EAST, CENTRAL AND SOUTHERN AFRICA HEALTH COMMUNITY")
+        c.drawCentredString(W / 2, H - 2.3 * cm, "EAST, CENTRAL AND SOUTHERN AFRICA HEALTH COMMUNITY")
         c.setFont("Helvetica", 9)
         c.setFillColor(Color(0.56, 0.79, 0.95))
-        c.drawCentredString(W / 2, H - 2.6 * cm, "Fostering Regional Cooperation for Better Health")
+        c.drawCentredString(W / 2, H - 3.2 * cm, "Fostering Regional Cooperation for Better Health")
         # Teal accent line
         c.setStrokeColor(TEAL)
         c.setLineWidth(2)
