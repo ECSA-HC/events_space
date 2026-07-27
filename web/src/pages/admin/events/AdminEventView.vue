@@ -121,70 +121,102 @@
                 View Report
               </button>
 
-              <!-- Add Participant (admin only) -->
-              <button v-if="isFullAdmin" @click="openAddParticipantModal"
-                class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition hover:opacity-90"
-                style="background-color:#0095B6;">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
-                </svg>
-                Add Participant
-              </button>
+              <!-- Manage Participants dropdown (admin only) -->
+              <div v-if="isFullAdmin" class="relative" ref="manageDropdownRef">
+                <button type="button" @click="manageDropdownOpen = !manageDropdownOpen"
+                  class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition hover:opacity-90"
+                  style="background-color:#0095B6;">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+                  </svg>
+                  Manage Participants
+                  <svg class="w-3.5 h-3.5 transition-transform" :class="manageDropdownOpen ? 'rotate-180' : ''"
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                  </svg>
+                </button>
+                <div v-if="manageDropdownOpen" class="absolute right-0 mt-1 w-56 bg-white border border-gray-200 rounded-xl shadow-xl z-30 py-1.5 overflow-hidden">
+                  <button @click="manageDropdownOpen = false; openAddParticipantModal()"
+                    class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 text-left">
+                    Add Participant
+                  </button>
+                  <button @click="manageDropdownOpen = false; openImportModal()"
+                    class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 text-left">
+                    Import Participants
+                  </button>
+                </div>
+              </div>
 
-              <!-- Import Participants (admin only) -->
-              <button v-if="isFullAdmin" @click="openImportModal"
-                class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition hover:opacity-90"
-                style="background-color:#5b21b6;">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                </svg>
-                Import Participants
-              </button>
+              <!-- Downloads dropdown (admin only) -->
+              <div v-if="isFullAdmin" class="relative" ref="downloadsDropdownRef">
+                <button type="button" @click="downloadsDropdownOpen = !downloadsDropdownOpen"
+                  class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition hover:opacity-90 bg-bondi-blue hover:bg-bondi-blue-700">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                  </svg>
+                  Downloads
+                  <svg class="w-3.5 h-3.5 transition-transform" :class="downloadsDropdownOpen ? 'rotate-180' : ''"
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                  </svg>
+                </button>
+                <div v-if="downloadsDropdownOpen" class="absolute right-0 mt-1 w-60 bg-white border border-gray-200 rounded-xl shadow-xl z-30 py-1.5 overflow-hidden">
+                  <p class="px-4 pt-1.5 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+                    Participant List{{ roleFilter !== 'all' ? ` (${roleCategoryLabel})` : '' }}
+                  </p>
+                  <button @click="downloadsDropdownOpen = false; downloadParticipants('all')"
+                    class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">All</button>
+                  <button @click="downloadsDropdownOpen = false; downloadParticipants('true')"
+                    class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">Paid &amp; POP</button>
+                  <button @click="downloadsDropdownOpen = false; downloadParticipants('false')"
+                    class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">Not Paid</button>
+                  <p class="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest border-t border-gray-100 mt-1">
+                    Badge List{{ roleFilter !== 'all' ? ` (${roleCategoryLabel})` : '' }}
+                  </p>
+                  <button @click="downloadsDropdownOpen = false; downloadBadgesAsPDF('all')"
+                    class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">All</button>
+                  <button @click="downloadsDropdownOpen = false; downloadBadgesAsPDF('true')"
+                    class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">Paid &amp; POP</button>
+                  <button @click="downloadsDropdownOpen = false; downloadBadgesAsPDF('false')"
+                    class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">Not Paid</button>
+                </div>
+              </div>
 
-              <select v-if="isFullAdmin" @change="downloadParticipants($event.target.value)"
-                class="bg-bondi-blue text-white px-4 pr-4 py-2 rounded-full hover:bg-bondi-blue-700">
-                <option disabled selected>{{ roleFilter === 'all' ? 'Download List' : `Download List (${roleCategoryLabel})` }}</option>
-                <option value="all">All</option>
-                <option value="true">Paid &amp; POP</option>
-                <option value="false">Not Paid</option>
-              </select>
-
-              <select v-if="isFullAdmin" @change="downloadBadgesAsPDF($event.target.value)"
-                class="bg-bondi-blue text-white px-4 pr-4 py-2 rounded-full hover:bg-bondi-blue-700">
-                <option disabled selected>{{ roleFilter === 'all' ? 'Download Badge List' : `Download Badge List (${roleCategoryLabel})` }}</option>
-                <option value="all">All</option>
-                <option value="true">Paid &amp; POP</option>
-                <option value="false">Not Paid</option>
-              </select>
-
-              <button v-if="isFullAdmin" @click="sendPaymentReminders"
-                :disabled="sendingReminders || unpaidParticipants.length === 0"
-                class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-                style="background-color:#F7941D;">
-                <svg v-if="!sendingReminders" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                </svg>
-                <svg v-else class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-                </svg>
-                <span v-if="sendingReminders">Sending…</span>
-                <span v-else-if="selectedUnpaid.length > 0">Send to Selected ({{ selectedUnpaid.length }})</span>
-                <span v-else>Send to All Not Yet Reminded ({{ unpaidParticipants.length }})</span>
-              </button>
-
-              <button v-if="isFullAdmin" @click="openUpdateInfoModal"
-                class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition hover:opacity-90"
-                style="background-color:#5b21b6;">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                </svg>
-                Request Info Update
-              </button>
+              <!-- Notifications dropdown (admin only) -->
+              <div v-if="isFullAdmin" class="relative" ref="eventNotifyDropdownRef">
+                <button type="button" @click="eventNotifyDropdownOpen = !eventNotifyDropdownOpen"
+                  class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition hover:opacity-90"
+                  style="background-color:#5b21b6;">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                  </svg>
+                  Notifications
+                  <svg class="w-3.5 h-3.5 transition-transform" :class="eventNotifyDropdownOpen ? 'rotate-180' : ''"
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                  </svg>
+                </button>
+                <div v-if="eventNotifyDropdownOpen" class="absolute right-0 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-xl z-30 py-1.5 overflow-hidden">
+                  <button @click="eventNotifyDropdownOpen = false; sendPaymentReminders()"
+                    :disabled="sendingReminders || unpaidParticipants.length === 0"
+                    class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 text-left disabled:opacity-40 disabled:cursor-not-allowed">
+                    <svg v-if="sendingReminders" class="w-4 h-4 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                    </svg>
+                    <span v-if="sendingReminders">Sending…</span>
+                    <span v-else-if="selectedUnpaid.length > 0">Send Payment Reminder to Selected ({{ selectedUnpaid.length }})</span>
+                    <span v-else>Send Payment Reminder to All Not Yet Reminded ({{ unpaidParticipants.length }})</span>
+                  </button>
+                  <button @click="eventNotifyDropdownOpen = false; openUpdateInfoModal()"
+                    class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 text-left">
+                    Request Info Update
+                  </button>
+                </div>
+              </div>
             </div>
 
             <!-- Reminder feedback -->
@@ -1514,8 +1546,22 @@ watch(pendingSearch, () => { pendingPage.value = 1 })
 watch(pendingPageSize, () => { pendingPage.value = 1 })
 watch(hideAbstractReminded, () => { pendingPage.value = 1 })
 
+// ── Toolbar dropdowns ─────────────────────────────────────────────────────────
+const manageDropdownOpen = ref(false)
+const manageDropdownRef = ref(null)
+const downloadsDropdownOpen = ref(false)
+const downloadsDropdownRef = ref(null)
+const eventNotifyDropdownOpen = ref(false)
+const eventNotifyDropdownRef = ref(null)
+
 // Close menus on outside click
-function handleClickOutside() { openMenuId.value = null; pendingMenuId.value = null }
+function handleClickOutside(e) {
+  openMenuId.value = null
+  pendingMenuId.value = null
+  if (manageDropdownRef.value && !manageDropdownRef.value.contains(e.target)) manageDropdownOpen.value = false
+  if (downloadsDropdownRef.value && !downloadsDropdownRef.value.contains(e.target)) downloadsDropdownOpen.value = false
+  if (eventNotifyDropdownRef.value && !eventNotifyDropdownRef.value.contains(e.target)) eventNotifyDropdownOpen.value = false
+}
 onMounted(() => document.addEventListener('click', handleClickOutside))
 onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 
