@@ -12,7 +12,7 @@ from typing import Annotated
 from core.database import get_db
 from sqlalchemy.orm import Session, joinedload
 from dependencies.auth_dependency import Auth, get_current_user
-from models.models import User, UserPhoto, UserProfile, UserRole
+from models.models import User, UserPhoto, UserProfile, UserRole, ActivityLog
 from dependencies.dependency import Dependency
 from fastapi import (
     APIRouter,
@@ -514,21 +514,40 @@ async def add_or_update_profile(
 ):
     client_ip = dependency.request_ip(request)
 
-    # Log the activity
-    dependency.log_activity(
-        user_id,
-        "UPDATE_USER_PROFILE",
-        profile_schema.middle_name,  # Or any other identifier
-        client_ip,
-        f"Update or create profile for user id {user_id}",
-    )
-
     # Check if profile already exists for this user
     profile_model = (
         db.query(UserProfile).filter_by(user_id=user_id, deleted_at=None).first()
     )
 
+    # Track field-level changes before overwriting
     if profile_model:
+        FIELD_LABELS = {
+            "title": "Title",
+            "middle_name": "Middle Name",
+            "gender": "Gender",
+            "country_id": "Country",
+            "organisation": "Organisation",
+            "position": "Position",
+            "profession": "Profession",
+        }
+        new_data = profile_schema.dict()
+        for field, label in FIELD_LABELS.items():
+            old_val = getattr(profile_model, field, None)
+            new_val = new_data.get(field)
+            if str(old_val or "").strip() != str(new_val or "").strip():
+                db.add(ActivityLog(
+                    user_id=user_id,
+                    action="PROFILE_CHANGED",
+                    target=label,
+                    ip_address=client_ip,
+                    additional_data={
+                        "field": field,
+                        "label": label,
+                        "old_value": str(old_val or ""),
+                        "new_value": str(new_val or ""),
+                    },
+                ))
+
         # Update existing profile
         profile_model.title = profile_schema.title
         profile_model.middle_name = profile_schema.middle_name

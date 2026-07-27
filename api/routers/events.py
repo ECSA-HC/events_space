@@ -2814,6 +2814,70 @@ def notify_update_info(
     }
 
 
+@router.get("/{event_id}/profile-changes")
+def get_profile_changes(
+    event_id: int,
+    current_user: user_dependency,
+    since: Optional[str] = Query(None, description="ISO datetime to filter changes after"),
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    """Return profile field changes made by participants of this event."""
+    auth_dependency.secure_access("VIEW_EVENT", current_user["user_id"])
+    from models.models import ActivityLog, User
+
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    # Get user IDs registered for this event
+    registered_user_ids = [
+        reg.user_id for reg in event.registrations
+        if reg.user_id and not reg.deleted_at
+    ]
+    if not registered_user_ids:
+        return []
+
+    # Query PROFILE_CHANGED logs for these users
+    from sqlalchemy import and_
+    query_filters = [
+        ActivityLog.user_id.in_(registered_user_ids),
+        ActivityLog.action == "PROFILE_CHANGED",
+        ActivityLog.deleted_at == None,
+    ]
+    if since:
+        try:
+            since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
+            query_filters.append(ActivityLog.created_at >= since_dt)
+        except ValueError:
+            pass
+
+    logs = (
+        db.query(ActivityLog)
+        .filter(and_(*query_filters))
+        .order_by(ActivityLog.created_at.desc())
+        .all()
+    )
+
+    # Build user name lookup
+    user_ids = {log.user_id for log in logs}
+    users = db.query(User).filter(User.id.in_(user_ids)).all()
+    user_names = {u.id: f"{u.firstname or ''} {u.lastname or ''}".strip() or u.email for u in users}
+
+    return [
+        {
+            "id": log.id,
+            "user_id": log.user_id,
+            "user_name": user_names.get(log.user_id, "Unknown"),
+            "field": log.additional_data.get("label", log.additional_data.get("field", "")),
+            "old_value": log.additional_data.get("old_value", ""),
+            "new_value": log.additional_data.get("new_value", ""),
+            "changed_at": log.created_at.isoformat() if log.created_at else None,
+        }
+        for log in logs
+    ]
+
+
 @router.post("/{event_id}/send-pending-reminder/{registration_id}")
 async def send_single_pending_reminder(
     event_id: int,

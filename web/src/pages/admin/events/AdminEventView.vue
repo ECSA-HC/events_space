@@ -70,6 +70,12 @@
           <Tab v-slot="{ selected }" as="template">
             <button :class="['py-2 px-4', selected ? 'border-b-2 border-blue-600 text-blue-600 font-semibold' : 'text-gray-600']">Links</button>
           </Tab>
+          <Tab v-if="isFullAdmin" v-slot="{ selected }" as="template">
+            <button :class="['py-2 px-4', selected ? 'border-b-2 border-purple-600 text-purple-600 font-semibold' : 'text-gray-600']">
+              Profile Changes
+              <span v-if="profileChanges.length" class="ml-1 text-xs bg-purple-100 text-purple-700 rounded-full px-2">{{ profileChanges.length }}</span>
+            </button>
+          </Tab>
         </TabList>
 
         <TabPanels class="pt-4">
@@ -734,6 +740,40 @@
               </table>
             </div>
           </TabPanel>
+
+          <!-- Profile Changes -->
+          <TabPanel>
+            <div class="mb-3 flex items-center justify-between">
+              <p class="text-sm text-gray-500">Profile changes made by event participants (tracked going forward from deploy).</p>
+              <button @click="loadProfileChanges" class="text-sm text-purple-600 hover:underline font-medium">Refresh</button>
+            </div>
+            <div v-if="loadingProfileChanges" class="text-sm text-gray-400 py-8 text-center">Loading…</div>
+            <div v-else-if="profileChanges.length === 0" class="text-sm text-gray-400 py-8 text-center">No profile changes recorded yet.</div>
+            <div v-else class="bg-white shadow rounded-lg overflow-auto">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Participant</th>
+                    <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Field</th>
+                    <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Old Value</th>
+                    <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">New Value</th>
+                    <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Changed</th>
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                  <tr v-for="c in profileChanges" :key="c.id" class="hover:bg-gray-50">
+                    <td class="px-4 py-2 text-sm font-medium text-gray-800">{{ c.user_name }}</td>
+                    <td class="px-4 py-2 text-sm">
+                      <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">{{ c.field }}</span>
+                    </td>
+                    <td class="px-4 py-2 text-sm text-gray-500">{{ c.old_value || '—' }}</td>
+                    <td class="px-4 py-2 text-sm text-gray-800 font-medium">{{ c.new_value || '—' }}</td>
+                    <td class="px-4 py-2 text-xs text-gray-400">{{ formatChangeDate(c.changed_at) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </TabPanel>
         </TabPanels>
       </TabGroup>
 
@@ -1307,6 +1347,8 @@ const abstractAuthorStats = ref({ total_authors: 0, registered: 0, not_registere
 const documents = ref([])
 const links = ref([])
 const attendance = ref([])
+const profileChanges = ref([])
+const loadingProfileChanges = ref(false)
 const loading = ref(true)
 const sendingReminders = ref(false)
 const reminderMessage = ref('')
@@ -1713,6 +1755,24 @@ async function resetAllAttendance() {
   }
 }
 
+// ── Profile Changes ──────────────────────────────────────────────────────────
+async function loadProfileChanges() {
+  loadingProfileChanges.value = true
+  try {
+    const res = await api.get(`/events/${eventId}/profile-changes`)
+    profileChanges.value = res.data
+  } catch (err) {
+    console.error('Failed to load profile changes:', err)
+  } finally {
+    loadingProfileChanges.value = false
+  }
+}
+
+function formatChangeDate(iso) {
+  if (!iso) return ''
+  return new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
 async function exportAttendance() {
   try {
     const res = await api.get(`/events/${eventId}/attendance/export`, { responseType: 'blob' })
@@ -2045,5 +2105,6 @@ async function sendAllPendingReminders() {
 onMounted(() => {
   loadEventData()
   loadAttendance()
+  loadProfileChanges()
 })
 </script>
