@@ -2181,7 +2181,7 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
     firstname = str(p.get("firstname") or "").strip()
     lastname  = str(p.get("lastname")  or "").strip()
     if title_raw:
-        full_name = f"{title_raw}. ({firstname} {lastname})".strip()
+        full_name = f"{title_raw}. {firstname} {lastname}".strip()
     else:
         full_name = f"{firstname} {lastname}".strip()
     row_specs = [

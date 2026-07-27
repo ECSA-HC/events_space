@@ -25,7 +25,7 @@
 
 
         <h2 class="text-lg font-bold mt-3">
-          {{ participant.title ? participant.title + '. (' + participant.firstname + ' ' + participant.lastname + ')' : participant.firstname + ' ' + participant.lastname }}
+          {{ participant.title ? participant.title + '. ' + participant.firstname + ' ' + participant.lastname : participant.firstname + ' ' + participant.lastname }}
         </h2>
         <p class="text-sm text-gray-600">{{ event?.event || 'Conference' }}</p>
         <p class="text-sm text-gray-600">{{ participant.organisation }}</p>

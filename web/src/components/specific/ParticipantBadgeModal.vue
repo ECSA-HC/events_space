@@ -257,7 +257,7 @@ const infoRows = computed(() => {
   const title = (props.user?.title || '').trim().replace(/\.$/, '')
   const first = props.user?.firstname || ''
   const last  = props.user?.lastname  || ''
-  const displayName = title ? `${title}. (${first} ${last})` : [first, last].filter(Boolean).join(' ')
+  const displayName = title ? `${title}. ${first} ${last}` : [first, last].filter(Boolean).join(' ')
   return [
     {
       label:    'Name',
