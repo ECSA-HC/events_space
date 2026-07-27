@@ -570,9 +570,11 @@ def export_abstracts_pdf(
         # Top strip
         c.setFillColor(Color(0.14, 0.26, 0.48))
         c.rect(0, H - 3.8 * cm, W, 3.8 * cm, fill=1, stroke=0)
-        # Logos (Eswatini MoH left, ECSA-HC right)
-        logo_h = 2.2 * cm
-        logo_y = H - 3.8 * cm + (3.8 * cm - logo_h) / 2
+        # Logos (Eswatini MoH left, ECSA-HC right) — kept small and pinned to
+        # the very top corners so they sit clear above the heading text below
+        # (the ECSA-HC logo already has its own text lockup baked in).
+        logo_h = 0.8 * cm
+        logo_y = H - 0.25 * cm - logo_h
         if logo_left:
             try:
                 c.drawImage(logo_left, LM, logo_y, height=logo_h, width=logo_h * 1.9,
