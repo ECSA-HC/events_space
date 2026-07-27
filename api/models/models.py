@@ -514,6 +514,13 @@ class Registration(Base):
     deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)
     reminder_sent_at = Column(TIMESTAMP(timezone=True), nullable=True)
 
+    # Badge/display fields for participants with no UserProfile (e.g. bulk-
+    # imported) — kept separate from `notes` (a free-text admin scratchpad
+    # that other features overwrite) so badge rendering has a stable source.
+    badge_prefix       = Column(String(10), nullable=True)
+    badge_position     = Column(String(200), nullable=True)
+    badge_organisation = Column(String(200), nullable=True)
+
     user = relationship("User", back_populates="registrations")
     events = relationship("Event", back_populates="registrations")
     payment = relationship(

@@ -2261,25 +2261,6 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
     c.showPage()
 
 
-def _badge_fields_from_notes(notes):
-    """Fallback for participants with no UserProfile (e.g. bulk-imported):
-    pull title/position/organisation out of the "Title: X | Position: Y |
-    Organization: Z | Country: W" string bulk_import_participants writes to
-    Registration.notes."""
-    result = {"title": "", "position": "", "organisation": ""}
-    if not notes:
-        return result
-    field_map = {"title": "title", "position": "position", "organization": "organisation"}
-    for part in notes.split("|"):
-        if ":" not in part:
-            continue
-        key, _, value = part.partition(":")
-        key = field_map.get(key.strip().lower())
-        if key:
-            result[key] = value.strip()
-    return result
-
-
 @router.get("/{event_id}/participants/badges")
 async def download_participant_badges_pdf(
     request: Request,
@@ -2317,7 +2298,6 @@ async def download_participant_badges_pdf(
         profile = user.user_profile[0] if user.user_profile else None
         country = profile.country.country if profile and profile.country else None
         organisation = profile.organisation if profile else None
-        notes_fallback = _badge_fields_from_notes(reg.notes) if not profile else None
         role_key = (
             reg.participation_role.name
             if hasattr(reg.participation_role, "name")
@@ -2328,12 +2308,12 @@ async def download_participant_badges_pdf(
                 "registration_id": reg.id,
                 "user_id": user.id,
                 "event_id": event_id,
-                "title": (profile.title if profile else notes_fallback["title"]),
+                "title": (profile.title if profile else (reg.badge_prefix or "")),
                 "firstname": user.firstname,
                 "middle_name": profile.middle_name if profile else "",
                 "lastname": user.lastname,
-                "position": (profile.position if profile else notes_fallback["position"]),
-                "organisation": organisation or (notes_fallback["organisation"] if notes_fallback else None),
+                "position": (profile.position if profile else (reg.badge_position or "")),
+                "organisation": organisation or reg.badge_organisation,
                 "country": country,
                 "participation_role": PARTICIPATION_ROLE_MAP.get(role_key, role_key),
                 "event_name": event.event,
@@ -2418,7 +2398,6 @@ async def download_my_badge(
     profile = user.user_profile[0] if user.user_profile else None
     country = profile.country.country if profile and profile.country else None
     organisation = profile.organisation if profile else None
-    notes_fallback = _badge_fields_from_notes(reg.notes) if not profile else None
     role_key = (
         reg.participation_role.name
         if hasattr(reg.participation_role, "name")
@@ -2433,12 +2412,12 @@ async def download_my_badge(
     p = {
         "registration_id": reg.id,
         "event_id": event_id,
-        "title": (profile.title if profile else notes_fallback["title"]),
+        "title": (profile.title if profile else (reg.badge_prefix or "")),
         "firstname": user.firstname,
         "middle_name": profile.middle_name if profile else "",
         "lastname": user.lastname,
-        "position": (profile.position if profile else notes_fallback["position"]),
-        "organisation": organisation or (notes_fallback["organisation"] if notes_fallback else None),
+        "position": (profile.position if profile else (reg.badge_position or "")),
+        "organisation": organisation or reg.badge_organisation,
         "country": country,
         "participation_role": PARTICIPATION_ROLE_MAP.get(role_key, role_key),
         "event_name": event.event,
@@ -3348,16 +3327,11 @@ async def bulk_import_participants(
         if raw_payment and not paid and payment_flag not in {"unpaid", "no", "false", "0", "n", ""}:
             payment_note = f"Unrecognized payment_status value '{raw_payment}' — treated as unpaid"
 
-        notes_parts = []
-        if honorific:
-            notes_parts.append(f"Title: {honorific}")
-        if raw_title:
-            notes_parts.append(f"Position: {raw_title}")
-        if raw_org:
-            notes_parts.append(f"Organization: {raw_org}")
-        if raw_country:
-            notes_parts.append(f"Country: {raw_country}")
-        notes = " | ".join(notes_parts) if notes_parts else None
+        # Dedicated badge_* columns (not `notes` — that's a free-text admin
+        # scratchpad other features overwrite; badge rendering needs a stable source).
+        badge_prefix = honorific or None
+        badge_position = raw_title or None
+        badge_organisation = raw_org or None
 
         existing_user = db.query(User).filter(User.email == email, User.deleted_at == None).first()
 
@@ -3381,7 +3355,8 @@ async def bulk_import_participants(
             )
             new_reg = Registration(
                 user_id=existing_user.id, event_id=event_id,
-                participation_role=role_enum, paid=paid or auto_paid_role, notes=notes,
+                participation_role=role_enum, paid=paid or auto_paid_role,
+                badge_prefix=badge_prefix, badge_position=badge_position, badge_organisation=badge_organisation,
             )
             db.add(new_reg)
             db.commit()
@@ -3438,7 +3413,8 @@ async def bulk_import_participants(
 
         new_reg = Registration(
             user_id=user.id, event_id=event_id,
-            participation_role=role_enum, paid=paid or auto_paid_role, notes=notes,
+            participation_role=role_enum, paid=paid or auto_paid_role,
+            badge_prefix=badge_prefix, badge_position=badge_position, badge_organisation=badge_organisation,
         )
         db.add(new_reg)
         db.commit()
