@@ -489,6 +489,7 @@ def export_abstracts_pdf(
     from reportlab.lib.enums import TA_JUSTIFY
     from collections import defaultdict
     from sqlalchemy import case as sa_case
+    from routers.events import normalize_event_name, load_logo_with_transparency
 
     # ── Fetch data ────────────────────────────────────────────────────────────
     q = db.query(Abstract).options(
@@ -505,8 +506,19 @@ def export_abstracts_pdf(
         Abstract.title,
     ).all()
 
-    event_name = abstracts[0].event.event if abstracts and abstracts[0].event else "ECSA Events"
+    # normalize_event_name strips superscript ordinal glyphs (ᵗʰ/ⁿᵈ/etc.) that
+    # ReportLab's standard fonts can't render (they show up as tofu boxes).
+    event_name = normalize_event_name(abstracts[0].event.event) if abstracts and abstracts[0].event else "ECSA Events"
     event_short = event_name if len(event_name) <= 75 else event_name[:72] + "..."
+
+    try:
+        logo_left = load_logo_with_transparency("assets/logo_left.png")
+    except Exception:
+        logo_left = None
+    try:
+        logo_right = load_logo_with_transparency("assets/logo_right.png")
+    except Exception:
+        logo_right = None
 
     groups = defaultdict(list)
     for a in abstracts:
@@ -558,6 +570,21 @@ def export_abstracts_pdf(
         # Top strip
         c.setFillColor(Color(0.14, 0.26, 0.48))
         c.rect(0, H - 3.8 * cm, W, 3.8 * cm, fill=1, stroke=0)
+        # Logos (Eswatini MoH left, ECSA-HC right)
+        logo_h = 2.2 * cm
+        logo_y = H - 3.8 * cm + (3.8 * cm - logo_h) / 2
+        if logo_left:
+            try:
+                c.drawImage(logo_left, LM, logo_y, height=logo_h, width=logo_h * 1.9,
+                            preserveAspectRatio=True, anchor='w', mask='auto')
+            except Exception:
+                pass
+        if logo_right:
+            try:
+                c.drawImage(logo_right, W - RM - logo_h * 2.7, logo_y, height=logo_h, width=logo_h * 2.7,
+                            preserveAspectRatio=True, anchor='e', mask='auto')
+            except Exception:
+                pass
         # Organisation name
         c.setFont("Helvetica-Bold", 11)
         c.setFillColor(WHITE)
