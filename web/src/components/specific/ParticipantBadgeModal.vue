@@ -217,17 +217,40 @@ const roleFontSize = computed(() => {
   return `${(fsize * 0.336).toFixed(2)}cqw`
 })
 
-// Shrinks a font size (pt) down toward floorPt until `text` is estimated to fit
-// widthMm — mirrors the Python _shrink_to_fit stringWidth loop, using an
-// average-char-width approximation since canvas.measureText isn't practical
-// against cqw units here. Returns cqw for direct use in inline styles.
-function fitFontSizeCqw(text, startPt, floorPt, widthMm) {
-  const avgCharMm = (pt) => pt * 0.3528 * 0.55
-  let pt = startPt
-  while (pt > floorPt && text.length * avgCharMm(pt) > widthMm) {
-    pt -= 0.5
+// Real text measurement via an offscreen canvas (same font stack the badge
+// actually renders with), rather than an average-char-width guess — a rough
+// heuristic was consistently under/over-estimating width for real strings
+// and shrinking text more than the PDF (which uses reportlab's real font
+// metrics) actually needs. MEASURE_REF_PX is just an internal reference for
+// converting between px (what canvas measures) and cqw (what the template
+// uses) — cqw is a percentage of container width, so the actual DOM size
+// doesn't matter, only the ratio.
+const MEASURE_REF_PX = 1000
+let _measureCtx = null
+function getMeasureCtx() {
+  if (!_measureCtx) _measureCtx = document.createElement('canvas').getContext('2d')
+  return _measureCtx
+}
+function measureWidthCqw(text, sizeCqw, fontWeight = 700) {
+  const ctx = getMeasureCtx()
+  const sizePx = (sizeCqw / 100) * MEASURE_REF_PX
+  ctx.font = `${fontWeight} ${sizePx}px 'Roboto Condensed', Roboto, Arial, sans-serif`
+  return (ctx.measureText(text).width / MEASURE_REF_PX) * 100
+}
+
+// Shrinks a font size (pt, converted to cqw) down toward floorPt until `text`
+// actually measures within widthMm — mirrors the Python _shrink_to_fit
+// stringWidth loop, using real canvas measurement. Returns cqw for direct
+// use in inline styles.
+function fitFontSizeCqw(text, startPt, floorPt, widthMm, fontWeight = 700) {
+  const widthCqw = (widthMm / 105) * 100
+  const stepCqw = 0.5 * 0.336
+  let sizeCqw = startPt * 0.336
+  const floorCqw = floorPt * 0.336
+  while (sizeCqw > floorCqw && measureWidthCqw(text, sizeCqw, fontWeight) > widthCqw) {
+    sizeCqw -= stepCqw
   }
-  return `${(pt * 0.336).toFixed(2)}cqw`
+  return `${sizeCqw.toFixed(2)}cqw`
 }
 
 // Generic word abbreviations for organization names too long to fit even at
@@ -282,12 +305,16 @@ function generateOrgAcronym(text) {
 // combined, and a generated initials acronym — and use whichever form fits
 // at the LARGEST font size, not just whichever fits at the smallest. Falls
 // back to an ellipsis only if nothing fits even at the floor size.
-function smartShortenOrg(text, startPt, floorPt, widthMm) {
-  const fits = (t, pt) => t.length * (pt * 0.3528 * 0.55) <= widthMm
+function smartShortenOrg(text, startPt, floorPt, widthMm, fontWeight = 600) {
+  const widthCqw = (widthMm / 105) * 100
+  const stepCqw = 0.5 * 0.336
+  const startCqw = startPt * 0.336
+  const floorCqw = floorPt * 0.336
+  const fits = (t, sizeCqw) => measureWidthCqw(t, sizeCqw, fontWeight) <= widthCqw
   const sizeFor = (t) => {
-    let pt = startPt
-    while (pt > floorPt && !fits(t, pt)) pt -= 0.5
-    return pt
+    let sizeCqw = startCqw
+    while (sizeCqw > floorCqw && !fits(t, sizeCqw)) sizeCqw -= stepCqw
+    return sizeCqw
   }
 
   const candidates = [text]
@@ -307,7 +334,7 @@ function smartShortenOrg(text, startPt, floorPt, widthMm) {
   const generated = generateOrgAcronym(text)
   if (generated && !candidates.includes(generated)) candidates.push(generated)
 
-  let bestCand = text, bestSize = floorPt, bestFits = false, bestScore = -1
+  let bestCand = text, bestSize = floorCqw, bestFits = false, bestScore = -1
   for (const cand of candidates) {
     const size = sizeFor(cand)
     const candFits = fits(cand, size)
@@ -316,12 +343,12 @@ function smartShortenOrg(text, startPt, floorPt, widthMm) {
       bestScore = score; bestCand = cand; bestSize = size; bestFits = candFits
     }
   }
-  if (bestFits) return { value: bestCand, fontSize: `${(bestSize * 0.336).toFixed(2)}cqw` }
+  if (bestFits) return { value: bestCand, fontSize: `${bestSize.toFixed(2)}cqw` }
 
   const shortest = candidates.reduce((a, b) => (b.length < a.length ? b : a))
   let truncated = shortest
-  while (truncated.length && !fits(truncated + '…', floorPt)) truncated = truncated.slice(0, -1)
-  return { value: `${truncated.replace(/[\s,]+$/, '')}…`, fontSize: `${(floorPt * 0.336).toFixed(2)}cqw` }
+  while (truncated.length && !fits(truncated + '…', floorCqw)) truncated = truncated.slice(0, -1)
+  return { value: `${truncated.replace(/[\s,]+$/, '')}…`, fontSize: `${floorCqw.toFixed(2)}cqw` }
 }
 
 // ── Event title split ────────────────────────────────────────────────────────
@@ -391,7 +418,7 @@ const infoRows = computed(() => {
       value: s.value,
       labelPct,
       labelFontSize,
-      valueFontSize: fitFontSizeCqw(s.value, 11, 7, s.contentMm - 3),
+      valueFontSize: fitFontSizeCqw(s.value, 11, 7, s.contentMm - 3, 600),
     }
   })
 })
