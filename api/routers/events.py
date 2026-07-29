@@ -2225,8 +2225,10 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
         c.drawString((lx1 + 1.5)*mm, fy(row_cy + 10 * 25.4/72 * 0.3), val)
 
     # ── QR code ───────────────────────────────────────────────────────────────
-    # Fits between org row (114.3 mm) and flags (136 mm) → 18×18 mm centred
-    qr_mm   = 18
+    # qr_top stays fixed (keeps the gap to the Organization row above); the
+    # code grows downward from there, so making it bigger doesn't need to
+    # touch that gap.
+    qr_mm   = 22
     qr_top  = 115.5                  # mm from top
     qr_url  = (f"{CLIENT_ORIGIN}/event-attendance/{p['event_id']}"
                f"?reg={p['registration_id']}")
@@ -2243,7 +2245,7 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
 
     c.setFillColorRGB(0.4, 0.4, 0.4)
     c.setFont("Helvetica", 6.5)
-    c.drawCentredString(W / 2, fy(134.5), "Scan QR code to confirm attendance")
+    c.drawCentredString(W / 2, fy(qr_top + qr_mm + 3.0), "Scan QR code to confirm attendance")
 
     # ── ECSA member-state flags ───────────────────────────────────────────────
     # Single row at the very bottom, matching the online badge preview.
@@ -2259,7 +2261,7 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
         flag_h_mm    = flag_w_mm / 1.545    # matches original flag aspect ratio
         row_w_mm     = n * flag_w_mm + (n - 1) * f_gap_mm
         sx           = (W_mm - row_w_mm) / 2
-        row_top      = 138.0
+        row_top      = qr_top + qr_mm + 5.5   # pulled down, clear of the "Scan QR code" caption
         flag_rl_y    = fy(row_top + flag_h_mm)
         for j, img in enumerate(valid):
             try:
