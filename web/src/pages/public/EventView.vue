@@ -640,12 +640,13 @@ async function loadEventData() {
 // ─── Utilities ────────────────────────────────────────────────────────────
 const isRegistrationOpen = computed(() => {
   if (!event.value?.start_date) return false
-  const diffDays = (new Date(event.value.start_date) - new Date()) / (1000 * 60 * 60 * 24)
-  return diffDays >= 7
+  const start = new Date(event.value.start_date)
+  const now = new Date()
+  return start > now
 })
 
 function showClosedMessage() {
-  alert('Registration is closed. It\'s less than 7 days to the event.')
+  alert('Registration is closed for this event.')
 }
 
 function formatDate(dateStr) {
