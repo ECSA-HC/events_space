@@ -101,7 +101,7 @@
               </div>
               <!-- Value -->
               <div
-                class="flex items-center flex-1 px-1 truncate"
+                class="flex items-center flex-1 min-w-0 px-1 truncate"
                 :style="{ background: roleLightColor, color:'#111', fontSize:row.valueFontSize, fontWeight:600 }"
               >
                 {{ row.value }}
@@ -230,6 +230,69 @@ function fitFontSizeCqw(text, startPt, floorPt, widthMm) {
   return `${(pt * 0.336).toFixed(2)}cqw`
 }
 
+// Generic word abbreviations for organization names too long to fit even at
+// the smallest readable font (must match ORG_ABBREVIATIONS in events.py).
+const ORG_ABBREVIATIONS = [
+  [/\bUniversity\b/gi, 'Univ.'], [/\bInstitute\b/gi, 'Inst.'],
+  [/\bDepartment\b/gi, 'Dept.'], [/\bMinistry\b/gi, 'Min.'],
+  [/\bInternational\b/gi, "Int'l"], [/\bOrgani[sz]ation\b/gi, 'Org.'],
+  [/\bAssociation\b/gi, 'Assoc.'], [/\bFoundation\b/gi, 'Fdn.'],
+  [/\bCorporation\b/gi, 'Corp.'], [/\bCompany\b/gi, 'Co.'],
+  [/\bLimited\b/gi, 'Ltd.'], [/\bGovernment\b/gi, 'Govt.'],
+  [/\bNational\b/gi, 'Natl.'], [/\bRegional\b/gi, "Reg'l"],
+  [/\bProgramme\b/gi, 'Prog.'], [/\bProgram\b/gi, 'Prog.'],
+  [/\bManagement\b/gi, 'Mgmt.'], [/\bDevelopment\b/gi, 'Dev.'],
+  [/\bCommunity\b/gi, 'Cmty.'], [/\bRepublic\b/gi, 'Rep.'],
+  [/\bAfrican\b/gi, 'Afr.'], [/\bSouthern\b/gi, 'S.'],
+  [/\bEastern\b/gi, 'E.'], [/\bWestern\b/gi, 'W.'],
+  [/\bNorthern\b/gi, 'N.'], [/\bCentral\b/gi, 'Ctrl.'],
+  [/\bHealth\b/gi, 'Hlth'], [/\bServices\b/gi, 'Svcs'],
+  [/\bAgency\b/gi, 'Agcy'], [/\bAuthority\b/gi, 'Auth.'],
+  [/\bCommission\b/gi, 'Comm.'], [/\bResearch\b/gi, 'Rsch'],
+  [/\bTechnology\b/gi, 'Tech.'], [/\bAdministration\b/gi, 'Admin.'],
+]
+function abbreviateOrgWords(text) {
+  let out = text
+  for (const [pattern, repl] of ORG_ABBREVIATIONS) out = out.replace(pattern, repl)
+  return out
+}
+
+// Mirrors events.py's _smart_shorten_org: shrink font first, then try the
+// org's own acronym (if spelled out in parentheses), then generic word
+// abbreviation, then both — before falling back to a hard ellipsis.
+function smartShortenOrg(text, startPt, floorPt, widthMm) {
+  const fits = (t, pt) => t.length * (pt * 0.3528 * 0.55) <= widthMm
+  let pt = startPt
+  while (pt > floorPt && !fits(text, pt)) pt -= 0.5
+  if (fits(text, pt)) return { value: text, fontSize: `${(pt * 0.336).toFixed(2)}cqw` }
+
+  const candidates = []
+  const m = text.match(/\(([A-Z]{2,12})\)\s*,?\s*(.*)$/)
+  let acronymForm = null
+  if (m) {
+    const rest = m[2].trim().replace(/^,\s*/, '')
+    acronymForm = rest ? `${m[1]}, ${rest}` : m[1]
+    candidates.push(acronymForm)
+  }
+  const abbreviated = abbreviateOrgWords(text)
+  if (abbreviated !== text) candidates.push(abbreviated)
+  if (acronymForm) {
+    const abbreviatedAcronym = abbreviateOrgWords(acronymForm)
+    if (abbreviatedAcronym !== acronymForm) candidates.push(abbreviatedAcronym)
+  }
+
+  for (const cand of candidates) {
+    let cpt = startPt
+    while (cpt > floorPt && !fits(cand, cpt)) cpt -= 0.5
+    if (fits(cand, cpt)) return { value: cand, fontSize: `${(cpt * 0.336).toFixed(2)}cqw` }
+  }
+
+  const best = candidates.length ? candidates[candidates.length - 1] : text
+  let truncated = best
+  while (truncated.length && !fits(truncated + '…', floorPt)) truncated = truncated.slice(0, -1)
+  return { value: `${truncated.replace(/[\s,]+$/, '')}…`, fontSize: `${(floorPt * 0.336).toFixed(2)}cqw` }
+}
+
 // ── Event title split ────────────────────────────────────────────────────────
 const normalizedName = computed(() => {
   const name = props.event?.event || ''
@@ -283,13 +346,21 @@ const infoRows = computed(() => {
     { label: 'Designation',  value: props.user?.position     || '', labelMm: 34.5, contentMm: 58.5 },
     { label: 'Organization', value: props.user?.organisation || '', labelMm: 34.9, contentMm: 58.1 },
   ]
-  return specs.map(s => ({
-    label:         s.label,
-    value:         s.value,
-    labelPct:      `${((s.labelMm / ROW_WIDTH_MM) * 100).toFixed(2)}%`,
-    labelFontSize: fitFontSizeCqw(s.label, 12, 9, s.labelMm - 2),
-    valueFontSize: fitFontSizeCqw(s.value, 11, 7, s.contentMm - 3),
-  }))
+  return specs.map(s => {
+    const labelFontSize = fitFontSizeCqw(s.label, 12, 9, s.labelMm - 2)
+    const labelPct = `${((s.labelMm / ROW_WIDTH_MM) * 100).toFixed(2)}%`
+    if (s.label === 'Organization') {
+      const fit = smartShortenOrg(s.value, 11, 7, s.contentMm - 3)
+      return { label: s.label, value: fit.value, labelPct, labelFontSize, valueFontSize: fit.fontSize }
+    }
+    return {
+      label: s.label,
+      value: s.value,
+      labelPct,
+      labelFontSize,
+      valueFontSize: fitFontSizeCqw(s.value, 11, 7, s.contentMm - 3),
+    }
+  })
 })
 
 // Row top positions — shifted slightly to match enlarged logo area

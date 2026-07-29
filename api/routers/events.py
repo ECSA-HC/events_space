@@ -155,6 +155,36 @@ BADGE_ROLE_LABELS = {
     "sponsor":      "SPONSOR",
 }
 
+# Generic word abbreviations used to shorten organization names that don't fit
+# their badge box even at minimum font size (must match ParticipantBadgeModal.vue).
+ORG_ABBREVIATIONS = [
+    (r"\bUniversity\b", "Univ."), (r"\bInstitute\b", "Inst."),
+    (r"\bDepartment\b", "Dept."), (r"\bMinistry\b", "Min."),
+    (r"\bInternational\b", "Int'l"), (r"\bOrgani[sz]ation\b", "Org."),
+    (r"\bAssociation\b", "Assoc."), (r"\bFoundation\b", "Fdn."),
+    (r"\bCorporation\b", "Corp."), (r"\bCompany\b", "Co."),
+    (r"\bLimited\b", "Ltd."), (r"\bGovernment\b", "Govt."),
+    (r"\bNational\b", "Natl."), (r"\bRegional\b", "Reg'l"),
+    (r"\bProgramme\b", "Prog."), (r"\bProgram\b", "Prog."),
+    (r"\bManagement\b", "Mgmt."), (r"\bDevelopment\b", "Dev."),
+    (r"\bCommunity\b", "Cmty."), (r"\bRepublic\b", "Rep."),
+    (r"\bAfrican\b", "Afr."), (r"\bSouthern\b", "S."),
+    (r"\bEastern\b", "E."), (r"\bWestern\b", "W."),
+    (r"\bNorthern\b", "N."), (r"\bCentral\b", "Ctrl."),
+    (r"\bHealth\b", "Hlth"), (r"\bServices\b", "Svcs"),
+    (r"\bAgency\b", "Agcy"), (r"\bAuthority\b", "Auth."),
+    (r"\bCommission\b", "Comm."), (r"\bResearch\b", "Rsch"),
+    (r"\bTechnology\b", "Tech."), (r"\bAdministration\b", "Admin."),
+]
+
+
+def abbreviate_org_words(text):
+    out = text
+    for pattern, repl in ORG_ABBREVIATIONS:
+        out = re.sub(pattern, repl, out, flags=re.IGNORECASE)
+    return out
+
+
 # ISO 3166-1 alpha-2 codes for ECSA member states shown on the badge
 # (must match flagCodes in ParticipantBadgeModal.vue)
 ECSA_FLAG_CODES = ["sz", "ke", "ls", "mw", "mu", "mz", "st", "tz", "ug", "zm", "zw"]
@@ -2197,6 +2227,43 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
             truncated = truncated[:-1]
         return (truncated.rstrip() + "…"), size
 
+    def _smart_shorten_org(text, start_size, floor_size, max_width_pt, font="Helvetica-Bold"):
+        """Organization names are often too long to fit even at the smallest
+        readable font. Before falling back to a hard ellipsis, try (in order):
+        1) the org's own acronym if it's already spelled out in parentheses
+           (e.g. "...Institute for Policy and Research (SAIPAR)" → "SAIPAR"),
+        2) generic word abbreviation (Institute→Inst., University→Univ., ...),
+        3) both combined."""
+        def fits(t, size):
+            return c.stringWidth(t, font, size) <= max_width_pt
+
+        size = _shrink_to_fit(text, start_size, floor_size, max_width_pt, font)
+        if fits(text, size):
+            return text, size
+
+        candidates = []
+        m = re.search(r"\(([A-Z]{2,12})\)\s*,?\s*(.*)$", text)
+        acronym_form = None
+        if m:
+            acronym, rest = m.group(1), m.group(2).strip(" ,")
+            acronym_form = f"{acronym}, {rest}" if rest else acronym
+            candidates.append(acronym_form)
+        abbreviated = abbreviate_org_words(text)
+        if abbreviated != text:
+            candidates.append(abbreviated)
+        if acronym_form:
+            abbreviated_acronym = abbreviate_org_words(acronym_form)
+            if abbreviated_acronym != acronym_form:
+                candidates.append(abbreviated_acronym)
+
+        for cand in candidates:
+            cand_size = _shrink_to_fit(cand, start_size, floor_size, max_width_pt, font)
+            if fits(cand, cand_size):
+                return cand, cand_size
+
+        best = candidates[-1] if candidates else text
+        return _fit_text_and_size(best, start_size, floor_size, max_width_pt, font)
+
     # ── Role banner ───────────────────────────────────────────────────────────
     # Extracted: rect (7.8, 74.0)→(97.9, 86.3) mm  |  text 30 pt
     # Widened a couple mm on each side (was 7.8→97.9) to give long role labels
@@ -2231,9 +2298,12 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
     ROW_X0, ROW_X1 = 6.0, 99.0
     row_specs = [
         # (label, lbl_x0, lbl_x1, y0, y1, value)
+        # Organization keeps a generous cap (not the tight 50-char one the
+        # others use) so a trailing "(ACRONYM)" isn't chopped off before
+        # _smart_shorten_org below gets a chance to use it.
         ("Name",         ROW_X0, 28.0,  84.6,  92.6, full_name[:55]),
         ("Designation",  ROW_X0, 40.5,  95.2, 103.2, str(p.get("position")     or "")[:50]),
-        ("Organization", ROW_X0, 40.9, 105.8, 113.8, str(p.get("organisation") or "")[:50]),
+        ("Organization", ROW_X0, 40.9, 105.8, 113.8, str(p.get("organisation") or "")[:200]),
     ]
 
     for lbl, lx0, lx1, y0f, y1f, val in row_specs:
@@ -2253,11 +2323,15 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
                             fy(row_cy + lbl_fs * 25.4/72 * 0.3), lbl)
 
         # Content (light tint) — font shrinks for long designations/orgs/names
-        # instead of just being cut off.
+        # instead of just being cut off; Organization additionally tries an
+        # acronym / word-abbreviation shorten before resorting to ellipsis.
         c.setFillColorRGB(*role_light)
         c.rect(lx1*mm, rl_bot, cont_w_mm*mm, row_h_mm*mm, fill=True, stroke=False)
         c.setFillColorRGB(0.06, 0.06, 0.06)
-        val, val_fs = _fit_text_and_size(val, VAL_FS, 7, (cont_w_mm - 3) * mm)
+        if lbl == "Organization":
+            val, val_fs = _smart_shorten_org(val, VAL_FS, 7, (cont_w_mm - 3) * mm)
+        else:
+            val, val_fs = _fit_text_and_size(val, VAL_FS, 7, (cont_w_mm - 3) * mm)
         c.setFont("Helvetica-Bold", val_fs)
         c.drawString((lx1 + 1.5)*mm, fy(row_cy + val_fs * 25.4/72 * 0.3), val)
 
