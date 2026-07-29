@@ -2181,7 +2181,7 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
     # Extracted: rect (7.8, 74.0)→(97.9, 86.3) mm  |  text 30 pt
     banner_top, banner_bottom = 74.0 - top_shift, 86.3 - top_shift
     c.setFillColorRGB(*role_rgb)
-    c.rect(7.8*mm, fy(banner_bottom), 90.1*mm, banner_bottom - banner_top, fill=True, stroke=False)
+    c.rect(7.8*mm, fy(banner_bottom), 90.1*mm, (banner_bottom - banner_top) * mm, fill=True, stroke=False)
 
     fsize = max(18, min(30, int(330 // max(len(role_label), 1))))
     banner_cy = (banner_top + banner_bottom) / 2
