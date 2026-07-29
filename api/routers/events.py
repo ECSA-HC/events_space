@@ -2087,6 +2087,17 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
         c.setFillColorRGB(0.82, 0.80, 0.78)
         c.rect(0, 0, W, H, fill=True, stroke=False)
 
+    # ── Inset all foreground content by a safety margin ────────────────────────
+    # Plastic A6 card holders typically clip a few mm around the edge. The
+    # background texture above stays full-bleed; everything drawn from here on
+    # (logos, text, QR code, flags) is shrunk and centred so none of it gets
+    # cropped once the badge is in its holder.
+    c.saveState()
+    margin_mm = 4.0
+    badge_scale = min((W_mm - 2 * margin_mm) / W_mm, (H_mm - 2 * margin_mm) / H_mm)
+    c.translate((W - W * badge_scale) / 2, (H - H * badge_scale) / 2)
+    c.scale(badge_scale, badge_scale)
+
     # ── Logos ─────────────────────────────────────────────────────────────────
     # Left logo (Eswatini MoH): 5–32 mm from left, 3–17 mm from top
     # Right logo (ECSA-HC):    58–98 mm from left, 3–17 mm from top
@@ -2260,6 +2271,7 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
             except Exception:
                 pass
 
+    c.restoreState()
     c.showPage()
 
 
