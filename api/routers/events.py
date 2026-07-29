@@ -2054,23 +2054,17 @@ def hex_to_rgb(hex_color: str):
 
 
 def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_rgb=None):
-    """Render one ECSA conference badge matching the official name-tag design.
+    """Render one A6 ECSA conference badge matching the official name-tag design exactly.
 
-    The design itself is still laid out on the original 105x148 mm reference
-    grid used by the official ECSA-HC badge PDFs (PyMuPDF-extracted
-    coordinates, mm from top; converted to ReportLab points-from-bottom via
-    fy(y_top_mm) = (148 - y_top_mm) * mm) — none of that positioning math
-    changes. What's printed, though, is a physically shorter page (see
-    PAGE_W_mm/PAGE_H_mm below, sized to fit real A6 card holders), so the
-    whole design is fit-to-height and centred onto it with a safety margin.
+    All positions derived from official ECSA-HC A6 (105×148 mm) badge PDFs.
+    PyMuPDF extracted coordinates are in mm from top; converted to ReportLab
+    (y from bottom) via fy(y_top_mm) = (148 - y_top_mm) * mm.
     """
     W_mm, H_mm = 105.0, 148.0
     W, H = W_mm * mm, H_mm * mm
-    PAGE_W_mm, PAGE_H_mm = 105.0, 123.0
-    PAGE_W, PAGE_H = PAGE_W_mm * mm, PAGE_H_mm * mm
 
     def fy(y_from_top):
-        """mm-from-top  →  ReportLab points-from-bottom (design space)."""
+        """mm-from-top  →  ReportLab points-from-bottom."""
         return (H_mm - y_from_top) * mm
 
     # ── Role colour ──────────────────────────────────────────────────────────
@@ -2082,28 +2076,26 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
     role_label = BADGE_ROLE_LABELS.get(role_raw, role_raw.upper())
 
     # ── Background texture (grey granite, extracted from official ECSA badge) ─
-    # Fills the actual (shorter) physical page edge-to-edge — this does not
-    # follow the content scale below, so there's no unpainted margin.
     bg_path = "assets/badge_bg.jpg"
     if os.path.exists(bg_path):
         try:
-            c.drawImage(convert_png_to_rgb(bg_path), 0, 0, PAGE_W, PAGE_H)
+            c.drawImage(convert_png_to_rgb(bg_path), 0, 0, W, H)
         except Exception:
             c.setFillColorRGB(0.82, 0.80, 0.78)
-            c.rect(0, 0, PAGE_W, PAGE_H, fill=True, stroke=False)
+            c.rect(0, 0, W, H, fill=True, stroke=False)
     else:
         c.setFillColorRGB(0.82, 0.80, 0.78)
-        c.rect(0, 0, PAGE_W, PAGE_H, fill=True, stroke=False)
+        c.rect(0, 0, W, H, fill=True, stroke=False)
 
-    # ── Fit the full design onto the physical page, with a safety margin ──────
-    # Plastic A6 card holders both clip a few mm around the edge AND, in this
-    # case, are physically shorter than a true A6 sheet — so the whole
-    # 105x148 design is scaled to fit the shorter page's height (the binding
-    # constraint) and centred, leaving even margins on every side.
+    # ── Inset all foreground content by a safety margin ────────────────────────
+    # Plastic A6 card holders typically clip a few mm around the edge. The
+    # background texture above stays full-bleed; everything drawn from here on
+    # (logos, text, QR code, flags) is shrunk and centred so none of it gets
+    # cropped once the badge is in its holder.
     c.saveState()
     margin_mm = 4.0
-    badge_scale = min((PAGE_W_mm - 2 * margin_mm) / W_mm, (PAGE_H_mm - 2 * margin_mm) / H_mm)
-    c.translate((PAGE_W - W * badge_scale) / 2, (PAGE_H - H * badge_scale) / 2)
+    badge_scale = min((W_mm - 2 * margin_mm) / W_mm, (H_mm - 2 * margin_mm) / H_mm)
+    c.translate((W - W * badge_scale) / 2, (H - H * badge_scale) / 2)
     c.scale(badge_scale, badge_scale)
 
     # ── Logos ─────────────────────────────────────────────────────────────────
@@ -2376,7 +2368,7 @@ async def download_participant_badges_pdf(
         raise HTTPException(status_code=404, detail="No participants found")
 
     buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=(105 * mm, 123 * mm))  # physical A6-holder-fit page size
+    c = canvas.Canvas(buffer, pagesize=(105 * mm, 148 * mm))
 
     logo_left  = load_logo_with_transparency("assets/logo_left.png")
     logo_right = load_logo_with_transparency("assets/logo_right.png")
@@ -2457,7 +2449,7 @@ async def download_my_badge(
     }
 
     buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=(105 * mm, 123 * mm))  # physical A6-holder-fit page size
+    c = canvas.Canvas(buffer, pagesize=(105 * mm, 148 * mm))
 
     logo_left  = load_logo_with_transparency("assets/logo_left.png")
     logo_right = load_logo_with_transparency("assets/logo_right.png")
