@@ -2185,6 +2185,18 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
             size -= 0.5
         return size
 
+    def _fit_text_and_size(text, start_size, floor_size, max_width_pt, font="Helvetica-Bold"):
+        """Shrink font first; if even the floor size still overflows (extremely
+        long values), fall back to truncating with an ellipsis so text never
+        runs past its box/the page edge."""
+        size = _shrink_to_fit(text, start_size, floor_size, max_width_pt, font)
+        if c.stringWidth(text, font, size) <= max_width_pt:
+            return text, size
+        truncated = text
+        while truncated and c.stringWidth(truncated + "…", font, size) > max_width_pt:
+            truncated = truncated[:-1]
+        return (truncated.rstrip() + "…"), size
+
     # ── Role banner ───────────────────────────────────────────────────────────
     # Extracted: rect (7.8, 74.0)→(97.9, 86.3) mm  |  text 30 pt
     # Widened a couple mm on each side (was 7.8→97.9) to give long role labels
@@ -2196,7 +2208,7 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
            (banner_bottom - banner_top) * mm, fill=True, stroke=False)
 
     fsize = max(18, min(30, int(330 // max(len(role_label), 1))))
-    fsize = _shrink_to_fit(role_label, fsize, 14, (banner_x1 - banner_x0 - 4) * mm)
+    role_label, fsize = _fit_text_and_size(role_label, fsize, 14, (banner_x1 - banner_x0 - 4) * mm)
     banner_cy = (banner_top + banner_bottom) / 2
     c.setFont("Helvetica-Bold", fsize)
     c.setFillColorRGB(*banner_txt)
@@ -2245,7 +2257,7 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
         c.setFillColorRGB(*role_light)
         c.rect(lx1*mm, rl_bot, cont_w_mm*mm, row_h_mm*mm, fill=True, stroke=False)
         c.setFillColorRGB(0.06, 0.06, 0.06)
-        val_fs = _shrink_to_fit(val, VAL_FS, 7, (cont_w_mm - 3) * mm)
+        val, val_fs = _fit_text_and_size(val, VAL_FS, 7, (cont_w_mm - 3) * mm)
         c.setFont("Helvetica-Bold", val_fs)
         c.drawString((lx1 + 1.5)*mm, fy(row_cy + val_fs * 25.4/72 * 0.3), val)
 
