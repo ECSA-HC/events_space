@@ -69,13 +69,13 @@
             {{ theme }}
           </div>
 
-          <!-- ── Role banner  top=52%, height=8.3%, left=7.4%, right=6.9% ─ -->
+          <!-- ── Role banner  top=52%, height=8.3%, left/right=5.7% (widened to match PDF) ─ -->
           <div
             class="absolute flex items-center justify-center"
             :style="{
               top: '52%',
-              left: '7.4%',
-              right: '6.9%',
+              left: '5.7%',
+              right: '5.7%',
               height: '8.3%',
               background: roleColor,
               color: roleBannerTextColor,
@@ -91,18 +91,18 @@
           <!-- ── Info rows (Name / Designation / Organization) ──────────── -->
           <template v-for="(row, i) in infoRows" :key="i">
             <div class="absolute flex overflow-hidden"
-                 :style="{ top: rowTops[i], left:'7.4%', right:'6.9%', height:'4.5%' }">
+                 :style="{ top: rowTops[i], left:'5.7%', right:'5.7%', height:'4.5%' }">
               <!-- Label -->
               <div
                 class="flex items-center justify-center shrink-0 text-center"
-                :style="{ width: row.labelPct, background:'#00AEEF', color:'#fff', fontSize:'3.7cqw', fontWeight:700 }"
+                :style="{ width: row.labelPct, background:'#00AEEF', color:'#fff', fontSize:row.labelFontSize, fontWeight:700 }"
               >
                 {{ row.label }}
               </div>
               <!-- Value -->
               <div
                 class="flex items-center flex-1 px-1 truncate"
-                :style="{ background: roleLightColor, color:'#111', fontSize:'3.4cqw', fontWeight:600 }"
+                :style="{ background: roleLightColor, color:'#111', fontSize:row.valueFontSize, fontWeight:600 }"
               >
                 {{ row.value }}
               </div>
@@ -210,12 +210,25 @@ const roleLightColor      = computed(() => {
   return `rgb(${Math.round((0.80+r*0.20)*255)},${Math.round((0.80+g*0.20)*255)},${Math.round((0.80+b*0.20)*255)})`
 })
 
-// Banner font size: matches Python formula max(22,min(42,330//len)) converted to cqw
+// Banner font size: matches Python formula max(18,min(30,330//len)) converted to cqw
 // 1pt = 0.353mm; container = 105mm → 1cqw = 1.05mm → 1pt ≈ 0.336cqw
 const roleFontSize = computed(() => {
-  const fsize = Math.max(22, Math.min(42, Math.floor(330 / Math.max(roleLabel.value.length, 1))))
+  const fsize = Math.max(18, Math.min(30, Math.floor(330 / Math.max(roleLabel.value.length, 1))))
   return `${(fsize * 0.336).toFixed(2)}cqw`
 })
+
+// Shrinks a font size (pt) down toward floorPt until `text` is estimated to fit
+// widthMm — mirrors the Python _shrink_to_fit stringWidth loop, using an
+// average-char-width approximation since canvas.measureText isn't practical
+// against cqw units here. Returns cqw for direct use in inline styles.
+function fitFontSizeCqw(text, startPt, floorPt, widthMm) {
+  const avgCharMm = (pt) => pt * 0.3528 * 0.55
+  let pt = startPt
+  while (pt > floorPt && text.length * avgCharMm(pt) > widthMm) {
+    pt -= 0.5
+  }
+  return `${(pt * 0.336).toFixed(2)}cqw`
+}
 
 // ── Event title split ────────────────────────────────────────────────────────
 const normalizedName = computed(() => {
@@ -251,30 +264,32 @@ const dateStr = computed(() => {
 
 const theme = computed(() => props.event?.theme || '')
 
-// ── Info rows with variable label widths matching official template ────────────
-// Official (105mm page): Name=20.3%, Designation=32.1%, Organization=32.5%
+// ── Info rows with variable label widths matching the PDF layout ───────────────
+// Row spans 5.7%–94.3% of the 105mm page (93mm wide, matching events.py's
+// ROW_X0/ROW_X1=6.0/99.0). Label widths below are that same mm split
+// (Name 22.0mm, Designation 34.5mm, Organization 34.9mm) expressed as a
+// percentage of the row's own 93mm width. Value/label font sizes shrink to
+// fit long text the same way the PDF does, falling back to the existing
+// `truncate` (ellipsis) class for anything still too long.
+const ROW_WIDTH_MM = 93.0
 const infoRows = computed(() => {
   const title = (props.user?.title || '').trim().replace(/\.$/, '')
   const first = props.user?.firstname || ''
   const last  = props.user?.lastname  || ''
   const displayName = title ? `${title}. ${first} ${last}` : [first, last].filter(Boolean).join(' ')
-  return [
-    {
-      label:    'Name',
-      value:    displayName,
-      labelPct: '20.3%',
-    },
-    {
-      label:    'Designation',
-      value:    props.user?.position || '',
-      labelPct: '32.1%',
-    },
-    {
-      label:    'Organization',
-      value:    props.user?.organisation || '',
-      labelPct: '32.5%',
-    },
+
+  const specs = [
+    { label: 'Name',         value: displayName,                    labelMm: 22.0, contentMm: 71.0 },
+    { label: 'Designation',  value: props.user?.position     || '', labelMm: 34.5, contentMm: 58.5 },
+    { label: 'Organization', value: props.user?.organisation || '', labelMm: 34.9, contentMm: 58.1 },
   ]
+  return specs.map(s => ({
+    label:         s.label,
+    value:         s.value,
+    labelPct:      `${((s.labelMm / ROW_WIDTH_MM) * 100).toFixed(2)}%`,
+    labelFontSize: fitFontSizeCqw(s.label, 12, 9, s.labelMm - 2),
+    valueFontSize: fitFontSizeCqw(s.value, 11, 7, s.contentMm - 3),
+  }))
 })
 
 // Row top positions — shifted slightly to match enlarged logo area
