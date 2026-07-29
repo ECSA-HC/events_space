@@ -232,7 +232,11 @@ function fitFontSizeCqw(text, startPt, floorPt, widthMm) {
 
 // Generic word abbreviations for organization names too long to fit even at
 // the smallest readable font (must match ORG_ABBREVIATIONS in events.py).
+// Long country/region names go first since they're multi-word phrases.
 const ORG_ABBREVIATIONS = [
+  [/\bUnited Kingdom\b/gi, 'UK'], [/\bUnited States of America\b/gi, 'USA'],
+  [/\bUnited States\b/gi, 'US'], [/\bUnited Arab Emirates\b/gi, 'UAE'],
+  [/\bDemocratic Republic of (the )?Congo\b/gi, 'DRC'],
   [/\bUniversity\b/gi, 'Univ.'], [/\bInstitute\b/gi, 'Inst.'],
   [/\bDepartment\b/gi, 'Dept.'], [/\bMinistry\b/gi, 'Min.'],
   [/\bInternational\b/gi, "Int'l"], [/\bOrgani[sz]ation\b/gi, 'Org.'],
@@ -251,22 +255,42 @@ const ORG_ABBREVIATIONS = [
   [/\bCommission\b/gi, 'Comm.'], [/\bResearch\b/gi, 'Rsch'],
   [/\bTechnology\b/gi, 'Tech.'], [/\bAdministration\b/gi, 'Admin.'],
 ]
+// Words skipped when generating an initials-based acronym fallback (e.g.
+// "University College London" -> "UCL") for orgs with no "(ACRONYM)" of
+// their own (must match ORG_STOPWORDS in events.py).
+const ORG_STOPWORDS = new Set(['and', 'of', 'for', 'the', 'in', 'on', 'at', 'a', 'an', '&', 'to'])
+
 function abbreviateOrgWords(text) {
   let out = text
   for (const [pattern, repl] of ORG_ABBREVIATIONS) out = out.replace(pattern, repl)
   return out
 }
 
-// Mirrors events.py's _smart_shorten_org: shrink font first, then try the
-// org's own acronym (if spelled out in parentheses), then generic word
-// abbreviation, then both — before falling back to a hard ellipsis.
+function generateOrgAcronym(text) {
+  const commaIdx = text.indexOf(',')
+  let main = commaIdx === -1 ? text : text.slice(0, commaIdx)
+  const suffix = (commaIdx === -1 ? '' : text.slice(commaIdx + 1)).trim()
+  main = main.replace(/\([^)]*\)/g, '')
+  const words = main.match(/[A-Za-z']+/g) || []
+  const initials = words.filter(w => !ORG_STOPWORDS.has(w.toLowerCase())).map(w => w[0].toUpperCase()).join('')
+  if (initials.length < 2) return null
+  return suffix ? `${initials}, ${suffix}` : initials
+}
+
+// Mirrors events.py's _smart_shorten_org: try the original, the org's own
+// acronym (if spelled out in parentheses), generic word abbreviation, both
+// combined, and a generated initials acronym — and use whichever form fits
+// at the LARGEST font size, not just whichever fits at the smallest. Falls
+// back to an ellipsis only if nothing fits even at the floor size.
 function smartShortenOrg(text, startPt, floorPt, widthMm) {
   const fits = (t, pt) => t.length * (pt * 0.3528 * 0.55) <= widthMm
-  let pt = startPt
-  while (pt > floorPt && !fits(text, pt)) pt -= 0.5
-  if (fits(text, pt)) return { value: text, fontSize: `${(pt * 0.336).toFixed(2)}cqw` }
+  const sizeFor = (t) => {
+    let pt = startPt
+    while (pt > floorPt && !fits(t, pt)) pt -= 0.5
+    return pt
+  }
 
-  const candidates = []
+  const candidates = [text]
   const m = text.match(/\(([A-Z]{2,12})\)\s*,?\s*(.*)$/)
   let acronymForm = null
   if (m) {
@@ -280,15 +304,22 @@ function smartShortenOrg(text, startPt, floorPt, widthMm) {
     const abbreviatedAcronym = abbreviateOrgWords(acronymForm)
     if (abbreviatedAcronym !== acronymForm) candidates.push(abbreviatedAcronym)
   }
+  const generated = generateOrgAcronym(text)
+  if (generated && !candidates.includes(generated)) candidates.push(generated)
 
+  let bestCand = text, bestSize = floorPt, bestFits = false, bestScore = -1
   for (const cand of candidates) {
-    let cpt = startPt
-    while (cpt > floorPt && !fits(cand, cpt)) cpt -= 0.5
-    if (fits(cand, cpt)) return { value: cand, fontSize: `${(cpt * 0.336).toFixed(2)}cqw` }
+    const size = sizeFor(cand)
+    const candFits = fits(cand, size)
+    const score = candFits ? size : -1
+    if (score > bestScore) {
+      bestScore = score; bestCand = cand; bestSize = size; bestFits = candFits
+    }
   }
+  if (bestFits) return { value: bestCand, fontSize: `${(bestSize * 0.336).toFixed(2)}cqw` }
 
-  const best = candidates.length ? candidates[candidates.length - 1] : text
-  let truncated = best
+  const shortest = candidates.reduce((a, b) => (b.length < a.length ? b : a))
+  let truncated = shortest
   while (truncated.length && !fits(truncated + '…', floorPt)) truncated = truncated.slice(0, -1)
   return { value: `${truncated.replace(/[\s,]+$/, '')}…`, fontSize: `${(floorPt * 0.336).toFixed(2)}cqw` }
 }

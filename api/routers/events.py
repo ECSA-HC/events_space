@@ -157,7 +157,11 @@ BADGE_ROLE_LABELS = {
 
 # Generic word abbreviations used to shorten organization names that don't fit
 # their badge box even at minimum font size (must match ParticipantBadgeModal.vue).
+# Long country/region names go first since they're multi-word phrases.
 ORG_ABBREVIATIONS = [
+    (r"\bUnited Kingdom\b", "UK"), (r"\bUnited States of America\b", "USA"),
+    (r"\bUnited States\b", "US"), (r"\bUnited Arab Emirates\b", "UAE"),
+    (r"\bDemocratic Republic of (the )?Congo\b", "DRC"),
     (r"\bUniversity\b", "Univ."), (r"\bInstitute\b", "Inst."),
     (r"\bDepartment\b", "Dept."), (r"\bMinistry\b", "Min."),
     (r"\bInternational\b", "Int'l"), (r"\bOrgani[sz]ation\b", "Org."),
@@ -177,12 +181,32 @@ ORG_ABBREVIATIONS = [
     (r"\bTechnology\b", "Tech."), (r"\bAdministration\b", "Admin."),
 ]
 
+# Words skipped when generating an initials-based acronym fallback (e.g.
+# "University College London" -> "UCL") for orgs with no "(ACRONYM)" of
+# their own (must match ORG_STOPWORDS in ParticipantBadgeModal.vue).
+ORG_STOPWORDS = {"and", "of", "for", "the", "in", "on", "at", "a", "an", "&", "to"}
+
 
 def abbreviate_org_words(text):
     out = text
     for pattern, repl in ORG_ABBREVIATIONS:
         out = re.sub(pattern, repl, out, flags=re.IGNORECASE)
     return out
+
+
+def generate_org_acronym(text):
+    """Initials of the significant words before the last comma (kept as a
+    trailing country/location suffix), e.g. "National Health Insurance
+    Management Authority, Zambia" -> "NHIMA, Zambia". Returns None if too
+    short to be a meaningful acronym."""
+    main, _, suffix = text.partition(",")
+    main = re.sub(r"\([^)]*\)", "", main)
+    words = re.findall(r"[A-Za-z']+", main)
+    initials = "".join(w[0].upper() for w in words if w.lower() not in ORG_STOPWORDS)
+    if len(initials) < 2:
+        return None
+    suffix = suffix.strip()
+    return f"{initials}, {suffix}" if suffix else initials
 
 
 # ISO 3166-1 alpha-2 codes for ECSA member states shown on the badge
@@ -2228,20 +2252,19 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
         return (truncated.rstrip() + "…"), size
 
     def _smart_shorten_org(text, start_size, floor_size, max_width_pt, font="Helvetica-Bold"):
-        """Organization names are often too long to fit even at the smallest
-        readable font. Before falling back to a hard ellipsis, try (in order):
-        1) the org's own acronym if it's already spelled out in parentheses
-           (e.g. "...Institute for Policy and Research (SAIPAR)" → "SAIPAR"),
-        2) generic word abbreviation (Institute→Inst., University→Univ., ...),
-        3) both combined."""
+        """Organization names that need shrinking to fit shouldn't just render
+        tiny — try the org's own acronym if it's spelled out in parentheses
+        (e.g. "...Institute for Policy and Research (SAIPAR)" → "SAIPAR"),
+        generic word abbreviation (Institute→Inst., University→Univ., ...),
+        or both, and use whichever form lets the text stay at the LARGEST
+        font size (not just whichever fits at the smallest). The original is
+        kept whenever it already fits at the starting size — abbreviation
+        only kicks in once shrinking would otherwise be needed. Falls back to
+        an ellipsis only if nothing fits even at the floor size."""
         def fits(t, size):
             return c.stringWidth(t, font, size) <= max_width_pt
 
-        size = _shrink_to_fit(text, start_size, floor_size, max_width_pt, font)
-        if fits(text, size):
-            return text, size
-
-        candidates = []
+        candidates = [text]
         m = re.search(r"\(([A-Z]{2,12})\)\s*,?\s*(.*)$", text)
         acronym_form = None
         if m:
@@ -2255,14 +2278,25 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
             abbreviated_acronym = abbreviate_org_words(acronym_form)
             if abbreviated_acronym != acronym_form:
                 candidates.append(abbreviated_acronym)
+        generated_acronym = generate_org_acronym(text)
+        if generated_acronym and generated_acronym not in candidates:
+            candidates.append(generated_acronym)
 
+        best_cand, best_size, best_fits = text, floor_size, False
+        best_score = -1
         for cand in candidates:
             cand_size = _shrink_to_fit(cand, start_size, floor_size, max_width_pt, font)
-            if fits(cand, cand_size):
-                return cand, cand_size
+            cand_fits = fits(cand, cand_size)
+            score = cand_size if cand_fits else -1
+            if score > best_score:
+                best_score, best_cand, best_size, best_fits = score, cand, cand_size, cand_fits
 
-        best = candidates[-1] if candidates else text
-        return _fit_text_and_size(best, start_size, floor_size, max_width_pt, font)
+        if best_fits:
+            return best_cand, best_size
+
+        # Nothing fits even at floor size — ellipsis-truncate the shortest candidate.
+        shortest = min(candidates, key=len)
+        return _fit_text_and_size(shortest, start_size, floor_size, max_width_pt, font)
 
     # ── Role banner ───────────────────────────────────────────────────────────
     # Extracted: rect (7.8, 74.0)→(97.9, 86.3) mm  |  text 30 pt
