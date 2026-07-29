@@ -2177,13 +2177,26 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
             c.drawString(10.2*mm, fy(60.7 - top_shift + 8.5 * 25.4/72 * 0.75), theme[:bp].rstrip())
             c.drawString(10.2*mm, fy(64.6 - top_shift + 8.5 * 25.4/72 * 0.75), theme[bp:].strip())
 
+    def _shrink_to_fit(text, start_size, floor_size, max_width_pt, font="Helvetica-Bold"):
+        """Step the font size down (in 0.5pt steps) until text fits max_width_pt,
+        or floor_size is reached — for role labels/values too long to fit as-is."""
+        size = start_size
+        while size > floor_size and c.stringWidth(text, font, size) > max_width_pt:
+            size -= 0.5
+        return size
+
     # ── Role banner ───────────────────────────────────────────────────────────
     # Extracted: rect (7.8, 74.0)→(97.9, 86.3) mm  |  text 30 pt
+    # Widened a couple mm on each side (was 7.8→97.9) to give long role labels
+    # a bit more room before the font has to shrink.
+    banner_x0, banner_x1 = 6.0, 99.0
     banner_top, banner_bottom = 74.0 - top_shift, 86.3 - top_shift
     c.setFillColorRGB(*role_rgb)
-    c.rect(7.8*mm, fy(banner_bottom), 90.1*mm, (banner_bottom - banner_top) * mm, fill=True, stroke=False)
+    c.rect(banner_x0*mm, fy(banner_bottom), (banner_x1 - banner_x0)*mm,
+           (banner_bottom - banner_top) * mm, fill=True, stroke=False)
 
     fsize = max(18, min(30, int(330 // max(len(role_label), 1))))
+    fsize = _shrink_to_fit(role_label, fsize, 14, (banner_x1 - banner_x0 - 4) * mm)
     banner_cy = (banner_top + banner_bottom) / 2
     c.setFont("Helvetica-Bold", fsize)
     c.setFillColorRGB(*banner_txt)
@@ -2193,6 +2206,8 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
     # Taller rows with bigger text than the original extracted design (89.1
     # onward) — the top_shift above freed up just enough room that these
     # still end before the QR code without moving anything below them.
+    # Both the label and content backgrounds are a couple mm wider than the
+    # original extraction (was 7.8→97.8) for the same reason as the banner.
     title_raw = str(p.get("title") or "").strip().rstrip(".")
     firstname = str(p.get("firstname") or "").strip()
     lastname  = str(p.get("lastname")  or "").strip()
@@ -2201,34 +2216,38 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
     else:
         full_name = f"{firstname} {lastname}".strip()
     LBL_FS, VAL_FS = 12, 11
+    ROW_X0, ROW_X1 = 6.0, 99.0
     row_specs = [
         # (label, lbl_x0, lbl_x1, y0, y1, value)
-        ("Name",         7.8, 29.1,  84.6,  92.6, full_name[:42]),
-        ("Designation",  7.8, 41.5,  95.2, 103.2, str(p.get("position")     or "")[:38]),
-        ("Organization", 7.8, 41.9, 105.8, 113.8, str(p.get("organisation") or "")[:38]),
+        ("Name",         ROW_X0, 28.0,  84.6,  92.6, full_name[:55]),
+        ("Designation",  ROW_X0, 40.5,  95.2, 103.2, str(p.get("position")     or "")[:50]),
+        ("Organization", ROW_X0, 40.9, 105.8, 113.8, str(p.get("organisation") or "")[:50]),
     ]
 
     for lbl, lx0, lx1, y0f, y1f, val in row_specs:
         row_h_mm = y1f - y0f
         rl_bot   = fy(y1f)
         lbl_w_mm = lx1 - lx0
-        cont_w_mm = 97.8 - lx1
+        cont_w_mm = ROW_X1 - lx1
         row_cy   = (y0f + y1f) / 2
 
         # Label (darker cyan)
         c.setFillColorRGB(0.0, 0.681, 0.938)
         c.rect(lx0*mm, rl_bot, lbl_w_mm*mm, row_h_mm*mm, fill=True, stroke=False)
         c.setFillColorRGB(1, 1, 1)
-        c.setFont("Helvetica-Bold", LBL_FS)
+        lbl_fs = _shrink_to_fit(lbl, LBL_FS, 9, (lbl_w_mm - 2) * mm)
+        c.setFont("Helvetica-Bold", lbl_fs)
         c.drawCentredString(((lx0 + lx1) / 2)*mm,
-                            fy(row_cy + LBL_FS * 25.4/72 * 0.3), lbl)
+                            fy(row_cy + lbl_fs * 25.4/72 * 0.3), lbl)
 
-        # Content (light tint)
+        # Content (light tint) — font shrinks for long designations/orgs/names
+        # instead of just being cut off.
         c.setFillColorRGB(*role_light)
         c.rect(lx1*mm, rl_bot, cont_w_mm*mm, row_h_mm*mm, fill=True, stroke=False)
         c.setFillColorRGB(0.06, 0.06, 0.06)
-        c.setFont("Helvetica-Bold", VAL_FS)
-        c.drawString((lx1 + 1.5)*mm, fy(row_cy + VAL_FS * 25.4/72 * 0.3), val)
+        val_fs = _shrink_to_fit(val, VAL_FS, 7, (cont_w_mm - 3) * mm)
+        c.setFont("Helvetica-Bold", val_fs)
+        c.drawString((lx1 + 1.5)*mm, fy(row_cy + val_fs * 25.4/72 * 0.3), val)
 
     # ── QR code ───────────────────────────────────────────────────────────────
     # qr_top stays fixed (keeps the gap to the Organization row above); the
