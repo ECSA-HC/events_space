@@ -2166,7 +2166,7 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
     c.setFillColorRGB(*role_rgb)
     c.rect(7.8*mm, fy(86.3), 90.1*mm, 12.3*mm, fill=True, stroke=False)
 
-    fsize = max(22, min(42, int(330 // max(len(role_label), 1))))
+    fsize = max(18, min(30, int(330 // max(len(role_label), 1))))
     banner_cy = (74.0 + 86.3) / 2                   # 80.15 mm from top
     c.setFont("Helvetica-Bold", fsize)
     c.setFillColorRGB(*banner_txt)
