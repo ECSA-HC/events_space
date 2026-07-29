@@ -2271,6 +2271,7 @@ async def download_participant_badges_pdf(
     paid: Literal["all", "true", "false"] = Query("all"),
     role_category: Literal["all", "secretariat", "djcc", "other"] = Query("all"),
     user_id: Optional[int] = Query(None),
+    user_ids: Optional[str] = Query(None, description="Comma-separated user IDs to include"),
     db: Session = Depends(get_db),
     dependency=Depends(get_dependency),
     auth_dependency: Auth = Depends(get_auth_dependency),
@@ -2345,6 +2346,11 @@ async def download_participant_badges_pdf(
     # Optional single-participant filter (used by badge preview download button)
     if user_id is not None:
         participants = [p for p in participants if p.get("user_id") == user_id]
+
+    if user_ids:
+        selected_ids = {int(uid) for uid in user_ids.split(",") if uid.strip().isdigit()}
+        if selected_ids:
+            participants = [p for p in participants if p.get("user_id") in selected_ids]
 
     if not participants:
         raise HTTPException(status_code=404, detail="No participants found")

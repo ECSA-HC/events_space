@@ -181,6 +181,8 @@
                     class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">Paid &amp; POP</button>
                   <button @click="downloadsDropdownOpen = false; downloadBadgesAsPDF('false')"
                     class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">Not Paid</button>
+                  <button @click="downloadsDropdownOpen = false; openBadgePicker()"
+                    class="w-full px-4 py-2 text-sm text-left" style="color:#5b21b6;">Paid &amp; POP — Choose Names…</button>
                 </div>
               </div>
 
@@ -1258,6 +1260,80 @@
         </div>
       </div>
 
+      <!-- Badge Picker Modal (choose names for Paid & POP badge PDF) -->
+      <div v-if="showBadgePicker"
+        class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+        @click.self="closeBadgePicker">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[92vh]">
+
+          <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+            <div class="flex items-center gap-3">
+              <div class="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#f5f3ff;">
+                <svg class="w-5 h-5" style="color:#5b21b6;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+              </div>
+              <div>
+                <p class="font-bold text-gray-800 text-sm">Choose Names for Badge PDF</p>
+                <p class="text-xs text-gray-400">Paid &amp; POP participants — pick who to include</p>
+              </div>
+            </div>
+            <button @click="closeBadgePicker" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="p-5 space-y-3 overflow-y-auto flex-1">
+            <input v-model="badgePickerSearch" type="text" placeholder="Search by name or email…"
+              class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5b21b6]" />
+
+            <div class="flex items-center justify-between">
+              <span class="text-xs px-2 py-1 rounded-full font-semibold" style="background:#f5f3ff;color:#5b21b6;">
+                {{ badgePickerSelected.size }} selected
+              </span>
+              <label v-if="paidOrPopParticipants.length > 0" class="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
+                <input type="checkbox" :checked="badgePickerSelected.size === paidOrPopParticipants.length"
+                  @change="toggleBadgePickerSelectAll"
+                  class="rounded border-gray-300 text-[#5b21b6] focus:ring-[#5b21b6]" />
+                Select all ({{ paidOrPopParticipants.length }})
+              </label>
+            </div>
+
+            <div class="rounded-xl border border-gray-200 overflow-hidden">
+              <div class="max-h-96 overflow-y-auto divide-y divide-gray-100">
+                <div v-if="filteredBadgePickerParticipants.length === 0" class="text-xs text-gray-400 text-center py-6">
+                  No matching participants.
+                </div>
+                <div v-for="p in filteredBadgePickerParticipants" :key="p.user_id"
+                  class="px-3 py-2 flex items-center gap-2 cursor-pointer hover:bg-gray-50 transition"
+                  @click="toggleBadgePickerUser(p.user_id)">
+                  <input type="checkbox" :checked="badgePickerSelected.has(p.user_id)"
+                    @click.stop="toggleBadgePickerUser(p.user_id)"
+                    class="rounded border-gray-300 text-[#5b21b6] focus:ring-[#5b21b6]" />
+                  <div class="min-w-0">
+                    <p class="text-sm font-medium text-gray-800 truncate">{{ p.firstname }} {{ p.lastname }}</p>
+                    <p class="text-xs text-gray-400 truncate">{{ p.email }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-100 flex-shrink-0">
+            <button @click="closeBadgePicker"
+              class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition font-medium">Cancel</button>
+            <button @click="downloadSelectedBadges" :disabled="badgePickerSelected.size === 0"
+              class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-xl transition hover:opacity-90 disabled:opacity-50"
+              style="background-color:#5b21b6;">
+              Download {{ badgePickerSelected.size }} Badge{{ badgePickerSelected.size === 1 ? '' : 's' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Edit Role Modal -->
       <div v-if="showEditRoleModal"
         class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
@@ -1738,26 +1814,82 @@ async function markPaidWithoutProof(p) {
   }
 }
 
+function _downloadPdfBlob(response, fallbackFilename) {
+  const contentDisposition = response.headers['content-disposition'] || ''
+  let filename = fallbackFilename
+  const filenameMatch = contentDisposition.match(/filename\*?=.*['"]?([^;'"]+)/)
+  if (filenameMatch && filenameMatch[1]) filename = decodeURIComponent(filenameMatch[1])
+  const blob = new Blob([response.data], { type: 'application/pdf' })
+  const link = document.createElement('a')
+  const objectUrl = URL.createObjectURL(blob)
+  link.href = objectUrl
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(objectUrl)
+}
+
 async function downloadBadgesAsPDF(paidFilter) {
   if (!paidFilter) return
   try {
     const url = `/events/${eventId}/participants/badges?paid=${paidFilter}&role_category=${roleFilter.value}`
     const response = await api.get(url, { responseType: 'blob' })
-    const contentDisposition = response.headers['content-disposition'] || ''
-    let filename = 'participant_badges.pdf'
-    const filenameMatch = contentDisposition.match(/filename\*?=.*['"]?([^;'"]+)/)
-    if (filenameMatch && filenameMatch[1]) filename = decodeURIComponent(filenameMatch[1])
-    const blob = new Blob([response.data], { type: 'application/pdf' })
-    const link = document.createElement('a')
-    const objectUrl = URL.createObjectURL(blob)
-    link.href = objectUrl
-    link.download = filename
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(objectUrl)
+    _downloadPdfBlob(response, 'participant_badges.pdf')
   } catch (error) {
     alert('Failed to download participant badges PDF.')
+  }
+}
+
+// ── Badge picker (choose names for the Paid & POP badge PDF) ────────────────
+const showBadgePicker = ref(false)
+const badgePickerSearch = ref('')
+const badgePickerSelected = ref(new Set())
+
+const paidOrPopParticipants = computed(() =>
+  participants.value.filter(p => p.paid || p.payment_proof)
+)
+
+const filteredBadgePickerParticipants = computed(() => {
+  const q = badgePickerSearch.value.trim().toLowerCase()
+  if (!q) return paidOrPopParticipants.value
+  return paidOrPopParticipants.value.filter(p =>
+    `${p.firstname || ''} ${p.lastname || ''}`.toLowerCase().includes(q) || (p.email || '').toLowerCase().includes(q)
+  )
+})
+
+function openBadgePicker() {
+  showBadgePicker.value = true
+  badgePickerSearch.value = ''
+  badgePickerSelected.value = new Set(paidOrPopParticipants.value.map(p => p.user_id))
+}
+
+function closeBadgePicker() {
+  showBadgePicker.value = false
+}
+
+function toggleBadgePickerUser(userId) {
+  const s = new Set(badgePickerSelected.value)
+  if (s.has(userId)) s.delete(userId)
+  else s.add(userId)
+  badgePickerSelected.value = s
+}
+
+function toggleBadgePickerSelectAll() {
+  const allIds = new Set(paidOrPopParticipants.value.map(p => p.user_id))
+  badgePickerSelected.value = badgePickerSelected.value.size === allIds.size ? new Set() : allIds
+}
+
+async function downloadSelectedBadges() {
+  if (badgePickerSelected.value.size === 0) return
+  try {
+    const ids = [...badgePickerSelected.value].join(',')
+    const url = `/events/${eventId}/participants/badges?paid=true&role_category=${roleFilter.value}&user_ids=${ids}`
+    const response = await api.get(url, { responseType: 'blob' })
+    _downloadPdfBlob(response, 'participant_badges.pdf')
+    closeBadgePicker()
+  } catch (error) {
+    alert('Failed to download selected badges PDF.')
   }
 }
 
