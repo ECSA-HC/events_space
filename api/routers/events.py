@@ -2330,14 +2330,20 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
         full_name = f"{firstname} {lastname}".strip()
     LBL_FS, VAL_FS = 12, 11
     ROW_X0, ROW_X1 = 6.0, 99.0
+    # Label box widths were previously sized to an old fixed template and had
+    # several mm of dead padding around the label word itself (e.g.
+    # "Designation" only needs ~24mm but had a 34.5mm box). Narrowed to just
+    # fit the label word + a little padding, so the freed width goes to the
+    # value instead of sitting empty — lets long designations/orgs render at
+    # a noticeably bigger font before they need to shrink.
     row_specs = [
         # (label, lbl_x0, lbl_x1, y0, y1, value)
         # Organization keeps a generous cap (not the tight 50-char one the
         # others use) so a trailing "(ACRONYM)" isn't chopped off before
         # _smart_shorten_org below gets a chance to use it.
-        ("Name",         ROW_X0, 28.0,  84.6,  92.6, full_name[:55]),
-        ("Designation",  ROW_X0, 40.5,  95.2, 103.2, str(p.get("position")     or "")[:50]),
-        ("Organization", ROW_X0, 40.9, 105.8, 113.8, str(p.get("organisation") or "")[:200]),
+        ("Name",         ROW_X0, 20.5,  84.6,  92.6, full_name[:55]),
+        ("Designation",  ROW_X0, 33.5,  95.2, 103.2, str(p.get("position")     or "")[:50]),
+        ("Organization", ROW_X0, 35.0, 105.8, 113.8, str(p.get("organisation") or "")[:200]),
     ]
 
     for lbl, lx0, lx1, y0f, y1f, val in row_specs:

@@ -360,11 +360,13 @@ const theme = computed(() => props.event?.theme || '')
 
 // ── Info rows with variable label widths matching the PDF layout ───────────────
 // Row spans 5.7%–94.3% of the 105mm page (93mm wide, matching events.py's
-// ROW_X0/ROW_X1=6.0/99.0). Label widths below are that same mm split
-// (Name 22.0mm, Designation 34.5mm, Organization 34.9mm) expressed as a
-// percentage of the row's own 93mm width. Value/label font sizes shrink to
-// fit long text the same way the PDF does, falling back to the existing
-// `truncate` (ellipsis) class for anything still too long.
+// ROW_X0/ROW_X1=6.0/99.0). Label widths are sized to just fit the label word
+// + small padding (matching events.py's row_specs) rather than a fixed
+// oversized template box — the freed width goes to the value instead of
+// sitting empty, so long designations/orgs get a bigger font before needing
+// to shrink. Value/label font sizes shrink to fit long text the same way the
+// PDF does, falling back to the existing `truncate` (ellipsis) class for
+// anything still too long.
 const ROW_WIDTH_MM = 93.0
 const infoRows = computed(() => {
   const title = (props.user?.title || '').trim().replace(/\.$/, '')
@@ -373,9 +375,9 @@ const infoRows = computed(() => {
   const displayName = title ? `${title}. ${first} ${last}` : [first, last].filter(Boolean).join(' ')
 
   const specs = [
-    { label: 'Name',         value: displayName,                    labelMm: 22.0, contentMm: 71.0 },
-    { label: 'Designation',  value: props.user?.position     || '', labelMm: 34.5, contentMm: 58.5 },
-    { label: 'Organization', value: props.user?.organisation || '', labelMm: 34.9, contentMm: 58.1 },
+    { label: 'Name',         value: displayName,                    labelMm: 14.5, contentMm: 78.5 },
+    { label: 'Designation',  value: props.user?.position     || '', labelMm: 27.5, contentMm: 65.5 },
+    { label: 'Organization', value: props.user?.organisation || '', labelMm: 29.0, contentMm: 64.0 },
   ]
   return specs.map(s => {
     const labelFontSize = fitFontSizeCqw(s.label, 12, 9, s.labelMm - 2)
