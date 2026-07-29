@@ -114,6 +114,7 @@ BASE_URL=https://events.ecsahc.org
 ```bash
 rsync -avz --delete \
   --exclude='.env' --exclude='__pycache__/' --exclude='*.pyc' --exclude='.git/' \
+  --exclude='venv/' --exclude='uploads/' \
   /Applications/XAMPP/xamppfiles/htdocs/events_space/api/ \
   root@events.ecsahc.org:/var/www/events/api/
 

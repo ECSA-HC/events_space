@@ -321,8 +321,9 @@ const formatDate = (dateStr) => {
 
 const isRegistrationOpen = computed(() => {
   if (!featuredEvent.value?.start_date) return false
-  const diffInDays = (new Date(featuredEvent.value.start_date) - new Date()) / (1000 * 60 * 60 * 24)
-  return diffInDays >= 7
+  const start = new Date(featuredEvent.value.start_date)
+  const now = new Date()
+  return start > now
 })
 
 const showClosedMessage = () => {
