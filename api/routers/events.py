@@ -126,7 +126,7 @@ BADGE_ROLE_COLORS = {
     "speaker":      "#C8102E",
     "presenter":    "#C8102E",
     "delegate":     "#009639",
-    "djcc":         "#8B5CF6",
+    "djcc":         "#009639",
     "moh":          "#009639",
     "member_state": "#009639",
     "other_africa": "#009639",
@@ -148,7 +148,7 @@ BADGE_ROLE_LABELS = {
     "speaker":      "SPEAKER",
     "presenter":    "PRESENTER",
     "delegate":     "DELEGATE",
-    "djcc":         "DJCC MEMBER",
+    "djcc":         "DELEGATE",
     "moh":          "DELEGATE",
     "member_state": "DELEGATE",
     "other_africa": "DELEGATE",
@@ -3470,6 +3470,36 @@ def _parse_full_name(raw_name: str):
     return firstname, lastname, honorific
 
 
+def _parse_allowed_roles(participation_role: str):
+    """participation_role is a comma-separated list of role keys (one entry
+    when the admin picked a single role, several when the sheet mixes roles
+    and a "Role" column will be matched per-row). Validates each key."""
+    keys = [r.strip() for r in participation_role.split(",") if r.strip()]
+    if not keys:
+        raise HTTPException(status_code=400, detail="At least one participation role must be selected")
+    for k in keys:
+        if k not in ParticipationRole.__members__:
+            raise HTTPException(status_code=400, detail=f"Invalid participation role: {k}")
+    return keys
+
+
+def _match_role_from_text(raw_text, allowed_role_keys):
+    """Match a free-text Role/Category cell against the allowed role keys,
+    checking both the enum key itself and its friendly label (case-
+    insensitive, substring match either way). Returns the matched key, or
+    None if nothing matches."""
+    text = (raw_text or "").strip().lower()
+    if not text:
+        return None
+    for key in allowed_role_keys:
+        if text == key.lower():
+            return key
+        label = _ROLE_LABELS.get(key, "").lower()
+        if label and (text == label or text in label or label in text):
+            return key
+    return None
+
+
 @router.post("/{event_id}/bulk-import-participants")
 async def bulk_import_participants(
     event_id: int,
@@ -3485,17 +3515,19 @@ async def bulk_import_participants(
     Title, Organization, Country, Email, payment_status — 'No' is ignored).
     Creates/registers each row like admin_add_participant, and returns a
     categorized report: imported, mismatches (imported but flagged), already
-    registered, and rejected (with a reason)."""
+    registered, and rejected (with a reason).
+
+    `participation_role` is a comma-separated list of role keys. With one
+    role, it's applied to every row (the original behavior). With several
+    (the sheet mixes multiple roles), each row's own "Role" column value is
+    matched against the selected roles — rows with no match are rejected."""
     auth_dependency.secure_access("ADMIN_DASHBOARD", current_user["user_id"])
     import utils.mailer_util as mailer_util
 
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-    try:
-        role_enum = ParticipationRole[participation_role]
-    except KeyError:
-        raise HTTPException(status_code=400, detail=f"Invalid participation role: {participation_role}")
+    allowed_role_keys = _parse_allowed_roles(participation_role)
 
     from openpyxl import load_workbook
     contents = await file.read()
@@ -3522,9 +3554,15 @@ async def bulk_import_participants(
     col_country = find_col("country")
     col_email = find_col("email")
     col_payment = find_col("payment_status", "payment status")
+    col_role = find_col("role")
 
     if col_name is None or col_email is None:
         raise HTTPException(status_code=400, detail="File must have at least 'Name' and 'Email' columns")
+    if len(allowed_role_keys) > 1 and col_role is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Multiple roles selected — the file needs a 'Role' column so each row can be matched to one of them",
+        )
 
     def cell(row, idx):
         if idx is None or idx >= len(row):
@@ -3549,8 +3587,6 @@ async def bulk_import_participants(
         def _fmt(d):
             return d.strftime("%-d %B %Y") if hasattr(d, "strftime") else str(d)
         event_dates = f"{_fmt(event.start_date)} – {_fmt(event.end_date)}"
-    role_label = _ROLE_LABELS.get(participation_role, participation_role)
-    auto_paid_role = participation_role in NO_PAYMENT_ROLES
 
     imported, mismatches, already_there, rejected = [], [], [], []
 
@@ -3561,6 +3597,7 @@ async def bulk_import_participants(
         raw_country = cell(row, col_country)
         raw_email = cell(row, col_email)
         raw_payment = cell(row, col_payment)
+        raw_role = cell(row, col_role)
 
         if not raw_name and not raw_email:
             continue  # fully blank row
@@ -3573,6 +3610,20 @@ async def bulk_import_participants(
         if not raw_email:
             rejected.append({**row_ref, "reason": "Missing email"})
             continue
+
+        if len(allowed_role_keys) == 1:
+            row_role_key = allowed_role_keys[0]
+        else:
+            row_role_key = _match_role_from_text(raw_role, allowed_role_keys)
+            if row_role_key is None:
+                rejected.append({
+                    **row_ref,
+                    "reason": f"Role '{raw_role or ''}' does not match any of the selected roles",
+                })
+                continue
+        role_enum = ParticipationRole[row_role_key]
+        role_label = _ROLE_LABELS.get(row_role_key, row_role_key)
+        auto_paid_role = row_role_key in NO_PAYMENT_ROLES
 
         email_parts = [e.strip() for e in re.split(r"[;,]", raw_email) if e.strip()]
         if len(email_parts) > 1:
@@ -3746,16 +3797,16 @@ async def bulk_import_names_only(
     password is ever usable), so these accounts can never be logged into.
     This lets the normal badge/participant-list code work completely
     unchanged. Duplicate rows (matched by first+last name within this event,
-    since there's no email to match on) are skipped and reported."""
+    since there's no email to match on) are skipped and reported.
+
+    `participation_role` is a comma-separated list of role keys — same
+    multi-role/"Role" column matching as bulk_import_participants."""
     auth_dependency.secure_access("ADMIN_DASHBOARD", current_user["user_id"])
 
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-    try:
-        role_enum = ParticipationRole[participation_role]
-    except KeyError:
-        raise HTTPException(status_code=400, detail=f"Invalid participation role: {participation_role}")
+    allowed_role_keys = _parse_allowed_roles(participation_role)
 
     from openpyxl import load_workbook
     contents = await file.read()
@@ -3780,17 +3831,21 @@ async def bulk_import_names_only(
     col_title = find_col("title", "position")
     col_org = find_col("organization", "organisation")
     col_category = find_col("category")
+    col_role = find_col("role")
 
     if col_name is None:
         raise HTTPException(status_code=400, detail="File must have at least a 'Name' column")
+    if len(allowed_role_keys) > 1 and col_role is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Multiple roles selected — the file needs a 'Role' column so each row can be matched to one of them",
+        )
 
     def cell(row, idx):
         if idx is None or idx >= len(row):
             return None
         v = row[idx]
         return str(v).strip() if v is not None else None
-
-    auto_paid_role = participation_role in NO_PAYMENT_ROLES
 
     # No email to match on for badge-only entries, so dedup by name within
     # this event — covers both real-account and previously placeholder rows.
@@ -3809,6 +3864,7 @@ async def bulk_import_names_only(
         raw_title = cell(row, col_title)
         raw_org = cell(row, col_org)
         raw_category = cell(row, col_category)
+        raw_role = cell(row, col_role)
 
         if not raw_name:
             continue  # fully blank row
@@ -3824,6 +3880,19 @@ async def bulk_import_names_only(
         if name_key in existing_names:
             already_there.append({**row_ref, "reason": "Already registered for this event"})
             continue
+
+        if len(allowed_role_keys) == 1:
+            row_role_key = allowed_role_keys[0]
+        else:
+            row_role_key = _match_role_from_text(raw_role, allowed_role_keys)
+            if row_role_key is None:
+                rejected.append({
+                    **row_ref,
+                    "reason": f"Role '{raw_role or ''}' does not match any of the selected roles",
+                })
+                continue
+        role_enum = ParticipationRole[row_role_key]
+        auto_paid_role = row_role_key in NO_PAYMENT_ROLES
 
         badge_prefix = honorific or None
         badge_position = raw_title or None

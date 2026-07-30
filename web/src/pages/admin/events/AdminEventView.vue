@@ -1030,6 +1030,7 @@
             <template v-if="!importReport">
               <p class="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-xl p-3 leading-relaxed">
                 Expected columns: <strong>Name, Title, Organization, Country, Email, payment_status</strong> (the "No" column is ignored). One row per person — rows with more than one email will be rejected so you can split them.
+                If your sheet mixes multiple roles, select all of them below and add a <strong>Role</strong> column so each row can be matched to one (values must match a role name/label, e.g. "Delegate", "DJCC Member", "Presenter").
               </p>
               <div>
                 <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Spreadsheet (.xlsx) *</label>
@@ -1037,11 +1038,16 @@
                   class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#f5f3ff] file:text-[#5b21b6] hover:file:opacity-80" />
               </div>
               <div>
-                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Participation Role (applied to every row) *</label>
-                <select v-model="importRole" class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5b21b6]">
-                  <option value="" disabled>Select a role…</option>
-                  <option v-for="role in PARTICIPATION_ROLES" :key="role.value" :value="role.value">{{ role.label }}</option>
-                </select>
+                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">
+                  Participation Role(s) * <span class="normal-case font-normal text-gray-400">— select one for the whole file, or several if it mixes roles (needs a Role column)</span>
+                </label>
+                <div class="max-h-40 overflow-y-auto border border-gray-300 rounded-xl p-2 grid grid-cols-2 gap-x-2">
+                  <label v-for="role in PARTICIPATION_ROLES" :key="role.value"
+                    class="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-gray-50 cursor-pointer text-sm">
+                    <input type="checkbox" :value="role.value" v-model="importRoles" class="w-4 h-4 accent-[#5b21b6] rounded flex-shrink-0" />
+                    <span class="truncate">{{ role.label }}</span>
+                  </label>
+                </div>
               </div>
               <label class="flex items-center gap-3 cursor-pointer p-3 rounded-xl bg-gray-50 border border-gray-200 select-none">
                 <input type="checkbox" v-model="importSendInvitation" class="w-4 h-4 accent-[#5b21b6] rounded" />
@@ -1119,7 +1125,7 @@
             <button v-if="!importReport" @click="closeImportModal" :disabled="importing"
               class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition font-medium disabled:opacity-40">Cancel</button>
             <button v-if="!importReport" @click="submitImport"
-              :disabled="importing || !importFile || !importRole"
+              :disabled="importing || !importFile || !importRoles.length"
               class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-xl transition hover:opacity-90 disabled:opacity-50"
               style="background-color:#5b21b6;">
               <svg v-if="importing" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
@@ -1166,6 +1172,7 @@
             <template v-if="!importNamesOnlyReport">
               <p class="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-xl p-3 leading-relaxed">
                 Expected columns: <strong>Name</strong> (required), <strong>Position, Organization, Category</strong> (all optional — no Email column needed). Use this for support staff (ushers, drivers, medical staff, local secretariat) who just need a printed badge — these entries can never log in to the portal.
+                If your sheet mixes multiple roles, select all of them below and add a <strong>Role</strong> column so each row can be matched to one.
               </p>
               <div>
                 <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Spreadsheet (.xlsx) *</label>
@@ -1173,11 +1180,16 @@
                   class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#f5f3ff] file:text-[#5b21b6] hover:file:opacity-80" />
               </div>
               <div>
-                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Participation Role (applied to every row) *</label>
-                <select v-model="importNamesOnlyRole" class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5b21b6]">
-                  <option value="" disabled>Select a role…</option>
-                  <option v-for="role in PARTICIPATION_ROLES" :key="role.value" :value="role.value">{{ role.label }}</option>
-                </select>
+                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">
+                  Participation Role(s) * <span class="normal-case font-normal text-gray-400">— select one for the whole file, or several if it mixes roles (needs a Role column)</span>
+                </label>
+                <div class="max-h-40 overflow-y-auto border border-gray-300 rounded-xl p-2 grid grid-cols-2 gap-x-2">
+                  <label v-for="role in PARTICIPATION_ROLES" :key="role.value"
+                    class="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-gray-50 cursor-pointer text-sm">
+                    <input type="checkbox" :value="role.value" v-model="importNamesOnlyRoles" class="w-4 h-4 accent-[#5b21b6] rounded flex-shrink-0" />
+                    <span class="truncate">{{ role.label }}</span>
+                  </label>
+                </div>
               </div>
               <p v-if="importNamesOnlyError" class="text-red-500 text-sm bg-red-50 border border-red-200 rounded-xl p-3">{{ importNamesOnlyError }}</p>
             </template>
@@ -1234,7 +1246,7 @@
             <button v-if="!importNamesOnlyReport" @click="closeImportNamesOnlyModal" :disabled="importingNamesOnly"
               class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition font-medium disabled:opacity-40">Cancel</button>
             <button v-if="!importNamesOnlyReport" @click="submitImportNamesOnly"
-              :disabled="importingNamesOnly || !importNamesOnlyFile || !importNamesOnlyRole"
+              :disabled="importingNamesOnly || !importNamesOnlyFile || !importNamesOnlyRoles.length"
               class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-xl transition hover:opacity-90 disabled:opacity-50"
               style="background-color:#5b21b6;">
               <svg v-if="importingNamesOnly" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
@@ -1745,7 +1757,7 @@ const selectedUser = ref(null)
 
 const showImportModal = ref(false)
 const importFile = ref(null)
-const importRole = ref('')
+const importRoles = ref([])
 const importSendInvitation = ref(true)
 const importing = ref(false)
 const importError = ref('')
@@ -1758,7 +1770,7 @@ function openImportModal() {
 function closeImportModal() {
   showImportModal.value = false
   importFile.value = null
-  importRole.value = ''
+  importRoles.value = []
   importSendInvitation.value = true
   importError.value = ''
   const hadReport = !!importReport.value
@@ -1769,13 +1781,13 @@ function closeImportModal() {
 }
 
 async function submitImport() {
-  if (!importFile.value || !importRole.value) return
+  if (!importFile.value || !importRoles.value.length) return
   importing.value = true
   importError.value = ''
   try {
     const fd = new FormData()
     fd.append('file', importFile.value)
-    fd.append('participation_role', importRole.value)
+    fd.append('participation_role', importRoles.value.join(','))
     fd.append('send_invitation', importSendInvitation.value)
     const res = await api.post(`/events/${eventId}/bulk-import-participants`, fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -1790,7 +1802,7 @@ async function submitImport() {
 
 const showImportNamesOnlyModal = ref(false)
 const importNamesOnlyFile = ref(null)
-const importNamesOnlyRole = ref('')
+const importNamesOnlyRoles = ref([])
 const importingNamesOnly = ref(false)
 const importNamesOnlyError = ref('')
 const importNamesOnlyReport = ref(null)
@@ -1802,7 +1814,7 @@ function openImportNamesOnlyModal() {
 function closeImportNamesOnlyModal() {
   showImportNamesOnlyModal.value = false
   importNamesOnlyFile.value = null
-  importNamesOnlyRole.value = ''
+  importNamesOnlyRoles.value = []
   importNamesOnlyError.value = ''
   const hadReport = !!importNamesOnlyReport.value
   importNamesOnlyReport.value = null
@@ -1812,13 +1824,13 @@ function closeImportNamesOnlyModal() {
 }
 
 async function submitImportNamesOnly() {
-  if (!importNamesOnlyFile.value || !importNamesOnlyRole.value) return
+  if (!importNamesOnlyFile.value || !importNamesOnlyRoles.value.length) return
   importingNamesOnly.value = true
   importNamesOnlyError.value = ''
   try {
     const fd = new FormData()
     fd.append('file', importNamesOnlyFile.value)
-    fd.append('participation_role', importNamesOnlyRole.value)
+    fd.append('participation_role', importNamesOnlyRoles.value.join(','))
     const res = await api.post(`/events/${eventId}/bulk-import-names-only`, fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
