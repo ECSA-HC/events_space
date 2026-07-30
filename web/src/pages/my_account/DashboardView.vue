@@ -29,6 +29,43 @@
       </div>
     </div>
 
+    <!-- Conference Documents -->
+    <div v-if="!loading && paidEvents.length > 0" class="bg-white rounded-2xl shadow p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background-color: #0095B6;">
+          <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="text-lg font-semibold text-black">Conference Programme</h3>
+          <p class="text-sm text-gray-500">Welcome to the conference! Please find the programme timetable and other documents below.</p>
+        </div>
+      </div>
+
+      <div v-for="ev in paidEvents" :key="ev.id" class="mb-4 last:mb-0">
+        <p class="text-sm font-semibold text-gray-700 mb-2">{{ ev.event }}</p>
+        <div v-if="ev.documents && ev.documents.length" class="space-y-2">
+          <div v-for="doc in ev.documents" :key="doc.id" class="flex items-center justify-between bg-gray-50 px-4 py-2 rounded">
+            <div>
+              <p class="font-medium text-indigo-700">{{ doc.name }}</p>
+              <p class="text-xs text-gray-500">{{ doc.file_name }}</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <button
+                v-if="canPreview(doc)"
+                @click="openPreview(doc)"
+                class="text-sm text-indigo-600 hover:underline"
+              >Preview</button>
+              <a :href="fileUrl(doc.path)" target="_blank" class="text-sm text-indigo-600 hover:underline">Download</a>
+            </div>
+          </div>
+        </div>
+        <p v-else class="text-sm text-gray-400 italic">No documents uploaded yet.</p>
+      </div>
+    </div>
+
     <!-- Events Registered -->
     <div v-if="!loading && !error" class="mt-6">
       <h3 class="text-lg font-semibold text-black mb-4">Registered Events</h3>
@@ -70,14 +107,65 @@
       <p v-else class="text-gray-500 italic">You haven’t registered for any events yet.</p>
     </div>
   </div>
-  </template>
+
+  <!-- Preview Modal -->
+  <Teleport to="body">
+    <div v-if="showPreviewModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="showPreviewModal = false">
+      <div class="absolute inset-0 bg-black/60" @click="showPreviewModal = false"></div>
+      <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <div>
+            <h3 class="font-semibold text-gray-800">{{ previewingDoc?.name }}</h3>
+            <p class="text-xs text-gray-500">{{ previewingDoc?.file_name }}</p>
+          </div>
+          <button @click="showPreviewModal = false" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="flex-1 overflow-hidden bg-gray-100 flex items-center justify-center p-2">
+          <iframe
+            v-if="previewingDoc && isPdf(previewingDoc.path)"
+            :src="fileUrl(previewingDoc.path)"
+            class="w-full h-full rounded border-0"
+            style="min-height: 60vh;"
+          ></iframe>
+          <iframe
+            v-else-if="previewingDoc && isOffice(previewingDoc.path)"
+            :src="officeViewerUrl(previewingDoc.path)"
+            class="w-full h-full rounded border-0"
+            style="min-height: 60vh;"
+          ></iframe>
+          <img
+            v-else-if="previewingDoc && isImage(previewingDoc.path)"
+            :src="fileUrl(previewingDoc.path)"
+            class="max-w-full max-h-full object-contain rounded"
+            alt="Preview"
+          />
+          <div v-else class="text-center text-gray-500 py-12">
+            <svg class="mx-auto h-12 w-12 mb-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+            <p class="text-sm">Preview not available for this file type.</p>
+            <a :href="fileUrl(previewingDoc.path)" target="_blank" class="mt-3 inline-block text-sm text-indigo-600 hover:underline">Download instead</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+</template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/plugins/axios'
 import { useAuthStore } from '@/stores/auth'
 import defaultAvatarImg from '@/assets/default-avatar.svg'
+import { fileUrl, isImage, isPdf, isOffice, officeViewerUrl } from '@/utils/filePreview'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -95,6 +183,25 @@ const error = ref(null)
 const defaultAvatar = defaultAvatarImg
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
 
+// ─── Preview state ──────────────────────────────────────────────────────────
+const showPreviewModal = ref(false)
+const previewingDoc = ref(null)
+
+function canPreview(doc) {
+  const name = doc.file_name || doc.path || ''
+  return isPdf(name) || isOffice(name) || isImage(name)
+}
+
+function openPreview(doc) {
+  previewingDoc.value = doc
+  showPreviewModal.value = true
+}
+
+// ─── Paid events with documents ─────────────────────────────────────────────
+const paidEvents = computed(() => {
+  return user.value.events.filter(e => e.paid)
+})
+
 const fetchUser = async () => {
   loading.value = true
   error.value = null
@@ -105,7 +212,8 @@ const fetchUser = async () => {
     // Add paid status defaulting to false if missing
     const eventsWithPaid = (data.events || []).map(event => ({
       ...event,
-      paid: event.paid ?? false
+      paid: event.paid ?? false,
+      documents: []
     }))
 
     user.value = {
@@ -116,6 +224,18 @@ const fetchUser = async () => {
         ? `${apiBaseUrl}/${data.profile_picture.profile_picture}`
         : defaultAvatar,
       events: eventsWithPaid
+    }
+
+    // Fetch documents for paid events
+    for (const event of user.value.events) {
+      if (event.paid) {
+        try {
+          const evRes = await api.get(`/events/${event.id}`)
+          event.documents = evRes.data.documents || []
+        } catch (e) {
+          console.error(`Failed to fetch documents for event ${event.id}`, e)
+        }
+      }
     }
   } catch (err) {
     error.value = 'Failed to load user details.'
