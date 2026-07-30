@@ -123,6 +123,38 @@
           </svg>
           {{ exporting ? 'Exporting…' : `Export${total > 0 ? ' ' + total : ''} to Excel` }}
         </button>
+
+        <!-- Presenters report (paid, oral contacts + oral/poster upload status) -->
+        <button @click="downloadPresentersReport(filterEvent)" :disabled="downloadingPresentersReport || !filterEvent"
+          :title="!filterEvent ? 'Select an event above first' : ''"
+          class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition hover:opacity-90 disabled:opacity-50"
+          style="background-color:#fff; color:#0095B6; border:1.5px solid #0095B6;">
+          <svg v-if="!downloadingPresentersReport" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 17v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+          <svg v-else class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+          </svg>
+          {{ downloadingPresentersReport ? 'Preparing…' : 'Presenters Report' }}
+        </button>
+
+        <!-- Zip of every uploaded presentation (paid, oral + poster) -->
+        <button @click="downloadPresentationsZip(filterEvent)" :disabled="downloadingPresentationsZip || !filterEvent"
+          :title="!filterEvent ? 'Select an event above first' : ''"
+          class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition hover:opacity-90 disabled:opacity-50"
+          style="background-color:#fff; color:#5b21b6; border:1.5px solid #5b21b6;">
+          <svg v-if="!downloadingPresentationsZip" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2v-7m16 0V5a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0H4"/>
+          </svg>
+          <svg v-else class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+          </svg>
+          {{ downloadingPresentationsZip ? 'Zipping…' : 'Presentations (ZIP)' }}
+        </button>
       </div>
     </div>
 
@@ -966,7 +998,7 @@
             <option v-for="e in events" :key="e.id" :value="e.id">{{ e.event }}</option>
           </select>
           <div v-if="presentationsModal.eventId" class="flex flex-wrap gap-2">
-            <button @click="downloadPresentersReport" :disabled="downloadingPresentersReport"
+            <button @click="downloadPresentersReport()" :disabled="downloadingPresentersReport"
               class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
               style="background:#e6f7fb; color:#0095B6; border:1px solid #b3e4f0;">
               <svg v-if="!downloadingPresentersReport" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -979,7 +1011,7 @@
               </svg>
               {{ downloadingPresentersReport ? 'Preparing…' : 'Presenters Report (Excel)' }}
             </button>
-            <button @click="downloadPresentationsZip" :disabled="downloadingPresentationsZip"
+            <button @click="downloadPresentationsZip()" :disabled="downloadingPresentationsZip"
               class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
               style="background:#f5f3ff; color:#5b21b6; border:1px solid #c4b5fd;">
               <svg v-if="!downloadingPresentationsZip" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2149,17 +2181,21 @@ const loadPresentations = async () => {
   }
 }
 
-// Oral-presenter report/zip — scoped to paid registrants, excludes posters.
-// Needs a specific event selected (unlike the "All Events" list view above).
+// Presenters report / presentations zip — scoped to paid registrants.
+// "Presenter Contacts" sheet is oral/either only; "Upload Status" and the
+// zip cover oral + poster. Callable from the toolbar (filterEvent) or the
+// All Presentations modal (presentationsModal.eventId) — either way needs a
+// specific event selected.
 const downloadingPresentersReport = ref(false)
 const downloadingPresentationsZip = ref(false)
 
-const downloadPresentersReport = async () => {
-  if (!presentationsModal.value.eventId) return
+const downloadPresentersReport = async (eventId) => {
+  const id = eventId ?? presentationsModal.value.eventId
+  if (!id) return
   downloadingPresentersReport.value = true
   try {
     const res = await api.get('/abstracts/presentations-report', {
-      params: { event_id: presentationsModal.value.eventId },
+      params: { event_id: id },
       responseType: 'blob',
     })
     const url = URL.createObjectURL(new Blob([res.data], {
@@ -2175,12 +2211,13 @@ const downloadPresentersReport = async () => {
   }
 }
 
-const downloadPresentationsZip = async () => {
-  if (!presentationsModal.value.eventId) return
+const downloadPresentationsZip = async (eventId) => {
+  const id = eventId ?? presentationsModal.value.eventId
+  if (!id) return
   downloadingPresentationsZip.value = true
   try {
     const res = await api.get('/abstracts/presentations-zip', {
-      params: { event_id: presentationsModal.value.eventId },
+      params: { event_id: id },
       responseType: 'blob',
     })
     const url = URL.createObjectURL(new Blob([res.data], { type: 'application/zip' }))
@@ -2189,7 +2226,7 @@ const downloadPresentationsZip = async () => {
     URL.revokeObjectURL(url)
   } catch (e) {
     alert(e.response?.status === 404
-      ? 'No uploaded presentations found for paid oral presenters in this event.'
+      ? 'No uploaded presentations found for paid presenters in this event.'
       : 'Zip download failed. Please try again.')
   } finally {
     downloadingPresentationsZip.value = false

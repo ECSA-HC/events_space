@@ -1526,22 +1526,25 @@ def all_presentations(
     ]
 
 
-def _oral_paid_presenter_entries(event_id: int, db: Session):
-    """Accepted, non-poster (oral/either) abstracts for this event, each
-    expanded to one entry per presenting author (falling back to the
-    submitter if no author is flagged as presenting), filtered to only those
-    whose email matches a paid (or POP) registrant for this event. Returns
-    (entries, abstracts_by_id, uploaded_by_abstract_id)."""
+def _paid_presenter_entries(event_id: int, db: Session, include_posters: bool = False):
+    """Accepted abstracts for this event (oral/either only unless
+    include_posters=True), each expanded to one entry per presenting author
+    (falling back to the submitter if no author is flagged as presenting),
+    filtered to only those whose email matches a paid (or POP) registrant
+    for this event. Returns (entries, abstracts_by_id, uploaded_by_abstract_id)."""
     from models.models import PresentationType
 
-    abstracts = db.query(Abstract).options(
-        joinedload(Abstract.authors), joinedload(Abstract.submitter),
-    ).filter(
+    filters = [
         Abstract.event_id == event_id,
         Abstract.status == AbstractStatus.accepted,
         Abstract.deleted_at == None,
-        Abstract.presentation_type != PresentationType.poster,
-    ).all()
+    ]
+    if not include_posters:
+        filters.append(Abstract.presentation_type != PresentationType.poster)
+
+    abstracts = db.query(Abstract).options(
+        joinedload(Abstract.authors), joinedload(Abstract.submitter),
+    ).filter(*filters).all()
 
     paid_regs = db.query(Registration).join(User, User.id == Registration.user_id).filter(
         Registration.event_id == event_id,
@@ -1597,9 +1600,9 @@ def presentations_report(
     db: Session = Depends(get_db),
     auth_dependency: Auth = Depends(get_auth_dep),
 ):
-    """Admin: Excel report for oral-presentation presenters who are paid
-    registrants — one sheet with contact details, one sheet showing who has
-    and hasn't uploaded their presentation file yet (for sending reminders)."""
+    """Admin: Excel report — "Presenter Contacts" (oral/either only, paid
+    registrants) and "Upload Status" (oral + poster, paid registrants) showing
+    who has and hasn't uploaded their presentation file yet, for reminders."""
     auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
     from models.models import Event as EventModel
 
@@ -1607,7 +1610,8 @@ def presentations_report(
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    entries, _, _ = _oral_paid_presenter_entries(event_id, db)
+    oral_entries, _, _ = _paid_presenter_entries(event_id, db, include_posters=False)
+    all_entries, _, _ = _paid_presenter_entries(event_id, db, include_posters=True)
 
     wb = Workbook()
     header_font = Font(bold=True, color="FFFFFF")
@@ -1619,7 +1623,7 @@ def presentations_report(
     for cell in ws1[1]:
         cell.font = header_font
         cell.fill = header_fill
-    for e in entries:
+    for e in oral_entries:
         ws1.append([
             f"{e['firstname']} {e['lastname']}".strip(), e["email"], e["affiliation"] or "",
             e["country"] or "", e["abstract_title"], e["presentation_type"],
@@ -1629,18 +1633,18 @@ def presentations_report(
     ws1.freeze_panes = "A2"
 
     ws2 = wb.create_sheet("Upload Status")
-    ws2.append(["Name", "Email", "Abstract Title", "Uploaded?", "Uploaded At"])
+    ws2.append(["Name", "Email", "Abstract Title", "Presentation Type", "Uploaded?", "Uploaded At"])
     for cell in ws2[1]:
         cell.font = header_font
         cell.fill = header_fill
-    for e in entries:
+    for e in all_entries:
         presentation = e["presentation"]
         ws2.append([
-            f"{e['firstname']} {e['lastname']}".strip(), e["email"], e["abstract_title"],
+            f"{e['firstname']} {e['lastname']}".strip(), e["email"], e["abstract_title"], e["presentation_type"],
             "Yes" if presentation else "No",
             presentation.uploaded_at.strftime("%Y-%m-%d %H:%M") if presentation and presentation.uploaded_at else "",
         ])
-    for ci, w in enumerate([28, 32, 45, 12, 20], 1):
+    for ci, w in enumerate([28, 32, 45, 16, 12, 20], 1):
         ws2.column_dimensions[get_column_letter(ci)].width = w
     ws2.freeze_panes = "A2"
 
@@ -1663,8 +1667,8 @@ def presentations_zip(
     db: Session = Depends(get_db),
     auth_dependency: Auth = Depends(get_auth_dep),
 ):
-    """Admin: download every uploaded oral-presentation file (paid presenters
-    only) for an event, bundled into a single zip."""
+    """Admin: download every uploaded presentation file — oral and poster —
+    from paid presenters for an event, bundled into a single zip."""
     auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
     import zipfile
     from models.models import Event as EventModel
@@ -1673,10 +1677,10 @@ def presentations_zip(
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    entries, abstracts_by_id, _ = _oral_paid_presenter_entries(event_id, db)
+    entries, abstracts_by_id, _ = _paid_presenter_entries(event_id, db, include_posters=True)
     presentations = [e["presentation"] for e in entries if e["presentation"]]
     if not presentations:
-        raise HTTPException(status_code=404, detail="No uploaded presentations found for paid oral presenters")
+        raise HTTPException(status_code=404, detail="No uploaded presentations found for paid presenters")
 
     zip_buffer = io.BytesIO()
     used_names = set()
