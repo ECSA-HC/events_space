@@ -1582,10 +1582,15 @@ const pendingReminderError = ref(false)
 // Role category filter — Secretariat / DJCC Members / Other
 const roleFilter = ref('all')
 
+// "Local Secretariat" is an umbrella filter covering the whole local support
+// team (ushers/drivers/medical staff included) — each still gets its own
+// distinct badge color/label, this only affects the admin filter grouping.
+const LOCAL_SECRETARIAT_ROLES = ['local_secretariat', 'usher', 'driver', 'medical_staff']
+
 function roleCategoryOf(p) {
   if (p.participation_role === 'secretariat') return 'secretariat'
   if (p.participation_role === 'djcc') return 'djcc'
-  if (p.participation_role === 'local_secretariat') return 'local_secretariat'
+  if (LOCAL_SECRETARIAT_ROLES.includes(p.participation_role)) return 'local_secretariat'
   return 'other'
 }
 

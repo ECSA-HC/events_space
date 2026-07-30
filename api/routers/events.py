@@ -168,6 +168,11 @@ BADGE_ROLE_LABELS = {
 # never expected to pay like delegates — matches how "secretariat" already works.
 NO_PAYMENT_ROLES = {"secretariat", "local_secretariat", "usher", "driver", "medical_staff"}
 
+# "local_secretariat" is an umbrella role_category filter covering the whole
+# local support team — ushers/drivers/medical staff included. Each still gets
+# its own distinct badge color/label; this only groups them for filtering.
+LOCAL_SECRETARIAT_ROLES = {"local_secretariat", "usher", "driver", "medical_staff"}
+
 # Generic word abbreviations used to shorten organization names that don't fit
 # their badge box even at minimum font size (must match ParticipantBadgeModal.vue).
 # Long country/region names go first since they're multi-word phrases.
@@ -1997,10 +2002,15 @@ async def download_event_participants(
     # Filter by role category. Secretariat and DJCC members are only included
     # when explicitly selected via their own filter pill — the general "All"
     # export excludes them since they're downloaded separately.
-    if role_category in ("secretariat", "djcc", "local_secretariat"):
+    if role_category == "local_secretariat":
+        participants = [p for p in participants if p["role_key"] in LOCAL_SECRETARIAT_ROLES]
+    elif role_category in ("secretariat", "djcc"):
         participants = [p for p in participants if p["role_key"] == role_category]
     else:
-        participants = [p for p in participants if p["role_key"] not in ("secretariat", "djcc", "local_secretariat")]
+        participants = [
+            p for p in participants
+            if p["role_key"] not in ({"secretariat", "djcc"} | LOCAL_SECRETARIAT_ROLES)
+        ]
 
     if not participants:
         raise HTTPException(status_code=404, detail="No participants found")
@@ -2527,7 +2537,12 @@ async def download_participant_badges_pdf(
 
     if role_category != "all":
         if role_category == "other":
-            participants = [p for p in participants if p["participation_role_raw"] not in ("secretariat", "djcc", "local_secretariat")]
+            participants = [
+                p for p in participants
+                if p["participation_role_raw"] not in ({"secretariat", "djcc"} | LOCAL_SECRETARIAT_ROLES)
+            ]
+        elif role_category == "local_secretariat":
+            participants = [p for p in participants if p["participation_role_raw"] in LOCAL_SECRETARIAT_ROLES]
         else:
             participants = [p for p in participants if p["participation_role_raw"] == role_category]
 
