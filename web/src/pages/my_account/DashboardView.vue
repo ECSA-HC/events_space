@@ -51,6 +51,11 @@
           <p class="text-xs text-gray-500">{{ ev.event }}</p>
         </div>
         <div class="flex items-center gap-3">
+          <button
+            @click="previewAbstractBook(ev.id)"
+            :disabled="loadingAbstractBook"
+            class="text-sm text-indigo-600 hover:underline disabled:opacity-50 disabled:cursor-wait"
+          >{{ loadingAbstractBook ? 'Generating…' : 'Preview' }}</button>
           <a :href="`${apiBaseUrl}/abstracts/export/pdf?event_id=${ev.id}`" target="_blank" class="text-sm text-indigo-600 hover:underline">Download</a>
         </div>
       </div>
@@ -135,8 +140,16 @@
           </button>
         </div>
         <div class="flex-1 overflow-hidden bg-gray-100 flex items-center justify-center p-2">
+          <!-- Abstract Book (blob URL) -->
           <iframe
-            v-if="previewingDoc && isPdf(previewingDoc.path)"
+            v-if="previewingDoc?.isAbstractBook && abstractBookUrl"
+            :src="abstractBookUrl"
+            class="w-full h-full rounded border-0"
+            style="min-height: 60vh;"
+          ></iframe>
+          <!-- PDF -->
+          <iframe
+            v-else-if="previewingDoc && isPdf(previewingDoc.path)"
             :src="fileUrl(previewingDoc.path)"
             class="w-full h-full rounded border-0"
             style="min-height: 60vh;"
@@ -196,6 +209,8 @@ const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
 // ─── Preview state ──────────────────────────────────────────────────────────
 const showPreviewModal = ref(false)
 const previewingDoc = ref(null)
+const abstractBookUrl = ref(null)
+const loadingAbstractBook = ref(false)
 
 function canPreview(doc) {
   const name = doc.file_name || doc.path || ''
@@ -205,6 +220,23 @@ function canPreview(doc) {
 function openPreview(doc) {
   previewingDoc.value = doc
   showPreviewModal.value = true
+}
+
+async function previewAbstractBook(eventId) {
+  loadingAbstractBook.value = true
+  try {
+    const res = await fetch(`${apiBaseUrl}/abstracts/export/pdf?event_id=${eventId}`)
+    const blob = await res.blob()
+    if (abstractBookUrl.value) URL.revokeObjectURL(abstractBookUrl.value)
+    abstractBookUrl.value = URL.createObjectURL(blob)
+    previewingDoc.value = { name: 'Abstract Book', file_name: 'book_of_abstracts.pdf', isAbstractBook: true }
+    showPreviewModal.value = true
+  } catch (e) {
+    console.error('Failed to generate abstract book preview:', e)
+    alert('Failed to load abstract book. Please try downloading instead.')
+  } finally {
+    loadingAbstractBook.value = false
+  }
 }
 
 // ─── Paid events with documents ─────────────────────────────────────────────
