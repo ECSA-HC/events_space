@@ -464,16 +464,13 @@ def export_abstracts(
 
 @router.get("/export/pdf")
 def export_abstracts_pdf(
-    current_user: user_dependency,
     db: Session = Depends(get_db),
-    auth_dependency: Auth = Depends(get_auth_dep),
     event_id: int = None,
 ):
     """Generate the official Book of Abstracts. Always accepted-only — this is
     the published proceedings document, not a generic filtered export, so it
     must not depend on whatever status filter the admin's list view happens
     to have selected."""
-    auth_dependency.secure_access("EXPORT_ABSTRACTS", current_user["user_id"])
 
     import unicodedata, re
     from pathlib import Path

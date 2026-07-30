@@ -40,7 +40,7 @@
         </div>
         <div>
           <h3 class="text-lg font-semibold text-black">Conference Documents</h3>
-          <p class="text-sm text-gray-500">Welcome to the conference! Please find the abstract book, programme timetable and other documents below.</p>
+          <p class="text-sm text-gray-500">Welcome to the conference! Please find the abstract book and other documents below.</p>
         </div>
       </div>
 
@@ -51,19 +51,8 @@
           <p class="text-xs text-gray-500">{{ ev.event }}</p>
         </div>
         <div class="flex items-center gap-3">
+          <button @click="openAbstractBookPreview(ev.id)" class="text-sm text-indigo-600 hover:underline">Preview</button>
           <a :href="`${apiBaseUrl}/abstracts/export/pdf?event_id=${ev.id}`" target="_blank" class="text-sm text-indigo-600 hover:underline">Download</a>
-        </div>
-      </div>
-
-      <!-- Programme Timetable -->
-      <div class="flex items-center justify-between bg-gray-50 px-4 py-3 rounded mb-3">
-        <div>
-          <p class="font-medium text-indigo-700">Programme Timetable</p>
-          <p class="text-xs text-gray-500">programme_16th.pdf</p>
-        </div>
-        <div class="flex items-center gap-3">
-          <button @click="openProgrammePreview" class="text-sm text-indigo-600 hover:underline">Preview</button>
-          <a :href="programmeUrl" target="_blank" class="text-sm text-indigo-600 hover:underline">Download</a>
         </div>
       </div>
 
@@ -220,11 +209,9 @@ function openPreview(doc) {
   showPreviewModal.value = true
 }
 
-// ─── Programme PDF ───────────────────────────────────────────────────────────
-const programmeUrl = `${apiBaseUrl}/assets/programme_16th.pdf`
-
-function openProgrammePreview() {
-  previewingDoc.value = { name: 'Programme Timetable', file_name: 'programme_16th.pdf', path: 'assets/programme_16th.pdf' }
+// ─── Abstract Book preview ───────────────────────────────────────────────────
+function openAbstractBookPreview(eventId) {
+  previewingDoc.value = { name: 'Abstract Book', file_name: 'book_of_abstracts.pdf', path: `${apiBaseUrl}/abstracts/export/pdf?event_id=${eventId}` }
   showPreviewModal.value = true
 }
 

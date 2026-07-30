@@ -13,7 +13,9 @@ export function isImage(path) {
 }
 
 export function isPdf(path) {
-  return !!path && path.toLowerCase().endsWith('.pdf')
+  if (!path) return false
+  const lower = path.toLowerCase()
+  return lower.endsWith('.pdf') || lower.includes('/export/pdf')
 }
 
 export function isOffice(path) {
