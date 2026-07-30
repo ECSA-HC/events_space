@@ -476,11 +476,14 @@ def export_abstracts_pdf(
     auth_dependency.secure_access("EXPORT_ABSTRACTS", current_user["user_id"])
 
     import unicodedata, re
+    from pathlib import Path
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import cm
     from reportlab.lib import colors
     from reportlab.lib.colors import Color
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.platypus import (
         BaseDocTemplate, PageTemplate, Frame,
         Paragraph, Spacer, HRFlowable, PageBreak,
@@ -490,6 +493,19 @@ def export_abstracts_pdf(
     from collections import defaultdict
     from sqlalchemy import case as sa_case
     from routers.events import normalize_event_name, load_logo_with_transparency
+
+    # ── Register Roboto fonts ────────────────────────────────────────────────
+    _font_dir = Path(__file__).resolve().parent.parent / "assets" / "fonts"
+    pdfmetrics.registerFont(TTFont("Roboto",       str(_font_dir / "Roboto-Regular.ttf")))
+    pdfmetrics.registerFont(TTFont("Roboto-Bold",  str(_font_dir / "Roboto-Bold.ttf")))
+    pdfmetrics.registerFont(TTFont("Roboto-Light", str(_font_dir / "Roboto-Light.ttf")))
+    pdfmetrics.registerFont(TTFont("Roboto-Medium",str(_font_dir / "Roboto-Medium.ttf")))
+    pdfmetrics.registerFont(TTFont("Roboto-SemiBold", str(_font_dir / "Roboto-SemiBold.ttf")))
+    pdfmetrics.registerFont(TTFont("Roboto-Italic",str(_font_dir / "Roboto-Italic.ttf")))
+    from reportlab.pdfbase.pdfmetrics import registerFontFamily
+    registerFontFamily("Roboto",
+        normal="Roboto", bold="Roboto-Bold",
+        italic="Roboto-Italic", boldItalic="Roboto-Bold")
 
     # ── Fetch data ────────────────────────────────────────────────────────────
     q = db.query(Abstract).options(
@@ -589,10 +605,10 @@ def export_abstracts_pdf(
                 pass
 
         # Organisation name — dark text now the strip is light
-        c.setFont("Helvetica-Bold", 11)
+        c.setFont("Roboto-Bold", 11)
         c.setFillColor(NAVY)
         c.drawCentredString(W / 2, H - 2.3 * cm, "EAST, CENTRAL AND SOUTHERN AFRICA HEALTH COMMUNITY")
-        c.setFont("Helvetica", 9)
+        c.setFont("Roboto", 9)
         c.setFillColor(TEAL)
         c.drawCentredString(W / 2, H - 3.2 * cm, "Fostering Regional Cooperation for Better Health")
         # Teal accent line
@@ -600,7 +616,7 @@ def export_abstracts_pdf(
         c.setLineWidth(2)
         c.line(LM, H - 4.2 * cm, W - RM, H - 4.2 * cm)
         # Event name (wrapped)
-        c.setFont("Helvetica-Bold", 17)
+        c.setFont("Roboto-Bold", 17)
         c.setFillColor(WHITE)
         ev_lines = _wrap(event_name, 38)
         ey = H - 6.0 * cm
@@ -615,12 +631,12 @@ def export_abstracts_pdf(
         ab_h = H * 0.24
         c.setFillColor(BLUE)
         c.rect(0, ab_y, W * 0.70, ab_h, fill=1, stroke=0)
-        c.setFont("Helvetica-Bold", 38)
+        c.setFont("Roboto-Bold", 38)
         c.setFillColor(WHITE)
         c.drawString(LM, ab_y + ab_h * 0.60, "ABSTRACT")
         c.drawString(LM, ab_y + ab_h * 0.18, "BOOK")
         # Sub info
-        c.setFont("Helvetica", 9.5)
+        c.setFont("Roboto", 9.5)
         c.setFillColor(Color(0.56, 0.79, 0.95))
         n = len(abstracts)
         c.drawString(LM, ab_y - 0.75 * cm, f"{n} Abstract{'s' if n != 1 else ''}")
@@ -643,7 +659,7 @@ def export_abstracts_pdf(
         c.setLineWidth(30)
         c.line(-W * 0.2, H * 0.10, W * 1.3, H * 0.50)
         # Text
-        c.setFont("Helvetica-Bold", 34)
+        c.setFont("Roboto-Bold", 34)
         c.setFillColor(Color(0.80, 0.90, 0.96))
         c.drawString(2 * cm, H * 0.37, "ABSTRACTS")
         c.restoreState()
@@ -654,10 +670,10 @@ def export_abstracts_pdf(
         c.setStrokeColor(TEAL)
         c.setLineWidth(0.5)
         c.line(LM, fy + 0.32 * cm, W - RM, fy + 0.32 * cm)
-        c.setFont("Helvetica", 7)
+        c.setFont("Roboto", 7)
         c.setFillColor(MGRAY)
         c.drawString(LM, fy, event_short)
-        c.setFont("Helvetica-Bold", 8)
+        c.setFont("Roboto-Bold", 8)
         c.setFillColor(TEAL)
         c.drawRightString(W - RM, fy, str(doc.page))
         c.restoreState()
@@ -680,19 +696,19 @@ def export_abstracts_pdf(
 
     # ── Styles ────────────────────────────────────────────────────────────────
     s_track_lbl = ParagraphStyle("TL", fontSize=8.5, textColor=WHITE,
-                                 fontName="Helvetica-Bold", leading=12)
+                                 fontName="Roboto-Bold", leading=12)
     s_title = ParagraphStyle("TI", fontSize=10, textColor=NAVY,
-                             fontName="Helvetica-Bold", leading=14,
+                             fontName="Roboto-Bold", leading=14,
                              spaceBefore=8, spaceAfter=2)
     s_authors = ParagraphStyle("AU", fontSize=8, textColor=TEAL,
-                               fontName="Helvetica-Oblique", leading=12, spaceAfter=2)
+                               fontName="Roboto-Italic", leading=12, spaceAfter=2)
     s_meta = ParagraphStyle("ME", fontSize=7.5, textColor=LGRAY,
-                             fontName="Helvetica", leading=11, spaceAfter=3)
+                             fontName="Roboto", leading=11, spaceAfter=3)
     s_body = ParagraphStyle("BO", fontSize=8.5, textColor=DGRAY,
-                             fontName="Helvetica", leading=13,
+                             fontName="Roboto", leading=13,
                              spaceAfter=3, alignment=TA_JUSTIFY)
     s_kw = ParagraphStyle("KW", fontSize=7.5, textColor=LGRAY,
-                           fontName="Helvetica-Oblique", leading=11, spaceAfter=5)
+                           fontName="Roboto-Italic", leading=11, spaceAfter=5)
 
     # ── Story ─────────────────────────────────────────────────────────────────
     story = []
@@ -758,7 +774,7 @@ def export_abstracts_pdf(
     buf.seek(0)
 
     # ── Merge programme PDF as page 2 ──────────────────────────────────────
-    from pypdf import PdfReader, PdfWriter
+    from pypdf import PdfReader, PdfWriter, Transformation, PageObject
     from pathlib import Path
 
     programme_path = Path(__file__).resolve().parent.parent / "assets" / "programme_16th.pdf"
@@ -772,10 +788,26 @@ def export_abstracts_pdf(
         # Page 1: cover page from generated abstract book
         writer.add_page(generated_pdf.pages[0])
 
-        # Pages 2+: programme PDF (all pages)
+        # Pages 2+: programme PDF (scaled to fit A4)
         programme = PdfReader(str(programme_path))
+        a4_w, a4_h = A4
         for page in programme.pages:
-            writer.add_page(page)
+            pw = float(page.mediabox.width)
+            ph = float(page.mediabox.height)
+            # Scale to fit A4 while maintaining aspect ratio
+            scale_x = a4_w / pw
+            scale_y = a4_h / ph
+            scale = min(scale_x, scale_y)
+            # Center on A4 page
+            offset_x = (a4_w - pw * scale) / 2
+            offset_y = (a4_h - ph * scale) / 2
+
+            new_page = PageObject.create_blank_page(width=a4_w, height=a4_h)
+            new_page.merge_transformed_page(
+                page,
+                Transformation().scale(scale, scale).translate(offset_x, offset_y),
+            )
+            writer.add_page(new_page)
 
         # Remaining pages from generated abstract book (skip cover = page 0)
         if total_generated > 1:
