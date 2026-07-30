@@ -94,67 +94,73 @@
           </div>
         </div>
 
-        <!-- PDF Book of Abstracts -->
-        <button @click="exportPdf" :disabled="exportingPdf || loading || total === 0"
-          class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition hover:opacity-90 disabled:opacity-50"
-          style="background-color:#fff; color:#0095B6; border:1.5px solid #0095B6;">
-          <svg v-if="!exportingPdf" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-          </svg>
-          <svg v-else class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-          </svg>
-          {{ exportingPdf ? 'Generating…' : 'Book of Abstracts PDF' }}
-        </button>
+        <!-- Exports dropdown -->
+        <div class="relative" ref="exportsDropdownRef">
+          <button type="button" @click="exportsDropdownOpen = !exportsDropdownOpen"
+            class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90"
+            style="background-color:#0095B6;">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Exports
+            <svg class="w-4 h-4 flex-shrink-0 transition-transform" :class="exportsDropdownOpen ? 'rotate-180' : ''"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
 
-        <!-- Excel export -->
-        <button @click="exportExcel" :disabled="exporting || loading || total === 0"
-          class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
-          style="background-color:#0095B6;">
-          <svg v-if="!exporting" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-          </svg>
-          <svg v-else class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-          </svg>
-          {{ exporting ? 'Exporting…' : `Export${total > 0 ? ' ' + total : ''} to Excel` }}
-        </button>
-
-        <!-- Presenters report (paid, oral contacts + oral/poster upload status) -->
-        <button @click="downloadPresentersReport(filterEvent)" :disabled="downloadingPresentersReport || !filterEvent"
-          :title="!filterEvent ? 'Select an event above first' : ''"
-          class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition hover:opacity-90 disabled:opacity-50"
-          style="background-color:#fff; color:#0095B6; border:1.5px solid #0095B6;">
-          <svg v-if="!downloadingPresentersReport" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M9 17v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-          </svg>
-          <svg v-else class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-          </svg>
-          {{ downloadingPresentersReport ? 'Preparing…' : 'Presenters Report' }}
-        </button>
-
-        <!-- Zip of every uploaded presentation (paid, oral + poster) -->
-        <button @click="downloadPresentationsZip(filterEvent)" :disabled="downloadingPresentationsZip || !filterEvent"
-          :title="!filterEvent ? 'Select an event above first' : ''"
-          class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition hover:opacity-90 disabled:opacity-50"
-          style="background-color:#fff; color:#5b21b6; border:1.5px solid #5b21b6;">
-          <svg v-if="!downloadingPresentationsZip" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2v-7m16 0V5a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0H4"/>
-          </svg>
-          <svg v-else class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-          </svg>
-          {{ downloadingPresentationsZip ? 'Zipping…' : 'Presentations (ZIP)' }}
-        </button>
+          <div v-if="exportsDropdownOpen"
+            class="absolute right-0 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-xl z-30 py-1.5 overflow-hidden">
+            <button @click="exportsDropdownOpen = false; exportPdf()" :disabled="exportingPdf || loading || total === 0"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-gray-50 transition disabled:opacity-50">
+              <div class="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background-color:#e6f7fb;">
+                <svg class="w-4 h-4" style="color:#0095B6;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                </svg>
+              </div>
+              <span class="font-medium text-gray-700">{{ exportingPdf ? 'Generating…' : 'Book of Abstracts PDF' }}</span>
+            </button>
+            <button @click="exportsDropdownOpen = false; exportExcel()" :disabled="exporting || loading || total === 0"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-gray-50 transition disabled:opacity-50">
+              <div class="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background-color:#e6f7fb;">
+                <svg class="w-4 h-4" style="color:#0095B6;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+              </div>
+              <span class="font-medium text-gray-700">{{ exporting ? 'Exporting…' : `Export${total > 0 ? ' ' + total : ''} to Excel` }}</span>
+            </button>
+            <div class="my-1 border-t border-gray-100"></div>
+            <button @click="exportsDropdownOpen = false; downloadPresentersReport(filterEvent)" :disabled="downloadingPresentersReport"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-gray-50 transition disabled:opacity-50">
+              <div class="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background-color:#e6f7fb;">
+                <svg class="w-4 h-4" style="color:#0095B6;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 17v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+              </div>
+              <div>
+                <span class="font-medium text-gray-700 block">{{ downloadingPresentersReport ? 'Preparing…' : 'Presenters Report' }}</span>
+                <span class="text-xs text-gray-400">Uses the event filter above</span>
+              </div>
+            </button>
+            <button @click="exportsDropdownOpen = false; downloadPresentationsZip(filterEvent)" :disabled="downloadingPresentationsZip"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-gray-50 transition disabled:opacity-50">
+              <div class="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background-color:#f5f3ff;">
+                <svg class="w-4 h-4" style="color:#5b21b6;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2v-7m16 0V5a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0H4"/>
+                </svg>
+              </div>
+              <div>
+                <span class="font-medium text-gray-700 block">{{ downloadingPresentationsZip ? 'Zipping…' : 'Presentations (ZIP)' }}</span>
+                <span class="text-xs text-gray-400">Uses the event filter above</span>
+              </div>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1659,6 +1665,8 @@ const trackPickerOpen = ref(false)
 const trackPickerRef  = ref(null)
 const notifDropdownOpen = ref(false)
 const notifDropdownRef  = ref(null)
+const exportsDropdownOpen = ref(false)
+const exportsDropdownRef  = ref(null)
 
 // Cross-page selection: Map<id, abstractObj>
 const selectedItems = ref(new Map())
@@ -2070,6 +2078,9 @@ function handleOutsideClick(e) {
   if (notifDropdownRef.value && !notifDropdownRef.value.contains(e.target)) {
     notifDropdownOpen.value = false
   }
+  if (exportsDropdownRef.value && !exportsDropdownRef.value.contains(e.target)) {
+    exportsDropdownOpen.value = false
+  }
 }
 onUnmounted(() => document.removeEventListener('click', handleOutsideClick))
 onMounted(() => document.addEventListener('click', handleOutsideClick))
@@ -2191,7 +2202,7 @@ const downloadingPresentationsZip = ref(false)
 
 const downloadPresentersReport = async (eventId) => {
   const id = eventId ?? presentationsModal.value.eventId
-  if (!id) return
+  if (!id) { alert('Select an event (in the filters below, or in the All Presentations picker) first.'); return }
   downloadingPresentersReport.value = true
   try {
     const res = await api.get('/abstracts/presentations-report', {
@@ -2213,7 +2224,7 @@ const downloadPresentersReport = async (eventId) => {
 
 const downloadPresentationsZip = async (eventId) => {
   const id = eventId ?? presentationsModal.value.eventId
-  if (!id) return
+  if (!id) { alert('Select an event (in the filters below, or in the All Presentations picker) first.'); return }
   downloadingPresentationsZip.value = true
   try {
     const res = await api.get('/abstracts/presentations-zip', {
