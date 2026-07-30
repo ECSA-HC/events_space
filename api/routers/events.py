@@ -399,9 +399,10 @@ def _build_pending_list(pending_regs, db, event_id=None):
             "email": r.user.email if r.user else None,
             "phone": r.user.phone if r.user else None,
             "country": (
-                r.user.user_profile[0].country.country
-                if r.user and r.user.user_profile and r.user.user_profile[0].country
-                else r.badge_country
+                r.badge_country
+                or (r.user.user_profile[0].country.country
+                    if r.user and r.user.user_profile and r.user.user_profile[0].country
+                    else None)
             ),
             "participation_role": r.participation_role,
             "registered_at": r.registered_at,
@@ -967,26 +968,31 @@ async def get_event(
                         if r.user and r.user.user_profile
                         else None
                     ),
+                    # badge_* fields (set by admin bulk-import/add) take priority over a
+                    # general profile when both exist — e.g. someone re-imported for a
+                    # different event with fresh title/org data shouldn't have it
+                    # silently overridden by an older, unrelated profile.
                     "country": (
-                        r.user.user_profile[0].country.country
-                        if r.user and r.user.user_profile and r.user.user_profile[0].country
-                        else r.badge_country
+                        r.badge_country
+                        or (r.user.user_profile[0].country.country
+                            if r.user and r.user.user_profile and r.user.user_profile[0].country
+                            else None)
                     ),
                     "participation_role": r.participation_role,
                     "organisation": (
-                        r.user.user_profile[0].organisation
-                        if r.user and r.user.user_profile and r.user.user_profile[0].organisation
-                        else r.badge_organisation
+                        r.badge_organisation
+                        or (r.user.user_profile[0].organisation
+                            if r.user and r.user.user_profile else None)
                     ),
                     "position": (
-                        r.user.user_profile[0].position
-                        if r.user and r.user.user_profile and r.user.user_profile[0].position
-                        else r.badge_position
+                        r.badge_position
+                        or (r.user.user_profile[0].position
+                            if r.user and r.user.user_profile else None)
                     ),
                     "title": (
-                        r.user.user_profile[0].title
-                        if r.user and r.user.user_profile and r.user.user_profile[0].title
-                        else r.badge_prefix
+                        r.badge_prefix
+                        or (r.user.user_profile[0].title
+                            if r.user and r.user.user_profile else None)
                     ),
                     "paid": getattr(r, "paid", None),
                     "payment_proof": getattr(r, "payment_proof", None),
@@ -2477,8 +2483,12 @@ async def download_participant_badges_pdf(
     for reg in event.registrations:
         user = reg.user
         profile = user.user_profile[0] if user.user_profile else None
-        country = profile.country.country if profile and profile.country else None
-        organisation = profile.organisation if profile else None
+        # badge_* fields (set by admin bulk-import/add) take priority over a
+        # general profile when both exist — e.g. someone re-imported for a
+        # different event with fresh title/org data shouldn't have it
+        # silently overridden by an older, unrelated profile.
+        country = reg.badge_country or (profile.country.country if profile and profile.country else None)
+        organisation = reg.badge_organisation or (profile.organisation if profile else None)
         role_key = (
             reg.participation_role.name
             if hasattr(reg.participation_role, "name")
@@ -2489,12 +2499,12 @@ async def download_participant_badges_pdf(
                 "registration_id": reg.id,
                 "user_id": user.id,
                 "event_id": event_id,
-                "title": (profile.title if profile else (reg.badge_prefix or "")),
+                "title": (reg.badge_prefix or (profile.title if profile else "")),
                 "firstname": user.firstname,
                 "middle_name": profile.middle_name if profile else "",
                 "lastname": user.lastname,
-                "position": (profile.position if profile else (reg.badge_position or "")),
-                "organisation": organisation or reg.badge_organisation,
+                "position": (reg.badge_position or (profile.position if profile else "")),
+                "organisation": organisation,
                 "country": country,
                 "participation_role": PARTICIPATION_ROLE_MAP.get(role_key, role_key),
                 "event_name": event.event,
@@ -2582,8 +2592,8 @@ async def download_my_badge(
 
     user = reg.user
     profile = user.user_profile[0] if user.user_profile else None
-    country = profile.country.country if profile and profile.country else None
-    organisation = profile.organisation if profile else None
+    country = reg.badge_country or (profile.country.country if profile and profile.country else None)
+    organisation = reg.badge_organisation or (profile.organisation if profile else None)
     role_key = (
         reg.participation_role.name
         if hasattr(reg.participation_role, "name")
@@ -2598,12 +2608,12 @@ async def download_my_badge(
     p = {
         "registration_id": reg.id,
         "event_id": event_id,
-        "title": (profile.title if profile else (reg.badge_prefix or "")),
+        "title": (reg.badge_prefix or (profile.title if profile else "")),
         "firstname": user.firstname,
         "middle_name": profile.middle_name if profile else "",
         "lastname": user.lastname,
-        "position": (profile.position if profile else (reg.badge_position or "")),
-        "organisation": organisation or reg.badge_organisation,
+        "position": (reg.badge_position or (profile.position if profile else "")),
+        "organisation": organisation,
         "country": country,
         "participation_role": PARTICIPATION_ROLE_MAP.get(role_key, role_key),
         "event_name": event.event,
