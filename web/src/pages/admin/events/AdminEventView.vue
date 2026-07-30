@@ -1407,6 +1407,10 @@
               </label>
             </div>
 
+            <p v-if="exportedTodayCount > 0" class="text-xs bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-3 py-2">
+              ⓘ {{ exportedTodayCount }} {{ exportedTodayCount === 1 ? 'person has' : 'people have' }} already had their badge exported today — unchecked below by default so they're skipped, but you can still tick them to include anyway.
+            </p>
+
             <div class="rounded-xl border border-gray-200 overflow-hidden">
               <div class="max-h-96 overflow-y-auto divide-y divide-gray-100">
                 <div v-if="filteredBadgePickerParticipants.length === 0" class="text-xs text-gray-400 text-center py-6">
@@ -1418,10 +1422,13 @@
                   <input type="checkbox" :checked="badgePickerSelected.has(p.user_id)"
                     @click.stop="toggleBadgePickerUser(p.user_id)"
                     class="rounded border-gray-300 text-[#5b21b6] focus:ring-[#5b21b6]" />
-                  <div class="min-w-0">
+                  <div class="min-w-0 flex-1">
                     <p class="text-sm font-medium text-gray-800 truncate">{{ p.firstname }} {{ p.lastname }}</p>
                     <p class="text-xs text-gray-400 truncate">{{ p.email }}</p>
                   </div>
+                  <span v-if="wasExportedToday(p)" class="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700 flex-shrink-0">
+                    Exported today
+                  </span>
                 </div>
               </div>
             </div>
@@ -1993,6 +2000,19 @@ const paidOrPopParticipants = computed(() =>
   participants.value.filter(p => p.paid || p.payment_proof)
 )
 
+function wasExportedToday(p) {
+  if (!p.badge_exported_at) return false
+  const exported = new Date(p.badge_exported_at)
+  const now = new Date()
+  return exported.getUTCFullYear() === now.getUTCFullYear()
+    && exported.getUTCMonth() === now.getUTCMonth()
+    && exported.getUTCDate() === now.getUTCDate()
+}
+
+const exportedTodayCount = computed(() =>
+  paidOrPopParticipants.value.filter(wasExportedToday).length
+)
+
 const filteredBadgePickerParticipants = computed(() => {
   const q = badgePickerSearch.value.trim().toLowerCase()
   if (!q) return paidOrPopParticipants.value
@@ -2004,7 +2024,11 @@ const filteredBadgePickerParticipants = computed(() => {
 function openBadgePicker() {
   showBadgePicker.value = true
   badgePickerSearch.value = ''
-  badgePickerSelected.value = new Set(paidOrPopParticipants.value.map(p => p.user_id))
+  // Default-skip anyone already exported today so re-opening the picker
+  // doesn't silently re-print the same badges — still easy to tick back on.
+  badgePickerSelected.value = new Set(
+    paidOrPopParticipants.value.filter(p => !wasExportedToday(p)).map(p => p.user_id)
+  )
 }
 
 function closeBadgePicker() {

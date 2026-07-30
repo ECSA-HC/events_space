@@ -1008,6 +1008,7 @@ async def get_event(
                     "registered_at": r.registered_at,
                     "updated_at": r.updated_at,
                     "reminder_sent_at": getattr(r, "reminder_sent_at", None),
+                    "badge_exported_at": getattr(r, "badge_exported_at", None),
                 }
                 for r in registrations
             ],
@@ -2569,6 +2570,14 @@ async def download_participant_badges_pdf(
 
     c.save()
     buffer.seek(0)
+
+    # Stamp when each of these badges was exported, so the "Choose Names"
+    # picker can flag/skip people already exported today next time.
+    reg_ids = [p["registration_id"] for p in participants]
+    db.query(Registration).filter(Registration.id.in_(reg_ids)).update(
+        {"badge_exported_at": datetime.utcnow()}, synchronize_session=False
+    )
+    db.commit()
 
     safe_event_name = sanitize_filename(event.event)
     ascii_filename = f"{safe_event_name}_participant_badges.pdf"

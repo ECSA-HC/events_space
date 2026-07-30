@@ -517,6 +517,7 @@ class Registration(Base):
     )
     deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)
     reminder_sent_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    badge_exported_at = Column(TIMESTAMP(timezone=True), nullable=True)
 
     # Badge/display fields for participants with no UserProfile (e.g. bulk-
     # imported) — kept separate from `notes` (a free-text admin scratchpad
