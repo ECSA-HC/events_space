@@ -809,9 +809,10 @@ def export_abstracts_pdf(
             )
             writer.add_page(new_page)
 
-        # Remaining pages from generated abstract book (skip cover = page 0)
-        if total_generated > 1:
-            for page in generated_pdf.pages[1:]:
+        # Remaining pages from generated abstract book (skip cover + divider)
+        # generated pages: [0]=cover, [1]=divider, [2:]=abstracts content
+        if total_generated > 2:
+            for page in generated_pdf.pages[2:]:
                 writer.add_page(page)
 
         merged_buf = io.BytesIO()
