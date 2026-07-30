@@ -1552,6 +1552,9 @@ def _paid_presenter_entries(event_id: int, db: Session, include_posters: bool = 
         Registration.deleted_at == None,
     ).all()
     paid_emails = {r.user.email.lower() for r in paid_regs if r.user and r.user.email}
+    # AbstractAuthor has no phone field — pull it from the matching paid
+    # registrant's User account (same email match already used above).
+    phone_by_email = {r.user.email.lower(): r.user.phone for r in paid_regs if r.user and r.user.email}
 
     uploaded_by_abstract_id = {
         p.abstract_id: p for p in db.query(AbstractPresentation).filter(
@@ -1583,6 +1586,7 @@ def _paid_presenter_entries(event_id: int, db: Session, include_posters: bool = 
             presentation = uploaded_by_abstract_id.get(a.id)
             entries.append({
                 **c,
+                "phone": phone_by_email.get(email_lower),
                 "abstract_id": a.id,
                 "abstract_title": a.title,
                 "presentation_type": a.presentation_type.value if a.presentation_type else "",
@@ -1619,16 +1623,16 @@ def presentations_report(
 
     ws1 = wb.active
     ws1.title = "Presenter Contacts"
-    ws1.append(["Name", "Email", "Affiliation", "Country", "Abstract Title", "Presentation Type"])
+    ws1.append(["Name", "Email", "Phone", "Affiliation", "Country", "Abstract Title", "Presentation Type"])
     for cell in ws1[1]:
         cell.font = header_font
         cell.fill = header_fill
     for e in oral_entries:
         ws1.append([
-            f"{e['firstname']} {e['lastname']}".strip(), e["email"], e["affiliation"] or "",
+            f"{e['firstname']} {e['lastname']}".strip(), e["email"], e["phone"] or "", e["affiliation"] or "",
             e["country"] or "", e["abstract_title"], e["presentation_type"],
         ])
-    for ci, w in enumerate([28, 32, 28, 18, 45, 16], 1):
+    for ci, w in enumerate([28, 32, 18, 28, 18, 45, 16], 1):
         ws1.column_dimensions[get_column_letter(ci)].width = w
     ws1.freeze_panes = "A2"
 
