@@ -143,7 +143,11 @@
                   </button>
                   <button @click="manageDropdownOpen = false; openImportModal()"
                     class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 text-left">
-                    Import Participants
+                    Import Participants (with Emails)
+                  </button>
+                  <button @click="manageDropdownOpen = false; openImportNamesOnlyModal()"
+                    class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 text-left">
+                    Import Names Only (No Login)
                   </button>
                 </div>
               </div>
@@ -962,20 +966,7 @@
               <select v-model="addForm.participation_role"
                 class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]">
                 <option value="" disabled>Select a role…</option>
-                <option value="secretariat">ECSA-HC Secretariat</option>
-                <option value="djcc">DJCC Member</option>
-                <option value="moh">Country Delegate (Ministry of Health)</option>
-                <option value="member_state">Participant – ECSA Member State</option>
-                <option value="other_africa">Participant – Other African Country</option>
-                <option value="world">International Participant</option>
-                <option value="delegate">Delegate</option>
-                <option value="presenter">Presenter</option>
-                <option value="speaker">Speaker</option>
-                <option value="moderator">Moderator</option>
-                <option value="participant">General Participant</option>
-                <option value="student">Student</option>
-                <option value="exhibitor">Sponsor / Exhibitor</option>
-                <option value="sponsor">Sponsor</option>
+                <option v-for="role in PARTICIPATION_ROLES" :key="role.value" :value="role.value">{{ role.label }}</option>
               </select>
             </div>
             <label class="flex items-center gap-3 cursor-pointer p-3 rounded-xl bg-gray-50 border border-gray-200 select-none">
@@ -1022,8 +1013,8 @@
                 </svg>
               </div>
               <div>
-                <p class="font-bold text-gray-800 text-sm">Import Participants</p>
-                <p class="text-xs text-gray-400">Bulk-register participants from a spreadsheet</p>
+                <p class="font-bold text-gray-800 text-sm">Import Participants (with Emails)</p>
+                <p class="text-xs text-gray-400">Bulk-register participants from a spreadsheet, creating login accounts</p>
               </div>
             </div>
             <button @click="closeImportModal" :disabled="importing" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition disabled:opacity-40">
@@ -1049,20 +1040,7 @@
                 <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Participation Role (applied to every row) *</label>
                 <select v-model="importRole" class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5b21b6]">
                   <option value="" disabled>Select a role…</option>
-                  <option value="secretariat">ECSA-HC Secretariat</option>
-                  <option value="djcc">DJCC Member</option>
-                  <option value="moh">Country Delegate (Ministry of Health)</option>
-                  <option value="member_state">Participant – ECSA Member State</option>
-                  <option value="other_africa">Participant – Other African Country</option>
-                  <option value="world">International Participant</option>
-                  <option value="delegate">Delegate</option>
-                  <option value="presenter">Presenter</option>
-                  <option value="speaker">Speaker</option>
-                  <option value="moderator">Moderator</option>
-                  <option value="participant">General Participant</option>
-                  <option value="student">Student</option>
-                  <option value="exhibitor">Sponsor / Exhibitor</option>
-                  <option value="sponsor">Sponsor</option>
+                  <option v-for="role in PARTICIPATION_ROLES" :key="role.value" :value="role.value">{{ role.label }}</option>
                 </select>
               </div>
               <label class="flex items-center gap-3 cursor-pointer p-3 rounded-xl bg-gray-50 border border-gray-200 select-none">
@@ -1151,6 +1129,121 @@
               {{ importing ? 'Importing…' : 'Import' }}
             </button>
             <button v-else @click="closeImportModal"
+              class="px-5 py-2 text-sm font-semibold text-white rounded-xl transition hover:opacity-90"
+              style="background-color:#5b21b6;">Done</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Import Names Only Modal (no email column — badge-only, no login accounts) -->
+      <div v-if="showImportNamesOnlyModal"
+        class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+        @click.self="!importingNamesOnly && closeImportNamesOnlyModal()">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[92vh]">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+            <div class="flex items-center gap-3">
+              <div class="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#f5f3ff;">
+                <svg class="w-5 h-5" style="color:#5b21b6;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+              </div>
+              <div>
+                <p class="font-bold text-gray-800 text-sm">Import Names Only (No Login)</p>
+                <p class="text-xs text-gray-400">Badge-only entries for staff with no email on file — no login account is usable</p>
+              </div>
+            </div>
+            <button @click="closeImportNamesOnlyModal" :disabled="importingNamesOnly" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition disabled:opacity-40">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="p-5 space-y-4 overflow-y-auto flex-1">
+
+            <!-- Upload form (hidden once a report exists) -->
+            <template v-if="!importNamesOnlyReport">
+              <p class="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-xl p-3 leading-relaxed">
+                Expected columns: <strong>Name</strong> (required), <strong>Position, Organization, Category</strong> (all optional — no Email column needed). Use this for support staff (ushers, drivers, medical staff, local secretariat) who just need a printed badge — these entries can never log in to the portal.
+              </p>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Spreadsheet (.xlsx) *</label>
+                <input type="file" accept=".xlsx" @change="importNamesOnlyFile = $event.target.files[0]"
+                  class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#f5f3ff] file:text-[#5b21b6] hover:file:opacity-80" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Participation Role (applied to every row) *</label>
+                <select v-model="importNamesOnlyRole" class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5b21b6]">
+                  <option value="" disabled>Select a role…</option>
+                  <option v-for="role in PARTICIPATION_ROLES" :key="role.value" :value="role.value">{{ role.label }}</option>
+                </select>
+              </div>
+              <p v-if="importNamesOnlyError" class="text-red-500 text-sm bg-red-50 border border-red-200 rounded-xl p-3">{{ importNamesOnlyError }}</p>
+            </template>
+
+            <!-- Report -->
+            <template v-else>
+              <div class="grid grid-cols-3 gap-2 text-center">
+                <div class="rounded-xl p-3 bg-green-50 border border-green-200">
+                  <p class="text-xl font-bold text-green-700">{{ importNamesOnlyReport.summary.imported }}</p>
+                  <p class="text-[11px] text-green-700 font-semibold uppercase tracking-wide">Imported</p>
+                </div>
+                <div class="rounded-xl p-3 bg-gray-100 border border-gray-200">
+                  <p class="text-xl font-bold text-gray-600">{{ importNamesOnlyReport.summary.already_there }}</p>
+                  <p class="text-[11px] text-gray-500 font-semibold uppercase tracking-wide">Already There</p>
+                </div>
+                <div class="rounded-xl p-3 bg-red-50 border border-red-200">
+                  <p class="text-xl font-bold text-red-700">{{ importNamesOnlyReport.summary.rejected }}</p>
+                  <p class="text-[11px] text-red-700 font-semibold uppercase tracking-wide">Rejected</p>
+                </div>
+              </div>
+
+              <div v-if="importNamesOnlyReport.imported.length" class="rounded-xl border border-green-200 overflow-hidden">
+                <p class="text-xs font-semibold text-green-700 bg-green-50 px-3 py-1.5">✅ Imported ({{ importNamesOnlyReport.imported.length }})</p>
+                <div class="max-h-40 overflow-y-auto divide-y divide-gray-100">
+                  <div v-for="r in importNamesOnlyReport.imported" :key="'i'+r.row" class="px-3 py-1.5 text-xs text-gray-600">
+                    {{ r.name }}
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="importNamesOnlyReport.already_there.length" class="rounded-xl border border-gray-200 overflow-hidden">
+                <p class="text-xs font-semibold text-gray-600 bg-gray-100 px-3 py-1.5">↩︎ Already There ({{ importNamesOnlyReport.already_there.length }})</p>
+                <div class="max-h-40 overflow-y-auto divide-y divide-gray-100">
+                  <div v-for="r in importNamesOnlyReport.already_there" :key="'a'+r.row" class="px-3 py-1.5 text-xs">
+                    <div class="text-gray-700">{{ r.name }}</div>
+                    <p class="text-gray-500 mt-0.5">{{ r.reason }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="importNamesOnlyReport.rejected.length" class="rounded-xl border border-red-200 overflow-hidden">
+                <p class="text-xs font-semibold text-red-700 bg-red-50 px-3 py-1.5">❌ Rejected ({{ importNamesOnlyReport.rejected.length }})</p>
+                <div class="max-h-40 overflow-y-auto divide-y divide-gray-100">
+                  <div v-for="r in importNamesOnlyReport.rejected" :key="'r'+r.row" class="px-3 py-1.5 text-xs">
+                    <div class="text-gray-700">{{ r.name || '(no name)' }}</div>
+                    <p class="text-red-700 mt-0.5">{{ r.reason }}</p>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <div class="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-100 flex-shrink-0">
+            <button v-if="!importNamesOnlyReport" @click="closeImportNamesOnlyModal" :disabled="importingNamesOnly"
+              class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition font-medium disabled:opacity-40">Cancel</button>
+            <button v-if="!importNamesOnlyReport" @click="submitImportNamesOnly"
+              :disabled="importingNamesOnly || !importNamesOnlyFile || !importNamesOnlyRole"
+              class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-xl transition hover:opacity-90 disabled:opacity-50"
+              style="background-color:#5b21b6;">
+              <svg v-if="importingNamesOnly" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+              {{ importingNamesOnly ? 'Importing…' : 'Import' }}
+            </button>
+            <button v-else @click="closeImportNamesOnlyModal"
               class="px-5 py-2 text-sm font-semibold text-white rounded-xl transition hover:opacity-90"
               style="background-color:#5b21b6;">Done</button>
           </div>
@@ -1361,20 +1454,7 @@
               <select v-model="editRoleForm.participation_role"
                 class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]">
                 <option value="" disabled>Select a role…</option>
-                <option value="secretariat">ECSA-HC Secretariat</option>
-                <option value="djcc">DJCC Member</option>
-                <option value="moh">Country Delegate (Ministry of Health)</option>
-                <option value="member_state">Participant – ECSA Member State</option>
-                <option value="other_africa">Participant – Other African Country</option>
-                <option value="world">International Participant</option>
-                <option value="delegate">Delegate</option>
-                <option value="presenter">Presenter</option>
-                <option value="speaker">Speaker</option>
-                <option value="moderator">Moderator</option>
-                <option value="participant">General Participant</option>
-                <option value="student">Student</option>
-                <option value="exhibitor">Sponsor / Exhibitor</option>
-                <option value="sponsor">Sponsor</option>
+                <option v-for="role in PARTICIPATION_ROLES" :key="role.value" :value="role.value">{{ role.label }}</option>
               </select>
               <p v-if="editRoleForm.participation_role === 'secretariat'" class="text-xs text-amber-600 mt-1.5">
                 Secretariat is exempt from payment — this participant will automatically be marked as paid.
@@ -1419,6 +1499,7 @@ import ParticipantBadgeModal from '@/components/specific/ParticipantBadgeModal.v
 import DetailItem from '@/components/specific/DetailItem.vue'
 import UploadDocumentModal from '@/components/specific/UploadDocumentModal.vue'
 import AddLinkModal from '@/components/specific/AddLinkModal.vue'
+import { PARTICIPATION_ROLES } from '@/constants/participationRoles'
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL
 const route = useRoute()
@@ -1701,6 +1782,48 @@ async function submitImport() {
     importError.value = e.response?.data?.detail || 'Import failed'
   } finally {
     importing.value = false
+  }
+}
+
+const showImportNamesOnlyModal = ref(false)
+const importNamesOnlyFile = ref(null)
+const importNamesOnlyRole = ref('')
+const importingNamesOnly = ref(false)
+const importNamesOnlyError = ref('')
+const importNamesOnlyReport = ref(null)
+
+function openImportNamesOnlyModal() {
+  showImportNamesOnlyModal.value = true
+}
+
+function closeImportNamesOnlyModal() {
+  showImportNamesOnlyModal.value = false
+  importNamesOnlyFile.value = null
+  importNamesOnlyRole.value = ''
+  importNamesOnlyError.value = ''
+  const hadReport = !!importNamesOnlyReport.value
+  importNamesOnlyReport.value = null
+  if (hadReport) {
+    api.get(`/events/${eventId}`).then(res => { participants.value = res.data.participants })
+  }
+}
+
+async function submitImportNamesOnly() {
+  if (!importNamesOnlyFile.value || !importNamesOnlyRole.value) return
+  importingNamesOnly.value = true
+  importNamesOnlyError.value = ''
+  try {
+    const fd = new FormData()
+    fd.append('file', importNamesOnlyFile.value)
+    fd.append('participation_role', importNamesOnlyRole.value)
+    const res = await api.post(`/events/${eventId}/bulk-import-names-only`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    importNamesOnlyReport.value = res.data
+  } catch (e) {
+    importNamesOnlyError.value = e.response?.data?.detail || 'Import failed'
+  } finally {
+    importingNamesOnly.value = false
   }
 }
 

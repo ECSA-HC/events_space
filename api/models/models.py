@@ -75,6 +75,10 @@ class ParticipationRole(PyEnum):
     member_state = "member_state"
     moh = "moh"
     djcc = "djcc"
+    local_secretariat = "local_secretariat"
+    usher = "usher"
+    driver = "driver"
+    medical_staff = "medical_staff"
 
 
 class PaymentMethod(PyEnum):

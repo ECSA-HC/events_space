@@ -135,6 +135,10 @@ BADGE_ROLE_COLORS = {
     "participant":  "#009639",
     "exhibitor":    "#F7941D",
     "sponsor":      "#F7941D",
+    "local_secretariat": "#0369A1",
+    "usher":             "#EC4899",
+    "driver":            "#92400E",
+    "medical_staff":     "#0D9488",
 }
 
 BADGE_ROLE_LABELS = {
@@ -153,7 +157,16 @@ BADGE_ROLE_LABELS = {
     "participant":  "PARTICIPANT",
     "exhibitor":    "EXHIBITOR",
     "sponsor":      "SPONSOR",
+    "local_secretariat": "LOCAL SECRETARIAT",
+    "usher":             "USHER",
+    "driver":            "DRIVER",
+    "medical_staff":     "MEDICAL STAFF",
 }
+
+# Roles exempt from payment (auto paid=True at creation, no payment reminders).
+# Support-staff categories (ushers/drivers/medical staff/local secretariat) are
+# never expected to pay like delegates — matches how "secretariat" already works.
+NO_PAYMENT_ROLES = {"secretariat", "local_secretariat", "usher", "driver", "medical_staff"}
 
 # Generic word abbreviations used to shorten organization names that don't fit
 # their badge box even at minimum font size (must match ParticipantBadgeModal.vue).
@@ -3274,8 +3287,8 @@ async def admin_add_participant(
             db.commit()
 
     # ── 2. Register (or update role if already registered) ────────────────────
-    # Roles that are exempt from payment — mark as paid automatically
-    NO_PAYMENT_ROLES = {"secretariat"}
+    # NO_PAYMENT_ROLES (module-level, near BADGE_ROLE_COLORS) marks roles exempt
+    # from payment — mark as paid automatically
     auto_paid = body.participation_role in NO_PAYMENT_ROLES
 
     existing_reg = db.query(Registration).filter(
@@ -3308,24 +3321,8 @@ async def admin_add_participant(
     # ── 3. Send email ─────────────────────────────────────────────────────────
     import utils.mailer_util as mailer_util
 
-    # Build friendly role label
-    role_labels = {
-        "secretariat": "ECSA-HC Secretariat",
-        "djcc": "DJCC Member",
-        "moh": "Country Delegate (Ministry of Health)",
-        "member_state": "Participant from ECSA Member States",
-        "other_africa": "Participant from other African countries",
-        "world": "International Participant",
-        "student": "Student",
-        "exhibitor": "Sponsor / Exhibitor",
-        "participant": "Participant",
-        "delegate": "Delegate",
-        "presenter": "Presenter",
-        "speaker": "Speaker",
-        "sponsor": "Sponsor",
-        "moderator": "Moderator",
-    }
-    role_label = role_labels.get(body.participation_role, body.participation_role)
+    # Build friendly role label (shared dict, also used by bulk_import_participants)
+    role_label = _ROLE_LABELS.get(body.participation_role, body.participation_role)
 
     # Format event dates
     event_dates = None
@@ -3438,10 +3435,29 @@ _ROLE_LABELS = {
     "speaker": "Speaker",
     "sponsor": "Sponsor",
     "moderator": "Moderator",
+    "local_secretariat": "Local Secretariat",
+    "usher": "Usher",
+    "driver": "Driver",
+    "medical_staff": "Medical Staff",
 }
 _HONORIFICS = {"dr", "mr", "mrs", "ms", "prof", "rev", "eng", "hon"}
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-_NO_PAYMENT_ROLES = {"secretariat"}
+
+
+def _parse_full_name(raw_name: str):
+    """Split a free-text name into (firstname, lastname, badge_prefix),
+    stripping a leading honorific (Dr/Mr/Mrs/...) into badge_prefix. Returns
+    (None, None, None) if nothing is left after removing the honorific."""
+    parts = raw_name.split()
+    honorific = None
+    if parts and parts[0].strip(".").lower() in _HONORIFICS:
+        honorific = parts[0].strip(".")
+        parts = parts[1:]
+    if not parts:
+        return None, None, None
+    firstname = parts[0]
+    lastname = " ".join(parts[1:]) if len(parts) > 1 else parts[0]
+    return firstname, lastname, honorific
 
 
 @router.post("/{event_id}/bulk-import-participants")
@@ -3524,7 +3540,7 @@ async def bulk_import_participants(
             return d.strftime("%-d %B %Y") if hasattr(d, "strftime") else str(d)
         event_dates = f"{_fmt(event.start_date)} – {_fmt(event.end_date)}"
     role_label = _ROLE_LABELS.get(participation_role, participation_role)
-    auto_paid_role = participation_role in _NO_PAYMENT_ROLES
+    auto_paid_role = participation_role in NO_PAYMENT_ROLES
 
     imported, mismatches, already_there, rejected = [], [], [], []
 
@@ -3560,16 +3576,10 @@ async def bulk_import_participants(
             rejected.append({**row_ref, "reason": f"Invalid email format: {raw_email}"})
             continue
 
-        parts = raw_name.split()
-        honorific = None
-        if parts and parts[0].strip(".").lower() in _HONORIFICS:
-            honorific = parts[0].strip(".")
-            parts = parts[1:]
-        if not parts:
+        firstname, lastname, honorific = _parse_full_name(raw_name)
+        if firstname is None:
             rejected.append({**row_ref, "reason": "Name has no content after removing honorific"})
             continue
-        firstname = parts[0]
-        lastname = " ".join(parts[1:]) if len(parts) > 1 else parts[0]
 
         payment_flag = (raw_payment or "").strip().lower()
         paid = payment_flag in {"paid", "yes", "true", "1", "y"}
@@ -3697,6 +3707,149 @@ async def bulk_import_participants(
         "summary": {
             "imported": len(imported),
             "mismatches": len(mismatches),
+            "already_there": len(already_there),
+            "rejected": len(rejected),
+        },
+    }
+
+
+@router.post("/{event_id}/bulk-import-names-only")
+async def bulk_import_names_only(
+    event_id: int,
+    current_user: user_dependency,
+    file: UploadFile = File(...),
+    participation_role: str = Form(...),
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    """Bulk-import badge-only participants with no email on file (e.g. ushers,
+    drivers, medical staff, local secretariat support teams — no email column
+    at all in these lists). Columns: Name (required), Position/Title,
+    Organization, Category (folded into badge_position alongside Position).
+
+    Each row still gets a real `User` row under the hood, because
+    `Registration.user_id` is NOT NULL and unique per event — but the email
+    is a generated, non-functional placeholder (no invite is ever sent, no
+    password is ever usable), so these accounts can never be logged into.
+    This lets the normal badge/participant-list code work completely
+    unchanged. Duplicate rows (matched by first+last name within this event,
+    since there's no email to match on) are skipped and reported."""
+    auth_dependency.secure_access("ADMIN_DASHBOARD", current_user["user_id"])
+
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    try:
+        role_enum = ParticipationRole[participation_role]
+    except KeyError:
+        raise HTTPException(status_code=400, detail=f"Invalid participation role: {participation_role}")
+
+    from openpyxl import load_workbook
+    contents = await file.read()
+    try:
+        wb = load_workbook(BytesIO(contents), data_only=True)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not read file — please upload a valid .xlsx file")
+    sheet = wb.active
+    rows = list(sheet.iter_rows(values_only=True))
+    if not rows:
+        raise HTTPException(status_code=400, detail="File is empty")
+
+    header = [str(c).strip().lower() if c is not None else "" for c in rows[0]]
+
+    def find_col(*names):
+        for n in names:
+            if n in header:
+                return header.index(n)
+        return None
+
+    col_name = find_col("name")
+    col_title = find_col("title", "position")
+    col_org = find_col("organization", "organisation")
+    col_category = find_col("category")
+
+    if col_name is None:
+        raise HTTPException(status_code=400, detail="File must have at least a 'Name' column")
+
+    def cell(row, idx):
+        if idx is None or idx >= len(row):
+            return None
+        v = row[idx]
+        return str(v).strip() if v is not None else None
+
+    auto_paid_role = participation_role in NO_PAYMENT_ROLES
+
+    # No email to match on for badge-only entries, so dedup by name within
+    # this event — covers both real-account and previously placeholder rows.
+    existing_names = {
+        (u.firstname.strip().lower(), u.lastname.strip().lower())
+        for u in db.query(User)
+            .join(Registration, Registration.user_id == User.id)
+            .filter(Registration.event_id == event_id, Registration.deleted_at == None)
+            .all()
+    }
+
+    imported, already_there, rejected = [], [], []
+
+    for i, row in enumerate(rows[1:], start=2):
+        raw_name = cell(row, col_name)
+        raw_title = cell(row, col_title)
+        raw_org = cell(row, col_org)
+        raw_category = cell(row, col_category)
+
+        if not raw_name:
+            continue  # fully blank row
+
+        row_ref = {"row": i, "name": raw_name}
+
+        firstname, lastname, honorific = _parse_full_name(raw_name)
+        if firstname is None:
+            rejected.append({**row_ref, "reason": "Name has no content after removing honorific"})
+            continue
+
+        name_key = (firstname.strip().lower(), lastname.strip().lower())
+        if name_key in existing_names:
+            already_there.append({**row_ref, "reason": "Already registered for this event"})
+            continue
+
+        badge_prefix = honorific or None
+        badge_position = raw_title or None
+        if raw_category:
+            badge_position = f"{badge_position} - {raw_category}" if badge_position else raw_category
+        badge_organisation = raw_org or None
+
+        from passlib.hash import bcrypt as bcrypt_hash
+        temp_password = auth_dependency.generate_random_password()
+        hashed = bcrypt_hash.hash(temp_password)
+        placeholder_email = f"badge.{uuid.uuid4().hex[:12]}@no-login.ecsahc.internal"
+        user = User(
+            firstname=firstname, lastname=lastname, email=placeholder_email,
+            phone=None, hashed_password=hashed, verified=1,
+            credentials_sent=True,  # placeholder email — never attempt to send credentials
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        new_reg = Registration(
+            user_id=user.id, event_id=event_id,
+            participation_role=role_enum, paid=auto_paid_role,
+            badge_prefix=badge_prefix, badge_position=badge_position, badge_organisation=badge_organisation,
+        )
+        db.add(new_reg)
+        db.commit()
+        db.refresh(new_reg)
+
+        existing_names.add(name_key)
+        imported.append({**row_ref, "registration_id": new_reg.id})
+
+    return {
+        "total_rows": len(rows) - 1,
+        "imported": imported,
+        "already_there": already_there,
+        "rejected": rejected,
+        "summary": {
+            "imported": len(imported),
             "already_there": len(already_there),
             "rejected": len(rejected),
         },

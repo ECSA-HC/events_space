@@ -175,6 +175,11 @@ const ROLE_COLORS = {
   participant:  '#009639',
   exhibitor:    '#F7941D',
   sponsor:      '#F7941D',
+  djcc:              '#8B5CF6',
+  local_secretariat: '#0369A1',
+  usher:             '#EC4899',
+  driver:            '#92400E',
+  medical_staff:     '#0D9488',
 }
 const ROLE_LABELS = {
   media:        'MEDIA',
@@ -191,6 +196,11 @@ const ROLE_LABELS = {
   participant:  'PARTICIPANT',
   exhibitor:    'EXHIBITOR',
   sponsor:      'SPONSOR',
+  djcc:              'DJCC MEMBER',
+  local_secretariat: 'LOCAL SECRETARIAT',
+  usher:             'USHER',
+  driver:            'DRIVER',
+  medical_staff:     'MEDICAL STAFF',
 }
 
 const roleKey = computed(() => {
