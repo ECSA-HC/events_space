@@ -970,7 +970,7 @@ async def get_event(
                     "country": (
                         r.user.user_profile[0].country.country
                         if r.user and r.user.user_profile and r.user.user_profile[0].country
-                        else None
+                        else r.badge_country
                     ),
                     "participation_role": r.participation_role,
                     "organisation": (
@@ -3592,6 +3592,7 @@ async def bulk_import_participants(
         badge_prefix = honorific or None
         badge_position = raw_title or None
         badge_organisation = raw_org or None
+        badge_country = raw_country or None
 
         existing_user = db.query(User).filter(User.email == email, User.deleted_at == None).first()
 
@@ -3617,6 +3618,7 @@ async def bulk_import_participants(
                 user_id=existing_user.id, event_id=event_id,
                 participation_role=role_enum, paid=paid or auto_paid_role,
                 badge_prefix=badge_prefix, badge_position=badge_position, badge_organisation=badge_organisation,
+                badge_country=badge_country,
             )
             db.add(new_reg)
             db.commit()
@@ -3675,6 +3677,7 @@ async def bulk_import_participants(
             user_id=user.id, event_id=event_id,
             participation_role=role_enum, paid=paid or auto_paid_role,
             badge_prefix=badge_prefix, badge_position=badge_position, badge_organisation=badge_organisation,
+            badge_country=badge_country,
         )
         db.add(new_reg)
         db.commit()

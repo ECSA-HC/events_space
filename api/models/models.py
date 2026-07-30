@@ -524,6 +524,7 @@ class Registration(Base):
     badge_prefix       = Column(String(10), nullable=True)
     badge_position     = Column(String(200), nullable=True)
     badge_organisation = Column(String(200), nullable=True)
+    badge_country      = Column(String(100), nullable=True)
 
     user = relationship("User", back_populates="registrations")
     events = relationship("Event", back_populates="registrations")
