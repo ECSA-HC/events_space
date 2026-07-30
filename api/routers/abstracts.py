@@ -758,16 +758,19 @@ def export_abstracts_pdf(
     buf.seek(0)
 
     # ── Merge programme PDF as page 2 ──────────────────────────────────────
-    from PyPDF2 import PdfReader, PdfWriter
+    from pypdf import PdfReader, PdfWriter
     from pathlib import Path
 
     programme_path = Path(__file__).resolve().parent.parent / "assets" / "programme_16th.pdf"
     if programme_path.exists():
         writer = PdfWriter()
 
+        # Read the generated abstract book
+        generated_pdf = PdfReader(buf)
+        total_generated = len(generated_pdf.pages)
+
         # Page 1: cover page from generated abstract book
-        generated = PdfReader(buf)
-        writer.add_page(generated.pages[0])
+        writer.add_page(generated_pdf.pages[0])
 
         # Pages 2+: programme PDF (all pages)
         programme = PdfReader(str(programme_path))
@@ -775,8 +778,9 @@ def export_abstracts_pdf(
             writer.add_page(page)
 
         # Remaining pages from generated abstract book (skip cover = page 0)
-        for page in generated.pages[1:]:
-            writer.add_page(page)
+        if total_generated > 1:
+            for page in generated_pdf.pages[1:]:
+                writer.add_page(page)
 
         merged_buf = io.BytesIO()
         writer.write(merged_buf)

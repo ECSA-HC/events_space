@@ -47,7 +47,7 @@ app = FastAPI(
 
 # ✅ Mount after FastAPI is initialized
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-app.mount("/assets", StaticFiles(directory="api/assets"), name="assets")
+app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 
 origins = [
     "https://api.ecsahc.com",
