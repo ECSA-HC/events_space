@@ -1573,6 +1573,7 @@ const roleFilter = ref('all')
 function roleCategoryOf(p) {
   if (p.participation_role === 'secretariat') return 'secretariat'
   if (p.participation_role === 'djcc') return 'djcc'
+  if (p.participation_role === 'local_secretariat') return 'local_secretariat'
   return 'other'
 }
 
@@ -1580,11 +1581,13 @@ const roleCategories = computed(() => {
   const all = participants.value
   const secretariat = all.filter(p => roleCategoryOf(p) === 'secretariat')
   const djcc = all.filter(p => roleCategoryOf(p) === 'djcc')
+  const localSecretariat = all.filter(p => roleCategoryOf(p) === 'local_secretariat')
   const other = all.filter(p => roleCategoryOf(p) === 'other')
   return [
     { key: 'all', label: 'All', total: all.length, paid: all.filter(p => p.paid).length, color: '#0095B6' },
     { key: 'secretariat', label: 'Secretariat', total: secretariat.length, paid: secretariat.filter(p => p.paid).length, color: '#00AEEF' },
     { key: 'djcc', label: 'DJCC Members', total: djcc.length, paid: djcc.filter(p => p.paid).length, color: '#8B5CF6' },
+    { key: 'local_secretariat', label: 'Local Secretariat', total: localSecretariat.length, paid: localSecretariat.filter(p => p.paid).length, color: '#0369A1' },
     { key: 'other', label: 'Other', total: other.length, paid: other.filter(p => p.paid).length, color: '#6B7280' },
   ]
 })

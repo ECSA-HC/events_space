@@ -1929,7 +1929,7 @@ async def download_event_participants(
     event_id: int,
     current_user: user_dependency,
     paid: Literal["all", "true", "false"] = Query("all"),
-    role_category: Literal["all", "secretariat", "djcc", "other"] = Query("all"),
+    role_category: Literal["all", "secretariat", "djcc", "local_secretariat", "other"] = Query("all"),
     db: Session = Depends(get_db),
     dependency=Depends(get_dependency),
     auth_dependency: Auth = Depends(get_auth_dependency),
@@ -1997,10 +1997,10 @@ async def download_event_participants(
     # Filter by role category. Secretariat and DJCC members are only included
     # when explicitly selected via their own filter pill — the general "All"
     # export excludes them since they're downloaded separately.
-    if role_category in ("secretariat", "djcc"):
+    if role_category in ("secretariat", "djcc", "local_secretariat"):
         participants = [p for p in participants if p["role_key"] == role_category]
     else:
-        participants = [p for p in participants if p["role_key"] not in ("secretariat", "djcc")]
+        participants = [p for p in participants if p["role_key"] not in ("secretariat", "djcc", "local_secretariat")]
 
     if not participants:
         raise HTTPException(status_code=404, detail="No participants found")
@@ -2453,7 +2453,7 @@ async def download_participant_badges_pdf(
     event_id: int,
     current_user: user_dependency,
     paid: Literal["all", "true", "false"] = Query("all"),
-    role_category: Literal["all", "secretariat", "djcc", "other"] = Query("all"),
+    role_category: Literal["all", "secretariat", "djcc", "local_secretariat", "other"] = Query("all"),
     user_id: Optional[int] = Query(None),
     user_ids: Optional[str] = Query(None, description="Comma-separated user IDs to include"),
     db: Session = Depends(get_db),
@@ -2527,7 +2527,7 @@ async def download_participant_badges_pdf(
 
     if role_category != "all":
         if role_category == "other":
-            participants = [p for p in participants if p["participation_role_raw"] not in ("secretariat", "djcc")]
+            participants = [p for p in participants if p["participation_role_raw"] not in ("secretariat", "djcc", "local_secretariat")]
         else:
             participants = [p for p in participants if p["participation_role_raw"] == role_category]
 
