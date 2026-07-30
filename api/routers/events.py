@@ -401,7 +401,7 @@ def _build_pending_list(pending_regs, db, event_id=None):
             "country": (
                 r.user.user_profile[0].country.country
                 if r.user and r.user.user_profile and r.user.user_profile[0].country
-                else None
+                else r.badge_country
             ),
             "participation_role": r.participation_role,
             "registered_at": r.registered_at,
@@ -975,18 +975,18 @@ async def get_event(
                     "participation_role": r.participation_role,
                     "organisation": (
                         r.user.user_profile[0].organisation
-                        if r.user and r.user.user_profile
-                        else None
+                        if r.user and r.user.user_profile and r.user.user_profile[0].organisation
+                        else r.badge_organisation
                     ),
                     "position": (
                         r.user.user_profile[0].position
-                        if r.user and r.user.user_profile
-                        else None
+                        if r.user and r.user.user_profile and r.user.user_profile[0].position
+                        else r.badge_position
                     ),
                     "title": (
                         r.user.user_profile[0].title
-                        if r.user and r.user.user_profile
-                        else None
+                        if r.user and r.user.user_profile and r.user.user_profile[0].title
+                        else r.badge_prefix
                     ),
                     "paid": getattr(r, "paid", None),
                     "payment_proof": getattr(r, "payment_proof", None),
