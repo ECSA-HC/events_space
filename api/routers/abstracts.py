@@ -1526,6 +1526,186 @@ def all_presentations(
     ]
 
 
+def _oral_paid_presenter_entries(event_id: int, db: Session):
+    """Accepted, non-poster (oral/either) abstracts for this event, each
+    expanded to one entry per presenting author (falling back to the
+    submitter if no author is flagged as presenting), filtered to only those
+    whose email matches a paid (or POP) registrant for this event. Returns
+    (entries, abstracts_by_id, uploaded_by_abstract_id)."""
+    from models.models import PresentationType
+
+    abstracts = db.query(Abstract).options(
+        joinedload(Abstract.authors), joinedload(Abstract.submitter),
+    ).filter(
+        Abstract.event_id == event_id,
+        Abstract.status == AbstractStatus.accepted,
+        Abstract.deleted_at == None,
+        Abstract.presentation_type != PresentationType.poster,
+    ).all()
+
+    paid_regs = db.query(Registration).join(User, User.id == Registration.user_id).filter(
+        Registration.event_id == event_id,
+        or_(Registration.paid == True, Registration.payment_proof.isnot(None)),
+        Registration.deleted_at == None,
+    ).all()
+    paid_emails = {r.user.email.lower() for r in paid_regs if r.user and r.user.email}
+
+    uploaded_by_abstract_id = {
+        p.abstract_id: p for p in db.query(AbstractPresentation).filter(
+            AbstractPresentation.abstract_id.in_([a.id for a in abstracts])
+        ).all()
+    } if abstracts else {}
+
+    entries = []
+    for a in abstracts:
+        presenting = [au for au in a.authors if au.is_presenting]
+        if presenting:
+            candidates = [
+                {"firstname": au.firstname, "lastname": au.lastname, "email": (au.email or "").strip(),
+                 "affiliation": au.affiliation, "country": au.country}
+                for au in presenting
+            ]
+        elif a.submitter:
+            candidates = [{
+                "firstname": a.submitter.firstname, "lastname": a.submitter.lastname,
+                "email": (a.submitter.email or "").strip(), "affiliation": None, "country": None,
+            }]
+        else:
+            candidates = []
+
+        for c in candidates:
+            email_lower = c["email"].lower() if c["email"] else None
+            if not email_lower or email_lower not in paid_emails:
+                continue
+            presentation = uploaded_by_abstract_id.get(a.id)
+            entries.append({
+                **c,
+                "abstract_id": a.id,
+                "abstract_title": a.title,
+                "presentation_type": a.presentation_type.value if a.presentation_type else "",
+                "presentation": presentation,
+            })
+
+    abstracts_by_id = {a.id: a for a in abstracts}
+    return entries, abstracts_by_id, uploaded_by_abstract_id
+
+
+@router.get("/presentations-report")
+def presentations_report(
+    event_id: int = Query(...),
+    current_user: user_dependency = None,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+):
+    """Admin: Excel report for oral-presentation presenters who are paid
+    registrants — one sheet with contact details, one sheet showing who has
+    and hasn't uploaded their presentation file yet (for sending reminders)."""
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+    from models.models import Event as EventModel
+
+    event = db.query(EventModel).filter(EventModel.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    entries, _, _ = _oral_paid_presenter_entries(event_id, db)
+
+    wb = Workbook()
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill("solid", fgColor="0095B6")
+
+    ws1 = wb.active
+    ws1.title = "Presenter Contacts"
+    ws1.append(["Name", "Email", "Affiliation", "Country", "Abstract Title", "Presentation Type"])
+    for cell in ws1[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+    for e in entries:
+        ws1.append([
+            f"{e['firstname']} {e['lastname']}".strip(), e["email"], e["affiliation"] or "",
+            e["country"] or "", e["abstract_title"], e["presentation_type"],
+        ])
+    for ci, w in enumerate([28, 32, 28, 18, 45, 16], 1):
+        ws1.column_dimensions[get_column_letter(ci)].width = w
+    ws1.freeze_panes = "A2"
+
+    ws2 = wb.create_sheet("Upload Status")
+    ws2.append(["Name", "Email", "Abstract Title", "Uploaded?", "Uploaded At"])
+    for cell in ws2[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+    for e in entries:
+        presentation = e["presentation"]
+        ws2.append([
+            f"{e['firstname']} {e['lastname']}".strip(), e["email"], e["abstract_title"],
+            "Yes" if presentation else "No",
+            presentation.uploaded_at.strftime("%Y-%m-%d %H:%M") if presentation and presentation.uploaded_at else "",
+        ])
+    for ci, w in enumerate([28, 32, 45, 12, 20], 1):
+        ws2.column_dimensions[get_column_letter(ci)].width = w
+    ws2.freeze_panes = "A2"
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = "presenters_report.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@router.get("/presentations-zip")
+def presentations_zip(
+    event_id: int = Query(...),
+    current_user: user_dependency = None,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+):
+    """Admin: download every uploaded oral-presentation file (paid presenters
+    only) for an event, bundled into a single zip."""
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+    import zipfile
+    from models.models import Event as EventModel
+
+    event = db.query(EventModel).filter(EventModel.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    entries, abstracts_by_id, _ = _oral_paid_presenter_entries(event_id, db)
+    presentations = [e["presentation"] for e in entries if e["presentation"]]
+    if not presentations:
+        raise HTTPException(status_code=404, detail="No uploaded presentations found for paid oral presenters")
+
+    zip_buffer = io.BytesIO()
+    used_names = set()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        seen_ids = set()
+        for p in presentations:
+            if p.id in seen_ids or not os.path.exists(p.file_path):
+                continue
+            seen_ids.add(p.id)
+            abstract = abstracts_by_id.get(p.abstract_id)
+            base = "".join(c if c.isalnum() or c in " _-" else "_" for c in (abstract.title if abstract else f"abstract_{p.abstract_id}")).strip()
+            ext = os.path.splitext(p.file_path)[1]
+            arcname = f"{base}{ext}"
+            n = 1
+            while arcname in used_names:
+                arcname = f"{base}_{n}{ext}"
+                n += 1
+            used_names.add(arcname)
+            zf.write(p.file_path, arcname=arcname)
+
+    zip_buffer.seek(0)
+    filename = "presentations.zip"
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
 @router.get("/{abstract_id}")
 def get_abstract(
     abstract_id: int,

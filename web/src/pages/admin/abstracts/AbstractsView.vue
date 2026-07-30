@@ -960,11 +960,42 @@
           </button>
         </div>
 
-        <div class="px-5 pt-4 flex-shrink-0">
+        <div class="px-5 pt-4 flex-shrink-0 space-y-2">
           <select v-model.number="presentationsModal.eventId" @change="loadPresentations" class="input w-full">
             <option :value="null">All Events</option>
             <option v-for="e in events" :key="e.id" :value="e.id">{{ e.event }}</option>
           </select>
+          <div v-if="presentationsModal.eventId" class="flex flex-wrap gap-2">
+            <button @click="downloadPresentersReport" :disabled="downloadingPresentersReport"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
+              style="background:#e6f7fb; color:#0095B6; border:1px solid #b3e4f0;">
+              <svg v-if="!downloadingPresentersReport" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+              </svg>
+              <svg v-else class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+              {{ downloadingPresentersReport ? 'Preparing…' : 'Presenters Report (Excel)' }}
+            </button>
+            <button @click="downloadPresentationsZip" :disabled="downloadingPresentationsZip"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
+              style="background:#f5f3ff; color:#5b21b6; border:1px solid #c4b5fd;">
+              <svg v-if="!downloadingPresentationsZip" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2v-7m16 0V5a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0H4"/>
+              </svg>
+              <svg v-else class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+              {{ downloadingPresentationsZip ? 'Zipping…' : 'Download All (ZIP)' }}
+            </button>
+          </div>
+          <p v-if="presentationsModal.eventId" class="text-[11px] text-gray-400">
+            Oral presentations only, paid registrants only.
+          </p>
         </div>
 
         <div class="p-5 space-y-2 overflow-y-auto flex-1">
@@ -2115,6 +2146,53 @@ const loadPresentations = async () => {
     presentationsModal.value.items = []
   } finally {
     presentationsModal.value.loading = false
+  }
+}
+
+// Oral-presenter report/zip — scoped to paid registrants, excludes posters.
+// Needs a specific event selected (unlike the "All Events" list view above).
+const downloadingPresentersReport = ref(false)
+const downloadingPresentationsZip = ref(false)
+
+const downloadPresentersReport = async () => {
+  if (!presentationsModal.value.eventId) return
+  downloadingPresentersReport.value = true
+  try {
+    const res = await api.get('/abstracts/presentations-report', {
+      params: { event_id: presentationsModal.value.eventId },
+      responseType: 'blob',
+    })
+    const url = URL.createObjectURL(new Blob([res.data], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    }))
+    const a = document.createElement('a')
+    a.href = url; a.download = 'presenters_report.xlsx'; a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    alert('Report download failed. Please try again.')
+  } finally {
+    downloadingPresentersReport.value = false
+  }
+}
+
+const downloadPresentationsZip = async () => {
+  if (!presentationsModal.value.eventId) return
+  downloadingPresentationsZip.value = true
+  try {
+    const res = await api.get('/abstracts/presentations-zip', {
+      params: { event_id: presentationsModal.value.eventId },
+      responseType: 'blob',
+    })
+    const url = URL.createObjectURL(new Blob([res.data], { type: 'application/zip' }))
+    const a = document.createElement('a')
+    a.href = url; a.download = 'presentations.zip'; a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    alert(e.response?.status === 404
+      ? 'No uploaded presentations found for paid oral presenters in this event.'
+      : 'Zip download failed. Please try again.')
+  } finally {
+    downloadingPresentationsZip.value = false
   }
 }
 
