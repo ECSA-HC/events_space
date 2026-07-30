@@ -51,7 +51,6 @@
           <p class="text-xs text-gray-500">{{ ev.event }}</p>
         </div>
         <div class="flex items-center gap-3">
-          <button @click="openAbstractBookPreview(ev.id)" class="text-sm text-indigo-600 hover:underline">Preview</button>
           <a :href="`${apiBaseUrl}/abstracts/export/pdf?event_id=${ev.id}`" target="_blank" class="text-sm text-indigo-600 hover:underline">Download</a>
         </div>
       </div>
@@ -205,12 +204,6 @@ function canPreview(doc) {
 
 function openPreview(doc) {
   previewingDoc.value = doc
-  showPreviewModal.value = true
-}
-
-// ─── Abstract Book preview ───────────────────────────────────────────────────
-function openAbstractBookPreview(eventId) {
-  previewingDoc.value = { name: 'Abstract Book', file_name: 'book_of_abstracts.pdf', path: `${apiBaseUrl}/abstracts/export/pdf?event_id=${eventId}` }
   showPreviewModal.value = true
 }
 
