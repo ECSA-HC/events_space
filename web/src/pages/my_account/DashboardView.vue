@@ -44,6 +44,18 @@
         </div>
       </div>
 
+      <!-- Programme Timetable -->
+      <div class="flex items-center justify-between bg-gray-50 px-4 py-3 rounded mb-4">
+        <div>
+          <p class="font-medium text-indigo-700">Programme Timetable</p>
+          <p class="text-xs text-gray-500">programme_16th.pdf</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <button @click="openProgrammePreview" class="text-sm text-indigo-600 hover:underline">Preview</button>
+          <a :href="programmeUrl" target="_blank" class="text-sm text-indigo-600 hover:underline">Download</a>
+        </div>
+      </div>
+
       <div v-for="ev in paidEvents" :key="ev.id" class="mb-4 last:mb-0">
         <p class="text-sm font-semibold text-gray-700 mb-2">{{ ev.event }}</p>
         <div v-if="ev.documents && ev.documents.length" class="space-y-2">
@@ -194,6 +206,14 @@ function canPreview(doc) {
 
 function openPreview(doc) {
   previewingDoc.value = doc
+  showPreviewModal.value = true
+}
+
+// ─── Programme PDF ───────────────────────────────────────────────────────────
+const programmeUrl = `${apiBaseUrl}/assets/programme_16th.pdf`
+
+function openProgrammePreview() {
+  previewingDoc.value = { name: 'Programme Timetable', file_name: 'programme_16th.pdf', path: 'assets/programme_16th.pdf' }
   showPreviewModal.value = true
 }
 
