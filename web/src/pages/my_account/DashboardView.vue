@@ -57,7 +57,6 @@
       </div>
 
       <div v-for="ev in paidEvents" :key="ev.id" class="mb-4 last:mb-0">
-        <p class="text-sm font-semibold text-gray-700 mb-2">{{ ev.event }}</p>
         <div v-if="ev.documents && ev.documents.length" class="space-y-2">
           <div v-for="doc in ev.documents" :key="doc.id" class="flex items-center justify-between bg-gray-50 px-4 py-2 rounded">
             <div>
