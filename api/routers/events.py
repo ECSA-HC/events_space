@@ -1,4 +1,4 @@
-import math, os, io
+import math, os, io, secrets
 from pydantic import BaseModel
 import uuid
 import shutil
@@ -3985,27 +3985,45 @@ def onsite_register(
         user = db.query(User).filter(User.email.ilike(email)).first()
 
     if not user:
-        # Create a new user with a random password
-        import secrets
-        temp_password = secrets.token_urlsafe(12)
+        # Create a new user with a properly hashed password
+        from dependencies.auth_dependency import Auth as AuthCls
+        auth_dep = AuthCls(db)
+        hashed = auth_dep.hash_password(auth_dep.generate_random_password())
+
         user = User(
             firstname=firstname,
             lastname=lastname,
             email=email or f"onsite_{secrets.token_hex(8)}@event.local",
             phone="",
-            hashed_password=temp_password,
+            hashed_password=hashed,
+            verified=bool(email),
             must_change_password=True,
         )
         db.add(user)
         db.flush()
 
+        # Assign the "User" role
+        from models.models import Role, UserRole
+        role = db.query(Role).filter(Role.role == "User").first()
+        if role:
+            db.add(UserRole(user_id=user.id, role_id=role.id))
+
         # Create user profile
+        from models.models import UserProfile
         profile = UserProfile(
             user_id=user.id,
             designation=designation or "",
             organisation=organisation or "",
         )
         db.add(profile)
+
+        # Create account verification record
+        from models.models import AccountVerification
+        db.add(AccountVerification(
+            user_id=user.id,
+            verification_token=str(uuid.uuid4()),
+            expires_at=datetime.utcnow() + timedelta(hours=1),
+        ))
 
     # Check for existing registration
     existing = db.query(Registration).filter(
