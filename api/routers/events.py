@@ -4001,7 +4001,7 @@ def onsite_register(
             firstname=firstname,
             lastname=lastname,
             email=email or f"onsite_{secrets.token_hex(8)}@event.local",
-            phone="",
+            phone=None,
             hashed_password=hashed,
             verified=bool(email),
             must_change_password=True,
