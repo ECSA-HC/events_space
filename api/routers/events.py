@@ -4008,14 +4008,14 @@ def onsite_register(
         if role:
             db.add(UserRole(user_id=user.id, role_id=role.id))
 
-        # Create user profile
-        from models.models import UserProfile
-        profile = UserProfile(
-            user_id=user.id,
-            designation=designation or "",
-            organisation=organisation or "",
-        )
-        db.add(profile)
+        # No UserProfile here — this crashed before (UserProfile has no
+        # "designation" column, it's "position"; also country_id/title/
+        # middle_name/gender are all NOT NULL and this minimal on-site form
+        # never collects them). The Registration below already stores
+        # designation/organisation via badge_position/badge_organisation,
+        # which badge rendering and the admin participant list already read
+        # as a fallback when there's no UserProfile — no data is lost by
+        # skipping profile creation for a walk-in registrant.
 
         # Create account verification record
         from models.models import AccountVerification
