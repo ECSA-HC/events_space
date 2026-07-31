@@ -3982,7 +3982,7 @@ def onsite_register(
     # Find or create user
     user = None
     if email:
-        user = db.query(User).filter(User.email == email, User.deleted_at == None).first()
+        user = db.query(User).filter(User.email.ilike(email)).first()
 
     if not user:
         # Create a new user with a random password
@@ -3993,7 +3993,7 @@ def onsite_register(
             lastname=lastname,
             email=email or f"onsite_{secrets.token_hex(8)}@event.local",
             phone="",
-            hashed_password=temp_password,  # Will be hashed by model or left as-is for on-site
+            hashed_password=temp_password,
             must_change_password=True,
         )
         db.add(user)
