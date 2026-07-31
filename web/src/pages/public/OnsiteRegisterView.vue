@@ -102,7 +102,7 @@
             class="w-full py-3 rounded-lg font-semibold text-sm text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-wait"
             style="background-color: #0095B6;"
           >
-            {{ submitting ? 'Registering…' : 'Register & Mark as Paid' }}
+            {{ submitting ? 'Registering…' : 'Register' }}
           </button>
         </form>
       </div>

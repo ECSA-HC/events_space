@@ -4077,6 +4077,12 @@ def generate_onsite_qr_pdf(
     qr_buf.seek(0)
     qr_reader = ImageReader(qr_buf)
 
+    # Load ECSA logo
+    try:
+        logo_right = load_logo_with_transparency("assets/logo_right.png")
+    except Exception:
+        logo_right = None
+
     # Build PDF
     buf = io.BytesIO()
     w, h = A4
@@ -4090,15 +4096,27 @@ def generate_onsite_qr_pdf(
     c.setFillColor(colors.HexColor("#1B3F6E"))
     c.rect(0, h - 2.2 * cm, w, 2.2 * cm, fill=1, stroke=0)
 
+    # ECSA logo on top bar
+    if logo_right:
+        try:
+            logo_h = 1.4 * cm
+            logo_w = logo_h * 2.7
+            c.drawImage(logo_right, w - RM - logo_w - 0.3 * cm, h - 1.9 * cm, width=logo_w, height=logo_h,
+                        preserveAspectRatio=True, mask='auto')
+        except Exception:
+            pass
+
     # Title text
     c.setFillColor(colors.white)
     c.setFont("Helvetica-Bold", 18)
     c.drawCentredString(w / 2, h - 1.5 * cm, "ON-SITE REGISTRATION")
 
-    # Event name
+    # Event name (strip ordinal suffixes to avoid tofu boxes)
     c.setFillColor(colors.HexColor("#1B3F6E"))
     c.setFont("Helvetica-Bold", 14)
-    event_name = event.event if len(event.event) <= 60 else event.event[:57] + "..."
+    event_name = normalize_event_name(event.event) if event.event else ""
+    if len(event_name) > 60:
+        event_name = event_name[:57] + "..."
     c.drawCentredString(w / 2, h - 3.8 * cm, event_name)
 
     # Date & location
