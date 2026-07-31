@@ -18,7 +18,7 @@ from dependencies.dependency import Dependency
 from dependencies.auth_dependency import get_current_user, get_optional_current_user
 from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends, Query, Request
-from models.models import Event, User, Registration, Document, Link, Payment, ParticipationRole
+from models.models import Event, User, Registration, Document, Link, Payment, ParticipationRole, UserProfile
 from schemas.events_space import EventSchema, EventUpdateSchema, RegistrationSchema, LinkSchema, PaymentSubmitSchema
 from PIL import Image
 from reportlab.lib.units import mm
@@ -3960,3 +3960,183 @@ async def bulk_import_names_only(
             "rejected": len(rejected),
         },
     }
+
+
+# ── On-site registration (paid directly) ──────────────────────────────────────
+
+@router.post("/onsite-register/")
+def onsite_register(
+    event_id: int = Form(...),
+    firstname: str = Form(...),
+    lastname: str = Form(...),
+    designation: str = Form(None),
+    organisation: str = Form(None),
+    email: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+):
+    """Register an attendee on-site with minimal info. Marked as paid immediately."""
+    event = db.query(Event).filter(Event.id == event_id, Event.deleted_at == None).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    # Find or create user
+    user = None
+    if email:
+        user = db.query(User).filter(User.email == email, User.deleted_at == None).first()
+
+    if not user:
+        # Create a new user with a random password
+        import secrets
+        temp_password = secrets.token_urlsafe(12)
+        user = User(
+            firstname=firstname,
+            lastname=lastname,
+            email=email or f"onsite_{secrets.token_hex(8)}@event.local",
+            phone="",
+            hashed_password=temp_password,  # Will be hashed by model or left as-is for on-site
+            must_change_password=True,
+        )
+        db.add(user)
+        db.flush()
+
+        # Create user profile
+        profile = UserProfile(
+            user_id=user.id,
+            designation=designation or "",
+            organisation=organisation or "",
+        )
+        db.add(profile)
+
+    # Check for existing registration
+    existing = db.query(Registration).filter(
+        Registration.user_id == user.id,
+        Registration.event_id == event_id,
+        Registration.deleted_at == None,
+    ).first()
+
+    if existing:
+        # Update to paid
+        existing.paid = True
+        existing.participation_role = ParticipationRole.participant
+        if designation:
+            existing.badge_position = designation
+        if organisation:
+            existing.badge_organisation = organisation
+        db.commit()
+        return {"message": "Registration updated and marked as paid", "registration_id": existing.id, "user_id": user.id}
+
+    # Create new registration (paid directly)
+    registration = Registration(
+        user_id=user.id,
+        event_id=event_id,
+        participation_role=ParticipationRole.participant,
+        paid=True,
+        badge_position=designation or "",
+        badge_organisation=organisation or "",
+    )
+    db.add(registration)
+    db.commit()
+    db.refresh(registration)
+
+    return {
+        "message": "Registered and marked as paid",
+        "registration_id": registration.id,
+        "user_id": user.id,
+    }
+
+
+# ── QR Code PDF for on-site registration ──────────────────────────────────────
+
+@router.get("/{event_id}/onsite-qr-pdf")
+def generate_onsite_qr_pdf(
+    event_id: int,
+    db: Session = Depends(get_db),
+):
+    """Generate a downloadable A4 PDF with a QR code linking to the on-site registration page."""
+    event = db.query(Event).filter(Event.id == event_id, Event.deleted_at == None).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.lib import colors
+
+    # Build the registration URL
+    client_origin = os.getenv("CLIENT_ORIGIN", "https://events.ecsahc.org")
+    reg_url = f"{client_origin}/onsite-register?event_id={event_id}"
+
+    # Generate QR code
+    qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_H, box_size=10, border=2)
+    qr.add_data(reg_url)
+    qr.make(fit=True)
+    qr_img = qr.make_image(fill_color="#1B3F6E", back_color="white").convert("RGB")
+
+    # Save QR to buffer
+    qr_buf = io.BytesIO()
+    qr_img.save(qr_buf, format="PNG")
+    qr_buf.seek(0)
+    qr_reader = ImageReader(qr_buf)
+
+    # Build PDF
+    buf = io.BytesIO()
+    w, h = A4
+    c = canvas.Canvas(buf, pagesize=A4)
+
+    # Background
+    c.setFillColor(colors.HexColor("#F8FAFC"))
+    c.rect(0, 0, w, h, fill=1, stroke=0)
+
+    # Top coloured bar
+    c.setFillColor(colors.HexColor("#1B3F6E"))
+    c.rect(0, h - 2.2 * cm, w, 2.2 * cm, fill=1, stroke=0)
+
+    # Title text
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica-Bold", 18)
+    c.drawCentredString(w / 2, h - 1.5 * cm, "ON-SITE REGISTRATION")
+
+    # Event name
+    c.setFillColor(colors.HexColor("#1B3F6E"))
+    c.setFont("Helvetica-Bold", 14)
+    event_name = event.event if len(event.event) <= 60 else event.event[:57] + "..."
+    c.drawCentredString(w / 2, h - 3.8 * cm, event_name)
+
+    # Date & location
+    c.setFont("Helvetica", 11)
+    c.setFillColor(colors.HexColor("#475569"))
+    from datetime import datetime as dt
+    date_str = f"{event.start_date.strftime('%d %B %Y')} – {event.end_date.strftime('%d %B %Y')}" if event.start_date and event.end_date else ""
+    c.drawCentredString(w / 2, h - 4.8 * cm, f"{date_str}  •  {event.location or ''}")
+
+    # QR code (centered)
+    qr_size = 9 * cm
+    qr_x = (w - qr_size) / 2
+    qr_y = h / 2 - qr_size / 2 + 1 * cm
+    c.drawImage(qr_reader, qr_x, qr_y, width=qr_size, height=qr_size)
+
+    # Instruction text below QR
+    c.setFillColor(colors.HexColor("#1B3F6E"))
+    c.setFont("Helvetica-Bold", 13)
+    c.drawCentredString(w / 2, qr_y - 1.2 * cm, "Scan to Register")
+
+    c.setFont("Helvetica", 10)
+    c.setFillColor(colors.HexColor("#64748B"))
+    c.drawCentredString(w / 2, qr_y - 2.2 * cm, "Scan this QR code with your phone camera to register on-site.")
+    c.drawCentredString(w / 2, qr_y - 3.0 * cm, "No payment required — you will be marked as paid immediately.")
+
+    # Bottom bar
+    c.setFillColor(colors.HexColor("#1B3F6E"))
+    c.rect(0, 0, w, 1.2 * cm, fill=1, stroke=0)
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica", 8)
+    c.drawCentredString(w / 2, 0.4 * cm, "ECSA-HC • East, Central and Southern Africa Health Community")
+
+    c.save()
+    buf.seek(0)
+
+    safe_e = unicodedata.normalize("NFKD", event.event).encode("ascii", "ignore").decode("ascii")
+    safe_e = re.sub(r"[^\w\s-]", "", safe_e).strip().replace(" ", "_")[:30] or "event"
+    filename = f"onsite_registration_qr_{safe_e}.pdf"
+
+    return StreamingResponse(buf, media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"})

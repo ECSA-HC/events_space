@@ -187,6 +187,11 @@
                     class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">Not Paid</button>
                   <button @click="downloadsDropdownOpen = false; openBadgePicker()"
                     class="w-full px-4 py-2 text-sm text-left" style="color:#5b21b6;">Paid &amp; POP — Choose Names…</button>
+                  <p class="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest border-t border-gray-100 mt-1">
+                    On-Site Registration
+                  </p>
+                  <button @click="downloadsDropdownOpen = false; downloadOnsiteQR()"
+                    class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">QR Code PDF</button>
                 </div>
               </div>
 
@@ -1988,6 +1993,24 @@ async function downloadBadgesAsPDF(paidFilter) {
     _downloadPdfBlob(response, 'participant_badges.pdf')
   } catch (error) {
     alert('Failed to download participant badges PDF.')
+  }
+}
+
+async function downloadOnsiteQR() {
+  try {
+    const apiBase = import.meta.env.VITE_API_BASE_URL
+    const url = `${apiBase}/events/${eventId}/onsite-qr-pdf`
+    const response = await fetch(url)
+    if (!response.ok) throw new Error('Failed')
+    const blob = await response.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = objectUrl
+    a.download = 'onsite_registration_qr.pdf'
+    a.click()
+    URL.revokeObjectURL(objectUrl)
+  } catch (error) {
+    alert('Failed to download on-site registration QR PDF.')
   }
 }
 

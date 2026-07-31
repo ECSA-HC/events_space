@@ -21,6 +21,7 @@ import PaymentView from "@/pages/public/PaymentView.vue";
 import EventAttendanceView from "@/pages/public/EventAttendanceView.vue";
 import RegistrationView from "@/pages/public/RegistrationView.vue";
 import ChangePasswordView from "@/pages/public/ChangePasswordView.vue";
+import OnsiteRegisterView from "@/pages/public/OnsiteRegisterView.vue";
 
 // Admin Pages
 import DashboardView from "@/pages/admin/DashboardView.vue";
@@ -112,6 +113,11 @@ const routes = [
         name: "ChangePassword",
         component: ChangePasswordView,
         meta: { requiresAuth: true },
+      },
+      {
+        path: "onsite-register",
+        name: "OnsiteRegister",
+        component: OnsiteRegisterView,
       },
     ],
   },
