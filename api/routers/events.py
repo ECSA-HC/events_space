@@ -3973,6 +3973,7 @@ def onsite_register(
     organisation: str = Form(None),
     email: Optional[str] = Form(None),
     db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks = None,
 ):
     """Register an attendee on-site with minimal info. Marked as paid immediately."""
     event = db.query(Event).filter(Event.id == event_id, Event.deleted_at == None).first()
@@ -3984,11 +3985,17 @@ def onsite_register(
     if email:
         user = db.query(User).filter(User.email.ilike(email)).first()
 
+    # Tracks whether we need to email login credentials below: set whenever
+    # we generate a brand-new plaintext password (new account, or an
+    # existing account that never had credentials issued).
+    fresh_password = None
+
     if not user:
         # Create a new user with a properly hashed password
         from dependencies.auth_dependency import Auth as AuthCls
         auth_dep = AuthCls(db)
-        hashed = auth_dep.hash_password(auth_dep.generate_random_password())
+        fresh_password = auth_dep.generate_random_password()
+        hashed = auth_dep.hash_password(fresh_password)
 
         user = User(
             firstname=firstname,
@@ -4024,6 +4031,14 @@ def onsite_register(
             verification_token=str(uuid.uuid4()),
             expires_at=datetime.utcnow() + timedelta(hours=1),
         ))
+    elif email and not user.credentials_sent:
+        # Existing account (e.g. created silently elsewhere) that has never
+        # actually been sent login credentials — issue a fresh password now
+        # so this on-site registration is the moment they get portal access.
+        from dependencies.auth_dependency import Auth as AuthCls
+        auth_dep = AuthCls(db)
+        fresh_password = auth_dep.generate_random_password()
+        user.hashed_password = auth_dep.hash_password(fresh_password)
 
     # Check for existing registration
     existing = db.query(Registration).filter(
@@ -4041,26 +4056,60 @@ def onsite_register(
         if organisation:
             existing.badge_organisation = organisation
         db.commit()
-        return {"message": "Registration updated and marked as paid", "registration_id": existing.id, "user_id": user.id}
+        result = {"message": "Registration updated and marked as paid", "registration_id": existing.id, "user_id": user.id}
+        is_new_registration = False
+    else:
+        # Create new registration (paid directly)
+        registration = Registration(
+            user_id=user.id,
+            event_id=event_id,
+            participation_role=ParticipationRole.participant,
+            paid=True,
+            badge_position=designation or "",
+            badge_organisation=organisation or "",
+        )
+        db.add(registration)
+        db.commit()
+        db.refresh(registration)
+        result = {
+            "message": "Registered and marked as paid",
+            "registration_id": registration.id,
+            "user_id": user.id,
+        }
+        is_new_registration = True
 
-    # Create new registration (paid directly)
-    registration = Registration(
-        user_id=user.id,
-        event_id=event_id,
-        participation_role=ParticipationRole.participant,
-        paid=True,
-        badge_position=designation or "",
-        badge_organisation=organisation or "",
-    )
-    db.add(registration)
-    db.commit()
-    db.refresh(registration)
+    # Email login credentials whenever a real email was given — either a
+    # brand-new account, or an existing one that never had credentials sent.
+    # Repeat registrants who already have credentials just get a short
+    # "you're registered" notice for this specific event.
+    if email:
+        import utils.mailer_util as mailer_util
 
-    return {
-        "message": "Registered and marked as paid",
-        "registration_id": registration.id,
-        "user_id": user.id,
-    }
+        def _fmt(d):
+            return d.strftime("%-d %B %Y") if hasattr(d, "strftime") else str(d)
+        event_dates = f"{_fmt(event.start_date)} – {_fmt(event.end_date)}" if event.start_date and event.end_date else None
+        role_label = _ROLE_LABELS.get("participant", "Participant")
+
+        if fresh_password:
+            user.credentials_sent = True
+            db.commit()
+            mailer_util.event_invitation_email(
+                recipient_email=user.email, firstname=user.firstname, event_name=event.event,
+                participation_role=role_label, event_location=event.location, event_dates=event_dates,
+                is_new_user=True, password=fresh_password, no_payment=True,
+                portal_url="https://events.ecsahc.org", payment_url="https://ecsahc.org/payment/",
+                background_tasks=background_tasks, db=db,
+            )
+        elif is_new_registration:
+            mailer_util.event_invitation_email(
+                recipient_email=user.email, firstname=user.firstname, event_name=event.event,
+                participation_role=role_label, event_location=event.location, event_dates=event_dates,
+                is_new_user=False, password=None, no_payment=True,
+                portal_url="https://events.ecsahc.org", payment_url="https://ecsahc.org/payment/",
+                background_tasks=background_tasks, db=db,
+            )
+
+    return result
 
 
 # ── QR Code PDF for on-site registration ──────────────────────────────────────
