@@ -11,7 +11,7 @@ from sqlalchemy import or_
 from fastapi import status, HTTPException, File, Form, UploadFile
 from typing import Annotated
 from core.database import get_db
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from datetime import datetime, timedelta
 from dependencies.auth_dependency import Auth
 from dependencies.dependency import Dependency
@@ -837,7 +837,36 @@ async def get_event(
         f"View event id {event_id} and associated permissions",
     )
 
-    if event := get_object(event_id, db, Event):
+    # Eager-load registrations + their user/profile/photo in bulk instead of
+    # lazily (one query per participant, per relationship hop) — with 300+
+    # registrations that was ~1000 extra round trips and made this endpoint
+    # crawl. selectinload issues one extra query per relationship level
+    # regardless of how many rows it covers.
+    event = (
+        db.query(Event)
+        .options(
+            joinedload(Event.country),
+            joinedload(Event.org_unit),
+            joinedload(Event.user),
+            selectinload(Event.documents),
+            selectinload(Event.links),
+            selectinload(Event.registrations)
+                .selectinload(Registration.user)
+                .selectinload(User.user_profile)
+                .joinedload(UserProfile.country),
+            selectinload(Event.registrations)
+                .selectinload(Registration.user)
+                .selectinload(User.user_photo),
+        )
+        .filter(Event.id == event_id, Event.deleted_at == None)
+        .first()
+    )
+    if not event:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Event with ID {event_id} does not exist or has been deleted",
+        )
+    if event:
         _all_regs = [r for r in (event.registrations or []) if r.deleted_at is None]
         # Confirmed = paid OR has uploaded proof; pending = neither
         registrations = [r for r in _all_regs if r.paid or r.payment_proof]
@@ -1035,8 +1064,6 @@ async def get_event(
             "pending_registrations": _build_pending_list(pending_payment_regs, db, event_id=event_id),
             "abstract_author_stats": _abstract_author_stats,
         }
-    else:
-        raise HTTPException(status_code=404, detail="event not found")
 
 
 @router.put("/{event_id}")
