@@ -4140,7 +4140,6 @@ def generate_onsite_qr_pdf(
     c.setFont("Helvetica", 10)
     c.setFillColor(colors.HexColor("#64748B"))
     c.drawCentredString(w / 2, qr_y - 2.2 * cm, "Scan this QR code with your phone camera to register on-site.")
-    c.drawCentredString(w / 2, qr_y - 3.0 * cm, "No payment required — you will be marked as paid immediately.")
 
     # Bottom bar
     c.setFillColor(colors.HexColor("#1B3F6E"))
