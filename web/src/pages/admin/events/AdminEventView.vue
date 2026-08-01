@@ -1649,6 +1649,14 @@ const roleCategoryLabel = computed(() =>
 const filteredParticipants = computed(() => {
   const q = participantSearch.value.toLowerCase().trim()
   let list = [...participants.value].sort((a, b) => {
+    // Proof-uploaded-but-not-yet-paid people always sort first — they need
+    // admin review/action, and unlike a pure recency sort this stays stable
+    // regardless of unrelated bulk operations (e.g. exporting badges) that
+    // touch many rows' updated_at at once.
+    const pendingA = a.payment_proof && !a.paid ? 1 : 0
+    const pendingB = b.payment_proof && !b.paid ? 1 : 0
+    if (pendingA !== pendingB) return pendingB - pendingA
+
     const da = a.updated_at ? new Date(a.updated_at) : (a.registered_at ? new Date(a.registered_at) : 0)
     const db = b.updated_at ? new Date(b.updated_at) : (b.registered_at ? new Date(b.registered_at) : 0)
     return db - da

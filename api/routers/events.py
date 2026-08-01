@@ -2672,9 +2672,16 @@ async def download_participant_badges_pdf(
 
     # Stamp when each of these badges was exported, so the "Choose Names"
     # picker can flag/skip people already exported today next time.
+    # updated_at is explicitly self-assigned here to suppress its onupdate=
+    # func.now() — otherwise SQLAlchemy's bulk update() re-evaluates onupdate
+    # for every column *not* named in the values dict, silently bumping
+    # updated_at for the whole batch (this previously stamped ~all 522
+    # registrations to one identical timestamp and broke the admin
+    # participant list's "most recently active" sort).
     reg_ids = [p["registration_id"] for p in participants]
     db.query(Registration).filter(Registration.id.in_(reg_ids)).update(
-        {"badge_exported_at": datetime.utcnow()}, synchronize_session=False
+        {"badge_exported_at": datetime.utcnow(), "updated_at": Registration.updated_at},
+        synchronize_session=False,
     )
     db.commit()
 
