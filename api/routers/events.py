@@ -1979,7 +1979,19 @@ async def download_event_participants(
         f"Downloaded participants for event {event_id} with filter paid={paid}, role_category={role_category}",
     )
 
-    event = get_object(event_id, db, Event)
+    # Eager-load registrations + user/profile/country in bulk (see get_event()
+    # / download_participant_badges_pdf for the same fix and why it matters).
+    event = (
+        db.query(Event)
+        .options(
+            selectinload(Event.registrations)
+                .selectinload(Registration.user)
+                .selectinload(User.user_profile)
+                .joinedload(UserProfile.country),
+        )
+        .filter(Event.id == event_id, Event.deleted_at == None)
+        .first()
+    )
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
@@ -1988,8 +2000,13 @@ async def download_event_participants(
     for reg in event.registrations:
         user = reg.user
         profile = user.user_profile[0] if user.user_profile else None
-        country = profile.country.country if profile and profile.country else None
-        organisation = profile.organisation if profile else None
+        # badge_* fields (set by admin bulk-import/add) take priority over a
+        # general profile when both exist — see get_event() for the same
+        # convention. Also lets badge-only imports (no UserProfile at all,
+        # e.g. Local Secretariat) show their country/organisation/position
+        # here instead of coming back blank.
+        country = reg.badge_country or (profile.country.country if profile and profile.country else None)
+        organisation = reg.badge_organisation or (profile.organisation if profile else None)
 
         # Convert participation_role to string key (adjust this if ParticipationRole is Enum)
         role_key = (
@@ -2005,10 +2022,10 @@ async def download_event_participants(
                 "lastname": user.lastname,
                 "email": user.email,
                 "phone": user.phone,
-                "title": profile.title if profile else "",
+                "title": reg.badge_prefix or (profile.title if profile else ""),
                 "middle_name": profile.middle_name if profile else "",
                 "gender": profile.gender if profile else "",
-                "position": profile.position if profile else "",
+                "position": reg.badge_position or (profile.position if profile else ""),
                 "organisation": organisation,
                 "country": country,
                 "participation_role": PARTICIPATION_ROLE_MAP.get(role_key, role_key),
@@ -2547,7 +2564,23 @@ async def download_participant_badges_pdf(
         f"Downloaded participant badges for event {event_id} with filter paid={paid}, role_category={role_category}",
     )
 
-    event = get_object(event_id, db, Event)
+    # Eager-load registrations + user/profile/country in bulk — same N+1 fix
+    # as get_event(): lazily accessing reg.user / user.user_profile / profile
+    # .country per registration issued ~3 extra round trips per person, which
+    # dominated wall-clock time for a 264-badge export even after the PDF
+    # rendering itself was optimized.
+    event = (
+        db.query(Event)
+        .options(
+            joinedload(Event.org_unit),
+            selectinload(Event.registrations)
+                .selectinload(Registration.user)
+                .selectinload(User.user_profile)
+                .joinedload(UserProfile.country),
+        )
+        .filter(Event.id == event_id, Event.deleted_at == None)
+        .first()
+    )
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
