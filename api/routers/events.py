@@ -2164,6 +2164,92 @@ def hex_to_rgb(hex_color: str):
     return tuple(int(hex_color[i: i + 2], 16) / 255.0 for i in (0, 2, 4))
 
 
+_STATIC_BADGE_FORM_NAME = "ecsa_badge_static_v1"
+
+
+def _register_static_badge_form(c, logo_left, logo_right):
+    """Register (once per canvas) a Form XObject holding the badge's static
+    background/logos/flags, so a multi-badge PDF can stamp them via doForm()
+    instead of re-encoding identical image bytes on every single page.
+
+    Profiling a 264-badge export showed ~75% of render time going into
+    reportlab's drawImage (MD5 digest + zlib compress + base85 encode),
+    which reportlab redoes on every call even when it's literally the same
+    ImageReader object as the previous badge — the 2 logos + 11 flags never
+    change between badges. A Form XObject embeds that artwork once in the
+    PDF and every badge just references it, cutting a 264-badge export from
+    ~28s to a few seconds.
+    """
+    if getattr(c, "_ecsa_badge_static_registered", False):
+        return
+    W_mm, H_mm = 105.0, 148.0
+    W, H = W_mm * mm, H_mm * mm
+
+    def fy(y_from_top):
+        return (H_mm - y_from_top) * mm
+
+    c.beginForm(_STATIC_BADGE_FORM_NAME, lowerx=0, lowery=0, upperx=W, uppery=H)
+
+    bg_path = "assets/badge_bg.jpg"
+    if os.path.exists(bg_path):
+        try:
+            c.drawImage(convert_png_to_rgb(bg_path), 0, 0, W, H)
+        except Exception:
+            c.setFillColorRGB(0.82, 0.80, 0.78)
+            c.rect(0, 0, W, H, fill=True, stroke=False)
+    else:
+        c.setFillColorRGB(0.82, 0.80, 0.78)
+        c.rect(0, 0, W, H, fill=True, stroke=False)
+
+    c.saveState()
+    margin_mm = 4.0
+    badge_scale = min((W_mm - 2 * margin_mm) / W_mm, (H_mm - 2 * margin_mm) / H_mm)
+    c.translate((W - W * badge_scale) / 2, (H - H * badge_scale) / 2)
+    c.scale(badge_scale, badge_scale)
+
+    logo_h_mm = 14.0
+    if logo_left:
+        try:
+            c.drawImage(logo_left, 5*mm, fy(3 + logo_h_mm),
+                        width=27*mm, height=logo_h_mm*mm, preserveAspectRatio=True, mask='auto')
+        except Exception:
+            pass
+    if logo_right:
+        try:
+            c.drawImage(logo_right, 58*mm, fy(3 + logo_h_mm),
+                        width=40*mm, height=logo_h_mm*mm, preserveAspectRatio=True, mask='auto')
+        except Exception:
+            pass
+
+    qr_mm, qr_top = 22, 115.5
+    flag_map  = _get_flag_images()
+    all_flags = [flag_map.get(code) for code in ECSA_FLAG_CODES]
+    valid     = [img for img in all_flags if img is not None]
+    if valid:
+        max_row_w_mm = 92.0
+        n            = len(valid)
+        f_gap_mm     = 0.9
+        flag_w_mm    = min(7.0, (max_row_w_mm - (n - 1) * f_gap_mm) / n)
+        flag_h_mm    = flag_w_mm / 1.545
+        row_w_mm     = n * flag_w_mm + (n - 1) * f_gap_mm
+        sx           = (W_mm - row_w_mm) / 2
+        row_top      = qr_top + qr_mm + 5.5
+        flag_rl_y    = fy(row_top + flag_h_mm)
+        for j, img in enumerate(valid):
+            try:
+                c.drawImage(img,
+                            (sx + j * (flag_w_mm + f_gap_mm)) * mm,
+                            flag_rl_y,
+                            flag_w_mm * mm, flag_h_mm * mm,
+                            preserveAspectRatio=True)
+            except Exception:
+                pass
+
+    c.restoreState()
+    c.endForm()
+    c._ecsa_badge_static_registered = True
+
+
 def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_rgb=None):
     """Render one A6 ECSA conference badge matching the official name-tag design exactly.
 
@@ -2186,45 +2272,21 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
     banner_txt = (0.0, 0.0, 0.0) if role_hex == "#FFD700" else (1.0, 1.0, 1.0)
     role_label = BADGE_ROLE_LABELS.get(role_raw, role_raw.upper())
 
-    # ── Background texture (grey granite, extracted from official ECSA badge) ─
-    bg_path = "assets/badge_bg.jpg"
-    if os.path.exists(bg_path):
-        try:
-            c.drawImage(convert_png_to_rgb(bg_path), 0, 0, W, H)
-        except Exception:
-            c.setFillColorRGB(0.82, 0.80, 0.78)
-            c.rect(0, 0, W, H, fill=True, stroke=False)
-    else:
-        c.setFillColorRGB(0.82, 0.80, 0.78)
-        c.rect(0, 0, W, H, fill=True, stroke=False)
+    # ── Background + logos + flags (static across every badge) ────────────────
+    _register_static_badge_form(c, logo_left, logo_right)
+    c.doForm(_STATIC_BADGE_FORM_NAME)
 
     # ── Inset all foreground content by a safety margin ────────────────────────
     # Plastic A6 card holders typically clip a few mm around the edge. The
     # background texture above stays full-bleed; everything drawn from here on
-    # (logos, text, QR code, flags) is shrunk and centred so none of it gets
-    # cropped once the badge is in its holder.
+    # (text, QR code) is shrunk and centred so none of it gets cropped once
+    # the badge is in its holder — matches the same transform baked into the
+    # static form above so text lines up with the logos/flags exactly.
     c.saveState()
     margin_mm = 4.0
     badge_scale = min((W_mm - 2 * margin_mm) / W_mm, (H_mm - 2 * margin_mm) / H_mm)
     c.translate((W - W * badge_scale) / 2, (H - H * badge_scale) / 2)
     c.scale(badge_scale, badge_scale)
-
-    # ── Logos ─────────────────────────────────────────────────────────────────
-    # Left logo (Eswatini MoH): 5–32 mm from left, 3–17 mm from top
-    # Right logo (ECSA-HC):    58–98 mm from left, 3–17 mm from top
-    logo_h_mm = 14.0
-    if logo_left:
-        try:
-            c.drawImage(logo_left, 5*mm, fy(3 + logo_h_mm),
-                        width=27*mm, height=logo_h_mm*mm, preserveAspectRatio=True, mask='auto')
-        except Exception:
-            pass
-    if logo_right:
-        try:
-            c.drawImage(logo_right, 58*mm, fy(3 + logo_h_mm),
-                        width=40*mm, height=logo_h_mm*mm, preserveAspectRatio=True, mask='auto')
-        except Exception:
-            pass
 
     # ── Event title ───────────────────────────────────────────────────────────
     # Extracted: title1 baseline y=29.3 mm (21.3 pt), title2 baseline y=38.1 mm (17.8 pt)
@@ -2455,31 +2517,8 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
     c.setFont("Helvetica", 6.5)
     c.drawCentredString(W / 2, fy(qr_top + qr_mm + 3.0), "Scan QR code to confirm attendance")
 
-    # ── ECSA member-state flags ───────────────────────────────────────────────
-    # Single row at the very bottom, matching the online badge preview.
-    flag_map  = _get_flag_images()
-    all_flags = [flag_map.get(code) for code in ECSA_FLAG_CODES]
-    valid     = [img for img in all_flags if img is not None]
-
-    if valid:
-        max_row_w_mm = 92.0                # available width within page margins
-        n            = len(valid)
-        f_gap_mm     = 0.9
-        flag_w_mm    = min(7.0, (max_row_w_mm - (n - 1) * f_gap_mm) / n)
-        flag_h_mm    = flag_w_mm / 1.545    # matches original flag aspect ratio
-        row_w_mm     = n * flag_w_mm + (n - 1) * f_gap_mm
-        sx           = (W_mm - row_w_mm) / 2
-        row_top      = qr_top + qr_mm + 5.5   # pulled down, clear of the "Scan QR code" caption
-        flag_rl_y    = fy(row_top + flag_h_mm)
-        for j, img in enumerate(valid):
-            try:
-                c.drawImage(img,
-                            (sx + j * (flag_w_mm + f_gap_mm)) * mm,
-                            flag_rl_y,
-                            flag_w_mm * mm, flag_h_mm * mm,
-                            preserveAspectRatio=True)
-            except Exception:
-                pass
+    # ECSA member-state flags are drawn once as part of the static form
+    # registered at the top of this function (see _register_static_badge_form).
 
     c.restoreState()
     c.showPage()

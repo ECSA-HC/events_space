@@ -155,18 +155,23 @@
               <!-- Downloads dropdown (admin only) -->
               <div v-if="isFullAdmin" class="relative" ref="downloadsDropdownRef">
                 <button type="button" @click="downloadsDropdownOpen = !downloadsDropdownOpen"
-                  class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition hover:opacity-90 bg-bondi-blue hover:bg-bondi-blue-700">
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  :disabled="badgeDownloadLoading || participantDownloadLoading"
+                  class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white transition hover:opacity-90 bg-bondi-blue hover:bg-bondi-blue-700 disabled:opacity-60">
+                  <svg v-if="badgeDownloadLoading || participantDownloadLoading" class="w-4 h-4 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                  </svg>
+                  <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                   </svg>
-                  Downloads
-                  <svg class="w-3.5 h-3.5 transition-transform" :class="downloadsDropdownOpen ? 'rotate-180' : ''"
+                  {{ badgeDownloadLoading ? 'Generating badges…' : participantDownloadLoading ? 'Preparing list…' : 'Downloads' }}
+                  <svg v-if="!badgeDownloadLoading && !participantDownloadLoading" class="w-3.5 h-3.5 transition-transform" :class="downloadsDropdownOpen ? 'rotate-180' : ''"
                     fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                   </svg>
                 </button>
-                <div v-if="downloadsDropdownOpen" class="absolute right-0 mt-1 w-60 bg-white border border-gray-200 rounded-xl shadow-xl z-30 py-1.5 overflow-hidden">
+                <div v-if="downloadsDropdownOpen" class="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-xl z-30 py-1.5 overflow-hidden max-h-[80vh] overflow-y-auto">
                   <p class="px-4 pt-1.5 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
                     Participant List{{ roleFilter !== 'all' ? ` (${roleCategoryLabel})` : '' }}
                   </p>
@@ -177,6 +182,13 @@
                   <button @click="downloadsDropdownOpen = false; downloadParticipants('false')"
                     class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">Not Paid</button>
                   <p class="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest border-t border-gray-100 mt-1">
+                    Quick Lists
+                  </p>
+                  <button @click="downloadsDropdownOpen = false; downloadParticipants('all', 'local_secretariat')"
+                    class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">Local Secretariat</button>
+                  <button @click="downloadsDropdownOpen = false; downloadParticipants('all', 'djcc')"
+                    class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">DJCC Members</button>
+                  <p class="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest border-t border-gray-100 mt-1">
                     Badge List{{ roleFilter !== 'all' ? ` (${roleCategoryLabel})` : '' }}
                   </p>
                   <button @click="downloadsDropdownOpen = false; downloadBadgesAsPDF('all')"
@@ -185,6 +197,10 @@
                     class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">Paid &amp; POP</button>
                   <button @click="downloadsDropdownOpen = false; downloadBadgesAsPDF('false')"
                     class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">Not Paid</button>
+                  <button @click="downloadsDropdownOpen = false; downloadBadgesAsPDF('true', 'local_secretariat')"
+                    class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">Local Secretariat</button>
+                  <button @click="downloadsDropdownOpen = false; downloadBadgesAsPDF('true', 'djcc')"
+                    class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">DJCC Members</button>
                   <button @click="downloadsDropdownOpen = false; openBadgePicker()"
                     class="w-full px-4 py-2 text-sm text-left" style="color:#5b21b6;">Paid &amp; POP — Choose Names…</button>
                   <p class="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest border-t border-gray-100 mt-1">
@@ -1442,10 +1458,14 @@
           <div class="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-100 flex-shrink-0">
             <button @click="closeBadgePicker"
               class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition font-medium">Cancel</button>
-            <button @click="downloadSelectedBadges" :disabled="badgePickerSelected.size === 0"
+            <button @click="downloadSelectedBadges" :disabled="badgePickerSelected.size === 0 || badgePickerDownloading"
               class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-xl transition hover:opacity-90 disabled:opacity-50"
               style="background-color:#5b21b6;">
-              Download {{ badgePickerSelected.size }} Badge{{ badgePickerSelected.size === 1 ? '' : 's' }}
+              <svg v-if="badgePickerDownloading" class="w-4 h-4 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+              {{ badgePickerDownloading ? 'Generating…' : `Download ${badgePickerSelected.size} Badge${badgePickerSelected.size === 1 ? '' : 's'}` }}
             </button>
           </div>
         </div>
@@ -1985,14 +2005,20 @@ function _downloadPdfBlob(response, fallbackFilename) {
   URL.revokeObjectURL(objectUrl)
 }
 
-async function downloadBadgesAsPDF(paidFilter) {
+const badgeDownloadLoading = ref(false)
+
+async function downloadBadgesAsPDF(paidFilter, category = null) {
   if (!paidFilter) return
+  badgeDownloadLoading.value = true
   try {
-    const url = `/events/${eventId}/participants/badges?paid=${paidFilter}&role_category=${roleFilter.value}`
+    const cat = category ?? roleFilter.value
+    const url = `/events/${eventId}/participants/badges?paid=${paidFilter}&role_category=${cat}`
     const response = await api.get(url, { responseType: 'blob' })
     _downloadPdfBlob(response, 'participant_badges.pdf')
   } catch (error) {
     alert('Failed to download participant badges PDF.')
+  } finally {
+    badgeDownloadLoading.value = false
   }
 }
 
@@ -2077,16 +2103,26 @@ function toggleBadgePickerSelectAll() {
   badgePickerSelected.value = badgePickerSelected.value.size === allIds.size ? new Set() : allIds
 }
 
+const badgePickerDownloading = ref(false)
+
 async function downloadSelectedBadges() {
   if (badgePickerSelected.value.size === 0) return
+  badgePickerDownloading.value = true
   try {
     const ids = [...badgePickerSelected.value].join(',')
-    const url = `/events/${eventId}/participants/badges?paid=true&role_category=${roleFilter.value}&user_ids=${ids}`
+    // role_category deliberately omitted: the picker lists paid/POP people
+    // across every role regardless of the currently active tab, so scoping
+    // by role_category here would silently drop selected people whose role
+    // doesn't match whatever tab happens to be selected. user_ids alone
+    // already specifies exactly who to include.
+    const url = `/events/${eventId}/participants/badges?paid=true&role_category=all&user_ids=${ids}`
     const response = await api.get(url, { responseType: 'blob' })
     _downloadPdfBlob(response, 'participant_badges.pdf')
     closeBadgePicker()
   } catch (error) {
     alert('Failed to download selected badges PDF.')
+  } finally {
+    badgePickerDownloading.value = false
   }
 }
 
@@ -2321,8 +2357,12 @@ function toggleSelectAll() {
   }
 }
 
-async function downloadParticipants(paidFilter) {
-  const url = `/events/${eventId}/participants/download?paid=${paidFilter}&role_category=${roleFilter.value}`
+const participantDownloadLoading = ref(false)
+
+async function downloadParticipants(paidFilter, category = null) {
+  const cat = category ?? roleFilter.value
+  const url = `/events/${eventId}/participants/download?paid=${paidFilter}&role_category=${cat}`
+  participantDownloadLoading.value = true
   try {
     const response = await api.get(url, { responseType: 'blob' })
     const contentDisposition = response.headers['content-disposition']
@@ -2336,6 +2376,8 @@ async function downloadParticipants(paidFilter) {
     URL.revokeObjectURL(link.href)
   } catch (error) {
     alert('An error occurred while downloading participants.')
+  } finally {
+    participantDownloadLoading.value = false
   }
 }
 
