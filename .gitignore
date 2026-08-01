@@ -15,6 +15,13 @@ api/.env.*
 .env
 .env.*
 
+# Runtime-uploaded user content — never commit. This directory holds
+# things like payment proof receipts, profile pictures, and event
+# documents uploaded through the app at runtime; it must never be part
+# of the repo (any git reset/clean/fresh-clone would wipe it, which is
+# exactly what happened to most of api/uploads/payment_receipts/).
+api/uploads/
+
 # Expo
 .expo/
 app/dist/
