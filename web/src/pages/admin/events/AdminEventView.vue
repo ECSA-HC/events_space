@@ -1412,8 +1412,8 @@
               </label>
             </div>
 
-            <p v-if="exportedTodayCount > 0" class="text-xs bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-3 py-2">
-              ⓘ {{ exportedTodayCount }} {{ exportedTodayCount === 1 ? 'person has' : 'people have' }} already had their badge exported today — unchecked below by default so they're skipped, but you can still tick them to include anyway.
+            <p v-if="alreadyExportedCount > 0" class="text-xs bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-3 py-2">
+              ⓘ {{ alreadyExportedCount }} {{ alreadyExportedCount === 1 ? 'person has' : 'people have' }} already had their badge exported — unchecked below by default so they're skipped, but you can still tick them to include anyway.
             </p>
 
             <div class="rounded-xl border border-gray-200 overflow-hidden">
@@ -1431,8 +1431,8 @@
                     <p class="text-sm font-medium text-gray-800 truncate">{{ p.firstname }} {{ p.lastname }}</p>
                     <p class="text-xs text-gray-400 truncate">{{ p.email }}</p>
                   </div>
-                  <span v-if="wasExportedToday(p)" class="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700 flex-shrink-0">
-                    Exported today
+                  <span v-if="wasAlreadyExported(p)" class="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700 flex-shrink-0">
+                    {{ exportedDateLabel(p) }}
                   </span>
                 </div>
               </div>
@@ -2023,17 +2023,23 @@ const paidOrPopParticipants = computed(() =>
   participants.value.filter(p => p.paid || p.payment_proof)
 )
 
-function wasExportedToday(p) {
-  if (!p.badge_exported_at) return false
-  const exported = new Date(p.badge_exported_at)
-  const now = new Date()
-  return exported.getUTCFullYear() === now.getUTCFullYear()
-    && exported.getUTCMonth() === now.getUTCMonth()
-    && exported.getUTCDate() === now.getUTCDate()
+function wasAlreadyExported(p) {
+  return !!p.badge_exported_at
 }
 
-const exportedTodayCount = computed(() =>
-  paidOrPopParticipants.value.filter(wasExportedToday).length
+function exportedDateLabel(p) {
+  if (!p.badge_exported_at) return ''
+  const exported = new Date(p.badge_exported_at)
+  const now = new Date()
+  const isToday = exported.getUTCFullYear() === now.getUTCFullYear()
+    && exported.getUTCMonth() === now.getUTCMonth()
+    && exported.getUTCDate() === now.getUTCDate()
+  if (isToday) return 'Exported today'
+  return `Exported ${exported.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+}
+
+const alreadyExportedCount = computed(() =>
+  paidOrPopParticipants.value.filter(wasAlreadyExported).length
 )
 
 const filteredBadgePickerParticipants = computed(() => {
@@ -2047,10 +2053,11 @@ const filteredBadgePickerParticipants = computed(() => {
 function openBadgePicker() {
   showBadgePicker.value = true
   badgePickerSearch.value = ''
-  // Default-skip anyone already exported today so re-opening the picker
-  // doesn't silently re-print the same badges — still easy to tick back on.
+  // Default-skip anyone whose badge was already exported (any previous
+  // batch, not just today) so re-opening the picker doesn't silently
+  // re-print already-printed badges — still easy to tick back on.
   badgePickerSelected.value = new Set(
-    paidOrPopParticipants.value.filter(p => !wasExportedToday(p)).map(p => p.user_id)
+    paidOrPopParticipants.value.filter(p => !wasAlreadyExported(p)).map(p => p.user_id)
   )
 }
 
