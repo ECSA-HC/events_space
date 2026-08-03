@@ -1,0 +1,52 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: events-mysql
+    restart: unless-stopped
+    command: --sql-mode="ALLOW_INVALID_DATES"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: events_space
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: events-app
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_HOSTNAME: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_DB: events_space
+      CLIENT_ORIGIN: http://localhost:8080
+      BASE_URL: http://localhost:8080
+      SECRET_KEY: LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUlHZk1BMEdDU3FHU0liM0RRRUJBUVVBQTRHTkFEQ0JpUUtCZ1FESytmYXluRERVeWIwMWZXNkp2RURPM3VBZgp3bzJPMTdrRHppZERIOUNSdVZ6WVppK2NNSTFqYzZKYmxKdTBOWHk0N1NudlpJS2tOaW1ONzRyQ1RhUEpXWDR4CmZibmROZ2V3MGZYRC9aSUpBM2RENHVLem1pdnVMd0ZtcHZydGFxNVZyTjltcmRvQ3NUU1RiN1JBbWlsSkZVUWQKSWt3NTc5VDRzckJsdjBTL2p3SURBUUFCCi0tLS0tRU5EIFBVQkxJQyBLRVktLS0tLQ==
+      ALGORITHM: HS256
+      SMTP_HOST: sandbox.smtp.mailtrap.io
+      SMTP_PORT: "2525"
+      SMTP_USERNAME: cf3ea4dcbfb9e1
+      SMTP_PASSWORD: cf1582f2649d11
+    volumes:
+      - ../api:/app/api
+      - ../web/dist:/app/web/dist
+      - ../api/uploads:/app/api/uploads
+
+volumes:
+  mysql-data:

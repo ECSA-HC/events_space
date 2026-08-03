@@ -283,7 +283,7 @@ async def get_events(
     dependency: Dependency = Depends(get_dependency),
 ):
     client_ip = dependency.request_ip(request)
-    dependency.log_activity(1, "VIEW_EVENTS", "None", client_ip, "Get all events")
+    dependency.log_activity(None, "VIEW_EVENTS", "None", client_ip, "Get all events")
 
     search_filter = or_(
         Event.event.ilike(f"%{search}%"),
@@ -830,7 +830,7 @@ async def get_event(
     client_ip = dependency.request_ip(request)
 
     dependency.log_activity(
-        1,
+        current_user["user_id"] if current_user else None,
         "VIEW_EVENT",
         "None",
         client_ip,
