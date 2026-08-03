@@ -879,6 +879,7 @@ async def get_event(
         # "unpaid" → logged in but no paid registration for this event
         # "paid"   → has a paid registration OR has admin/secretariat permission
         user_access = "none"
+        is_admin = False
         if current_user:
             uid = current_user["user_id"]
             # Check for admin permission (ADMIN_DASHBOARD) → always full access
@@ -957,6 +958,79 @@ async def get_event(
         else:
             payment_by_reg = {}
 
+        # This endpoint is hit by both the admin dashboard (needs everyone)
+        # and ordinary logged-in users viewing their own event page (needs
+        # only their own record) — auth is optional, so without this gate
+        # anyone, logged in or not, could pull every paid participant's
+        # phone, email, exact payment amount/date, payment proof file path,
+        # and admin notes just by requesting this endpoint directly.
+        _all_participants_serialized = [
+            {
+                "id": r.id,
+                "user_id": r.user_id,
+                "firstname": r.user.firstname if r.user else None,
+                "lastname": r.user.lastname if r.user else None,
+                "phone": r.user.phone if r.user else None,
+                "email": r.user.email if r.user else None,
+                "photo": (
+                    r.user.user_photo if r.user and r.user.user_photo else None
+                ),
+                "country_id": (
+                    r.user.user_profile[0].country_id
+                    if r.user and r.user.user_profile
+                    else None
+                ),
+                # badge_* fields (set by admin bulk-import/add) take priority over a
+                # general profile when both exist — e.g. someone re-imported for a
+                # different event with fresh title/org data shouldn't have it
+                # silently overridden by an older, unrelated profile.
+                "country": (
+                    r.badge_country
+                    or (r.user.user_profile[0].country.country
+                        if r.user and r.user.user_profile and r.user.user_profile[0].country
+                        else None)
+                ),
+                "participation_role": r.participation_role,
+                "organisation": (
+                    r.badge_organisation
+                    or (r.user.user_profile[0].organisation
+                        if r.user and r.user.user_profile else None)
+                ),
+                "position": (
+                    r.badge_position
+                    or (r.user.user_profile[0].position
+                        if r.user and r.user.user_profile else None)
+                ),
+                "title": (
+                    r.badge_prefix
+                    or (r.user.user_profile[0].title
+                        if r.user and r.user.user_profile else None)
+                ),
+                "paid": getattr(r, "paid", None),
+                "payment_proof": getattr(r, "payment_proof", None),
+                "notes": getattr(r, "notes", None),
+                "payment_method": payment_by_reg[r.id].payment_method if r.id in payment_by_reg else None,
+                "payment_amount": float(payment_by_reg[r.id].payment_amount) if r.id in payment_by_reg and payment_by_reg[r.id].payment_amount else None,
+                "payment_date": str(payment_by_reg[r.id].payment_date) if r.id in payment_by_reg and payment_by_reg[r.id].payment_date else None,
+                "registered_at": r.registered_at,
+                "updated_at": r.updated_at,
+                "reminder_sent_at": getattr(r, "reminder_sent_at", None),
+                "badge_exported_at": getattr(r, "badge_exported_at", None),
+            }
+            for r in registrations
+        ]
+        if is_admin:
+            _visible_participants = _all_participants_serialized
+            _visible_pending = _build_pending_list(pending_payment_regs, db, event_id=event_id)
+        elif current_user:
+            _visible_participants = [
+                p for p in _all_participants_serialized if p["user_id"] == current_user["user_id"]
+            ]
+            _visible_pending = []
+        else:
+            _visible_participants = []
+            _visible_pending = []
+
         return {
             "event": {
                 "id": event.id,
@@ -986,61 +1060,7 @@ async def get_event(
                 ),
                 "user_access": user_access,
             },
-            "participants": [
-                {
-                    "id": r.id,
-                    "user_id": r.user_id,
-                    "firstname": r.user.firstname if r.user else None,
-                    "lastname": r.user.lastname if r.user else None,
-                    "phone": r.user.phone if r.user else None,
-                    "email": r.user.email if r.user else None,
-                    "photo": (
-                        r.user.user_photo if r.user and r.user.user_photo else None
-                    ),
-                    "country_id": (
-                        r.user.user_profile[0].country_id
-                        if r.user and r.user.user_profile
-                        else None
-                    ),
-                    # badge_* fields (set by admin bulk-import/add) take priority over a
-                    # general profile when both exist — e.g. someone re-imported for a
-                    # different event with fresh title/org data shouldn't have it
-                    # silently overridden by an older, unrelated profile.
-                    "country": (
-                        r.badge_country
-                        or (r.user.user_profile[0].country.country
-                            if r.user and r.user.user_profile and r.user.user_profile[0].country
-                            else None)
-                    ),
-                    "participation_role": r.participation_role,
-                    "organisation": (
-                        r.badge_organisation
-                        or (r.user.user_profile[0].organisation
-                            if r.user and r.user.user_profile else None)
-                    ),
-                    "position": (
-                        r.badge_position
-                        or (r.user.user_profile[0].position
-                            if r.user and r.user.user_profile else None)
-                    ),
-                    "title": (
-                        r.badge_prefix
-                        or (r.user.user_profile[0].title
-                            if r.user and r.user.user_profile else None)
-                    ),
-                    "paid": getattr(r, "paid", None),
-                    "payment_proof": getattr(r, "payment_proof", None),
-                    "notes": getattr(r, "notes", None),
-                    "payment_method": payment_by_reg[r.id].payment_method if r.id in payment_by_reg else None,
-                    "payment_amount": float(payment_by_reg[r.id].payment_amount) if r.id in payment_by_reg and payment_by_reg[r.id].payment_amount else None,
-                    "payment_date": str(payment_by_reg[r.id].payment_date) if r.id in payment_by_reg and payment_by_reg[r.id].payment_date else None,
-                    "registered_at": r.registered_at,
-                    "updated_at": r.updated_at,
-                    "reminder_sent_at": getattr(r, "reminder_sent_at", None),
-                    "badge_exported_at": getattr(r, "badge_exported_at", None),
-                }
-                for r in registrations
-            ],
+            "participants": _visible_participants,
             "documents": [
                 {
                     "id": d.id,
@@ -1061,7 +1081,7 @@ async def get_event(
                 }
                 for l in links
             ],
-            "pending_registrations": _build_pending_list(pending_payment_regs, db, event_id=event_id),
+            "pending_registrations": _visible_pending,
             "abstract_author_stats": _abstract_author_stats,
         }
 
