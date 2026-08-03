@@ -201,6 +201,11 @@
                     class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">Local Secretariat</button>
                   <button @click="downloadsDropdownOpen = false; downloadBadgesAsPDF('true', 'djcc')"
                     class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">DJCC Members</button>
+                  <button @click="downloadsDropdownOpen = false; downloadBlankRoleBadges()"
+                    :disabled="downloadingBlankBadges"
+                    class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left disabled:opacity-50">
+                    {{ downloadingBlankBadges ? 'Generating…' : 'Blank Role Badges (A5) — Ushers/Medical/Drivers/Media' }}
+                  </button>
                   <button @click="downloadsDropdownOpen = false; openBadgePicker()"
                     class="w-full px-4 py-2 text-sm text-left" style="color:#5b21b6;">Paid &amp; POP — Choose Names…</button>
                   <p class="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest border-t border-gray-100 mt-1">
@@ -2027,6 +2032,21 @@ async function downloadBadgesAsPDF(paidFilter, category = null) {
     alert('Failed to download participant badges PDF.')
   } finally {
     badgeDownloadLoading.value = false
+  }
+}
+
+const downloadingBlankBadges = ref(false)
+
+async function downloadBlankRoleBadges() {
+  downloadingBlankBadges.value = true
+  try {
+    const url = `/events/${eventId}/blank-role-badges/pdf`
+    const response = await api.get(url, { responseType: 'blob' })
+    _downloadPdfBlob(response, 'blank_role_badges_A5.pdf')
+  } catch (error) {
+    alert('Failed to download blank role badges PDF.')
+  } finally {
+    downloadingBlankBadges.value = false
   }
 }
 

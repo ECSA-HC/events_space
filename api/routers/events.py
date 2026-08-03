@@ -2287,12 +2287,16 @@ def _register_static_badge_form(c, logo_left, logo_right):
     c._ecsa_badge_static_registered = True
 
 
-def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_rgb=None):
+def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_rgb=None, blank=False):
     """Render one A6 ECSA conference badge matching the official name-tag design exactly.
 
     All positions derived from official ECSA-HC A6 (105×148 mm) badge PDFs.
     PyMuPDF extracted coordinates are in mm from top; converted to ReportLab
     (y from bottom) via fy(y_top_mm) = (148 - y_top_mm) * mm.
+
+    blank=True skips the QR code (there's no registration to link attendance
+    to) — used for generic role badges printed with empty Name/Designation/
+    Organization fields for on-site handwriting, rather than one per person.
     """
     W_mm, H_mm = 105.0, 148.0
     W, H = W_mm * mm, H_mm * mm
@@ -2537,22 +2541,23 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
     # touch that gap.
     qr_mm   = 22
     qr_top  = 115.5                  # mm from top
-    qr_url  = (f"{CLIENT_ORIGIN}/event-attendance/{p['event_id']}"
-               f"?reg={p['registration_id']}")
-    try:
-        qr_img = qrcode.make(qr_url)
-        qr_buf = BytesIO()
-        qr_img.save(qr_buf, format="PNG")
-        qr_buf.seek(0)
-        c.drawImage(ImageReader(qr_buf),
-                    (W_mm - qr_mm) / 2 * mm, fy(qr_top + qr_mm),
-                    qr_mm * mm, qr_mm * mm)
-    except Exception:
-        pass
+    if not blank:
+        qr_url  = (f"{CLIENT_ORIGIN}/event-attendance/{p['event_id']}"
+                   f"?reg={p['registration_id']}")
+        try:
+            qr_img = qrcode.make(qr_url)
+            qr_buf = BytesIO()
+            qr_img.save(qr_buf, format="PNG")
+            qr_buf.seek(0)
+            c.drawImage(ImageReader(qr_buf),
+                        (W_mm - qr_mm) / 2 * mm, fy(qr_top + qr_mm),
+                        qr_mm * mm, qr_mm * mm)
+        except Exception:
+            pass
 
-    c.setFillColorRGB(0.4, 0.4, 0.4)
-    c.setFont("Helvetica", 6.5)
-    c.drawCentredString(W / 2, fy(qr_top + qr_mm + 3.0), "Scan QR code to confirm attendance")
+        c.setFillColorRGB(0.4, 0.4, 0.4)
+        c.setFont("Helvetica", 6.5)
+        c.drawCentredString(W / 2, fy(qr_top + qr_mm + 3.0), "Scan QR code to confirm attendance")
 
     # ECSA member-state flags are drawn once as part of the static form
     # registered at the top of this function (see _register_static_badge_form).
@@ -2715,6 +2720,63 @@ async def download_participant_badges_pdf(
         headers={
             "Content-Disposition": f"attachment; filename={ascii_filename}; filename*=UTF-8''{utf8_filename}"
         },
+    )
+
+
+@router.get("/{event_id}/blank-role-badges/pdf")
+async def download_blank_role_badges_pdf(
+    event_id: int,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    """Generate blank A5 badges (no name, no QR) for support-staff roles that
+    aren't individually registered — Ushers, Medical Team, Drivers, Media —
+    with empty Name/Designation/Organization fields for on-site handwriting."""
+    auth_dependency.secure_access("VIEW_EVENT", current_user["user_id"])
+
+    event = db.query(Event).filter(Event.id == event_id, Event.deleted_at == None).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    roles = ["usher", "medical_staff", "driver", "media"]
+
+    # A5 is the same ISO 216 aspect ratio as A6, so scaling up by the A5:A6
+    # ratio reuses every hand-tuned A6 coordinate in _render_badge_page
+    # as-is, instead of re-deriving the whole layout at a new size.
+    A5_W, A5_H = 148 * mm, 210 * mm
+    scale_x = A5_W / (105 * mm)
+    scale_y = A5_H / (148 * mm)
+
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=(A5_W, A5_H))
+
+    logo_left  = load_logo_with_transparency("assets/logo_left.png")
+    logo_right = load_logo_with_transparency("assets/logo_right.png")
+
+    for role_key in roles:
+        p = {
+            "registration_id": 0, "user_id": 0, "event_id": event_id,
+            "title": "", "firstname": "", "middle_name": "", "lastname": "",
+            "position": "", "organisation": "", "country": None,
+            "event_name": event.event, "location": event.location or "",
+            "event_theme": event.theme or "", "event_dates": _fmt_event_dates(event),
+            "participation_role_raw": role_key, "paid": True, "has_proof": False,
+        }
+        # Each new page starts at an identity transform (showPage resets it),
+        # so this scale call doesn't need a matching restoreState.
+        c.scale(scale_x, scale_y)
+        _render_badge_page(c, p, logo_left, logo_right, blank=True)
+
+    c.save()
+    buffer.seek(0)
+
+    safe_event_name = sanitize_filename(event.event)
+    filename = f"{safe_event_name}_blank_role_badges_A5.pdf"
+
+    return StreamingResponse(
+        buffer, media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
