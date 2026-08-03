@@ -50,15 +50,28 @@
               >
                 🪪 {{ downloadingBadge ? 'Generating…' : 'Download My Badge' }}
               </button>
+              <button
+                v-if="userParticipant.payment_proof"
+                @click="openMyProof"
+                class="inline-flex items-center gap-1 px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 font-semibold"
+              >
+                🧾 View My Proof of Payment
+              </button>
             </div>
 
             <!-- Not Paid -->
             <div v-else class="space-y-3">
               <!-- Proof upload status -->
-              <div v-if="userParticipant.payment_proof" class="flex items-center gap-2">
+              <div v-if="userParticipant.payment_proof" class="flex items-center gap-2 flex-wrap">
                 <span class="inline-block px-3 py-1 text-xs bg-amber-100 text-amber-700 rounded-full font-semibold">
                   ⏳ Proof Uploaded — Awaiting Verification
                 </span>
+                <button
+                  @click="openMyProof"
+                  class="text-xs text-indigo-600 hover:underline font-medium"
+                >
+                  View
+                </button>
                 <label
                   class="cursor-pointer text-xs text-indigo-600 hover:underline"
                   title="Upload new proof"
@@ -323,6 +336,15 @@ function canPreview(doc) {
 function openPreview(doc) {
   previewingDoc.value = doc
   showPreviewModal.value = true
+}
+
+function openMyProof() {
+  if (!userParticipant.value?.payment_proof) return
+  openPreview({
+    name: 'Proof of Payment',
+    file_name: userParticipant.value.payment_proof.split('/').pop(),
+    path: userParticipant.value.payment_proof,
+  })
 }
 
 // Fetch data
