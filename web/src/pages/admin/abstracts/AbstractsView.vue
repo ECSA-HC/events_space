@@ -1050,8 +1050,13 @@
           <div v-if="presentationsModal.loading" class="text-xs text-gray-400 py-4 text-center">Loading…</div>
           <div v-else-if="presentationsModal.items.length === 0" class="text-xs text-gray-400 py-4 text-center">No presentations uploaded yet.</div>
 
-          <div v-else v-for="p in presentationsModal.items" :key="p.id" class="rounded-xl border border-gray-100 overflow-hidden">
+          <p v-else class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">
+            {{ presentationsModal.items.length }} Submitted
+          </p>
+
+          <div v-for="(p, idx) in presentationsModal.items" :key="p.id" class="rounded-xl border border-gray-100 overflow-hidden">
             <div @click="p._expanded = !p._expanded" class="w-full flex items-center gap-3 px-3 py-2.5 bg-gray-50 hover:bg-gray-100 text-left cursor-pointer">
+              <span class="text-xs font-semibold text-gray-400 w-5 flex-shrink-0 text-right">{{ idx + 1 }}</span>
               <svg class="w-5 h-5 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
