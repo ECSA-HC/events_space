@@ -2294,9 +2294,11 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
     PyMuPDF extracted coordinates are in mm from top; converted to ReportLab
     (y from bottom) via fy(y_top_mm) = (148 - y_top_mm) * mm.
 
-    blank=True skips the QR code (there's no registration to link attendance
-    to) — used for generic role badges printed with empty Name/Designation/
-    Organization fields for on-site handwriting, rather than one per person.
+    blank=True is for generic role badges with no real registration behind
+    them (empty Name/Designation/Organization for on-site handwriting): the
+    QR still renders for visual consistency but encodes the role label as
+    plain text instead of an attendance-confirmation URL, so scanning it
+    doesn't try to open a page.
     """
     W_mm, H_mm = 105.0, 148.0
     W, H = W_mm * mm, H_mm * mm
@@ -2541,23 +2543,28 @@ def _render_badge_page(c, p, logo_left, logo_right, primary_rgb=None, secondary_
     # touch that gap.
     qr_mm   = 22
     qr_top  = 115.5                  # mm from top
-    if not blank:
-        qr_url  = (f"{CLIENT_ORIGIN}/event-attendance/{p['event_id']}"
-                   f"?reg={p['registration_id']}")
-        try:
-            qr_img = qrcode.make(qr_url)
-            qr_buf = BytesIO()
-            qr_img.save(qr_buf, format="PNG")
-            qr_buf.seek(0)
-            c.drawImage(ImageReader(qr_buf),
-                        (W_mm - qr_mm) / 2 * mm, fy(qr_top + qr_mm),
-                        qr_mm * mm, qr_mm * mm)
-        except Exception:
-            pass
+    # blank badges keep the QR purely for visual/design consistency — there's
+    # no real registration behind them, so it encodes plain text (the role
+    # label) rather than a URL, so scanning it doesn't try to open a page.
+    qr_payload = (
+        f"{CLIENT_ORIGIN}/event-attendance/{p['event_id']}?reg={p['registration_id']}"
+        if not blank else role_label
+    )
+    try:
+        qr_img = qrcode.make(qr_payload)
+        qr_buf = BytesIO()
+        qr_img.save(qr_buf, format="PNG")
+        qr_buf.seek(0)
+        c.drawImage(ImageReader(qr_buf),
+                    (W_mm - qr_mm) / 2 * mm, fy(qr_top + qr_mm),
+                    qr_mm * mm, qr_mm * mm)
+    except Exception:
+        pass
 
-        c.setFillColorRGB(0.4, 0.4, 0.4)
-        c.setFont("Helvetica", 6.5)
-        c.drawCentredString(W / 2, fy(qr_top + qr_mm + 3.0), "Scan QR code to confirm attendance")
+    c.setFillColorRGB(0.4, 0.4, 0.4)
+    c.setFont("Helvetica", 6.5)
+    c.drawCentredString(W / 2, fy(qr_top + qr_mm + 3.0),
+                        "Scan QR code to confirm attendance" if not blank else "")
 
     # ECSA member-state flags are drawn once as part of the static form
     # registered at the top of this function (see _register_static_badge_form).
