@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ subject }}</title>
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; color: #333333; }
+      .email-container { width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 40px; box-sizing: border-box; border-top: 6px solid #f7941d; }
+      p { font-size: 15px; line-height: 1.7; margin: 12px 0; }
+      .reminder-banner { background-color: #fff8f0; border-left: 4px solid #f7941d; border-radius: 0 8px 8px 0; padding: 12px 20px; margin: 0 0 20px 0; font-size: 15px; color: #7a4500; }
+      .abstract-box { background-color: #f9fafb; border-left: 4px solid #0095b6; padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 20px 0; }
+      .abstract-box p { margin: 4px 0; font-size: 14px; }
+      .cta { display: inline-block; margin: 8px 0 20px; padding: 12px 24px; background-color: #f7941d; color: #ffffff !important; text-decoration: none; font-weight: 600; font-size: 14px; border-radius: 8px; }
+      .footer { font-size: 12px; color: #9ca3af; text-align: center; margin-top: 28px; }
+    </style>
+  </head>
+  <body>
+    <div class="email-container">
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+        <tr>
+          <td>
+            <span style="font-size:19px;font-weight:900;color:#0095b6;">ECSA</span><span style="font-size:19px;font-weight:900;color:#F7941D;">-HC</span>
+            <span style="font-size:13px;color:#6b7280;margin-left:6px;">Events Portal</span>
+          </td>
+        </tr>
+      </table>
+
+      <p>Dear <strong>{{ firstname }}</strong>,</p>
+
+      <div class="reminder-banner">
+        This is a friendly reminder that we have not yet received your presentation file for
+        <strong>{{ event_name }}</strong>.
+      </div>
+
+      <div class="abstract-box">
+        <p><strong>{{ abstract_titles|length > 1 and "Awaiting upload for:" or "Awaiting upload for:" }}</strong></p>
+        {% for title in abstract_titles %}
+        <p>&ldquo;{{ title }}&rdquo;</p>
+        {% endfor %}
+      </div>
+
+      <p>Please upload your presentation (slides or poster) through your account as soon as possible so the secretariat has a copy ahead of the event.</p>
+
+      <a href="{{ portal_url }}/my-account/my-abstract-presentation" class="cta">Upload My Presentation</a>
+
+      <p>If you have already sent your presentation separately or believe this is a mistake, please reply to this email so we can update our records.</p>
+
+      <p>Kind regards,<br/>ECSA-HC Secretariat</p>
+
+      <div class="footer">
+        <p>&copy; {{ year }} ECSA-HC Events Portal. All rights reserved.</p>
+        <p>East, Central and Southern Africa Health Community</p>
+      </div>
+    </div>
+  </body>
+</html>

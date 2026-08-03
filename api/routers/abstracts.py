@@ -1657,6 +1657,124 @@ def _paid_presenter_entries(event_id: int, db: Session, include_posters: bool = 
     return entries, abstracts_by_id, uploaded_by_abstract_id
 
 
+def _group_presenters_by_upload_status(event_id: int, db: Session):
+    """Paid presenters (oral + poster) grouped one row per person — someone
+    presenting multiple abstracts gets a single row listing all of them.
+    Returns (to_send, already_uploaded) where to_send only includes people
+    with at least one abstract still missing its presentation file."""
+    entries, _, _ = _paid_presenter_entries(event_id, db, include_posters=True)
+
+    by_email = {}
+    for e in entries:
+        key = e["email"].lower()
+        if key not in by_email:
+            by_email[key] = {
+                "firstname": e["firstname"] or "",
+                "lastname": e["lastname"] or "",
+                "email": e["email"],
+                "abstracts": [],
+            }
+        by_email[key]["abstracts"].append({
+            "abstract_title": e["abstract_title"],
+            "presentation_type": e["presentation_type"],
+            "uploaded": bool(e["presentation"]),
+        })
+
+    to_send, already_uploaded = [], []
+    for info in by_email.values():
+        missing_titles = [a["abstract_title"] for a in info["abstracts"] if not a["uploaded"]]
+        if missing_titles:
+            to_send.append({**info, "missing_titles": missing_titles})
+        else:
+            already_uploaded.append(info)
+    return to_send, already_uploaded
+
+
+@router.get("/presentation-reminder-preview")
+async def presentation_reminder_preview(
+    event_id: int = Query(...),
+    current_user: user_dependency = None,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+):
+    """Preview who will receive a presentation-upload reminder (no emails sent)."""
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+    from models.models import Event as EventModel
+
+    event = db.query(EventModel).filter(EventModel.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    to_send, already_uploaded = _group_presenters_by_upload_status(event_id, db)
+    return {
+        "event_name": event.event,
+        "to_send": to_send,
+        "already_uploaded": already_uploaded,
+        "total_presenters": len(to_send) + len(already_uploaded),
+    }
+
+
+@router.post("/send-presentation-reminders")
+async def send_presentation_reminders(
+    event_id: int = Query(...),
+    background_tasks: BackgroundTasks = None,
+    current_user: user_dependency = None,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dep),
+):
+    """Email paid presenters (oral + poster) who haven't uploaded their
+    presentation file yet — one email per person listing every abstract of
+    theirs still missing an upload."""
+    auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
+    from models.models import Event as EventModel
+
+    event = db.query(EventModel).filter(EventModel.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    to_send, already_uploaded = _group_presenters_by_upload_status(event_id, db)
+    if not to_send:
+        return {
+            "sent": 0,
+            "total_presenters": len(already_uploaded),
+            "already_uploaded": len(already_uploaded),
+            "message": "No reminders needed — every paid presenter has already uploaded their presentation.",
+        }
+
+    import utils.mailer_util as _mailer
+    from starlette.templating import Jinja2Templates as _Jinja2
+    from datetime import datetime as _datetime
+    _templates = _Jinja2(directory="templates")
+
+    messages = []
+    for person in to_send:
+        subject = f"Reminder: Upload Your Presentation – {event.event}"
+        body = _templates.get_template("presentation_upload_reminder_template.html").render(
+            subject=subject,
+            firstname=person["firstname"] or "Presenter",
+            event_name=event.event,
+            abstract_titles=person["missing_titles"],
+            portal_url="https://events.ecsahc.org",
+            year=_datetime.now().year,
+        )
+        messages.append({
+            "recipient_email": person["email"],
+            "subject": subject,
+            "body": body,
+            "email_type": "presentation_upload_reminder",
+            "sent_by_user_id": current_user["user_id"],
+        })
+
+    background_tasks.add_task(_mailer.send_bulk_emails, messages, db)
+
+    return {
+        "sent": len(to_send),
+        "total_presenters": len(to_send) + len(already_uploaded),
+        "already_uploaded": len(already_uploaded),
+        "message": f"Presentation upload reminder queued for {len(to_send)} presenter(s). {len(already_uploaded)} already uploaded.",
+    }
+
+
 @router.get("/presentations-report")
 def presentations_report(
     event_id: int = Query(...),

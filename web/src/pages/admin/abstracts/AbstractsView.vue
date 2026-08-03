@@ -82,6 +82,16 @@
               </div>
               <span class="font-medium text-gray-700">Registration Reminder</span>
             </button>
+            <button @click="notifDropdownOpen = false; openPresReminder()"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-gray-50 transition">
+              <div class="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background-color:#fffbeb;">
+                <svg class="w-4 h-4" style="color:#92400e;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 17v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+              </div>
+              <span class="font-medium text-gray-700">Presentation Upload Reminder</span>
+            </button>
             <button @click="notifDropdownOpen = false; openRejectNotify()"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-gray-50 transition">
               <div class="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background-color:#fef2f2;">
@@ -1466,6 +1476,187 @@
       </div>
     </div>
 
+    <!-- Presentation Upload Reminder Modal -->
+    <div v-if="presReminderModal.open"
+      class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+      @click.self="presReminderModal.open = false">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl flex flex-col max-h-[92vh]">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between px-5 py-4 border-b flex-shrink-0">
+          <div class="flex items-center gap-3">
+            <div class="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background-color:#fffbeb;">
+              <svg class="w-5 h-5" style="color:#F7941D;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 17v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="font-bold text-gray-800 text-sm">Send Presentation Upload Reminder</p>
+              <p class="text-xs text-gray-400 mt-0.5">
+                {{ presReminderModal.step === 'select' ? 'Email paid presenters who haven\'t uploaded yet' : presReminderModal.step === 'preview' ? `Preview for: ${presReminderModal.preview.event_name}` : 'Reminders sent' }}
+              </p>
+            </div>
+          </div>
+          <button @click="presReminderModal.open = false" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="p-5 overflow-y-auto flex-1">
+
+          <!-- Step 1: Select event -->
+          <div v-if="presReminderModal.step === 'select'" class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Event <span class="text-red-500">*</span></label>
+              <select v-model.number="presReminderModal.eventId" class="input w-full">
+                <option :value="null">— Select an event —</option>
+                <option v-for="e in events" :key="e.id" :value="e.id">{{ e.event }}</option>
+              </select>
+              <p class="text-xs text-gray-400 mt-1">Only paid (or POP) presenting authors — oral and poster — for this event are considered.</p>
+            </div>
+            <div class="flex items-start gap-3 px-4 py-3 rounded-xl text-sm" style="background:#fffbeb; border:1px solid #fcd34d;">
+              <svg class="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <p class="text-amber-800 text-xs leading-relaxed">
+                One email per person, listing every one of their abstracts still missing a presentation file. Presenters who've already uploaded for all their abstracts are skipped.
+              </p>
+            </div>
+            <p v-if="presReminderModal.error" class="text-red-500 text-sm">{{ presReminderModal.error }}</p>
+          </div>
+
+          <!-- Step 2: Preview -->
+          <div v-if="presReminderModal.step === 'preview'" class="space-y-4">
+            <!-- Summary badges -->
+            <div class="grid grid-cols-3 gap-3">
+              <div class="rounded-xl p-3 text-center" style="background:#f0f9fb; border:1px solid #b3e4f0;">
+                <p class="text-2xl font-bold" style="color:#0095B6;">{{ presReminderModal.preview.total_presenters }}</p>
+                <p class="text-xs text-gray-500 mt-0.5">Total Presenters</p>
+              </div>
+              <div class="rounded-xl p-3 text-center" style="background:#fffbeb; border:1px solid #fcd34d;">
+                <p class="text-2xl font-bold text-amber-600">{{ presReminderModal.preview.to_send.length }}</p>
+                <p class="text-xs text-gray-500 mt-0.5">Will Receive</p>
+              </div>
+              <div class="rounded-xl p-3 text-center" style="background:#f0fdf4; border:1px solid #bbf7d0;">
+                <p class="text-2xl font-bold text-green-600">{{ presReminderModal.preview.already_uploaded.length }}</p>
+                <p class="text-xs text-gray-500 mt-0.5">Already Uploaded</p>
+              </div>
+            </div>
+
+            <!-- Will receive list -->
+            <div v-if="presReminderModal.preview.to_send.length > 0">
+              <p class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+                Will Receive Reminder ({{ presReminderModal.preview.to_send.length }})
+              </p>
+              <div class="rounded-xl border border-amber-200 overflow-hidden">
+                <div class="max-h-52 overflow-y-auto divide-y divide-gray-100">
+                  <div v-for="p in presReminderModal.preview.to_send" :key="p.email"
+                    class="flex items-start gap-3 px-4 py-2.5 hover:bg-amber-50">
+                    <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5" style="background:#fffbeb;color:#92400e;">
+                      {{ (p.firstname?.[0] || '') + (p.lastname?.[0] || '') }}
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm font-medium text-gray-800 truncate">{{ p.firstname }} {{ p.lastname }}</p>
+                      <p class="text-xs text-gray-400 truncate">{{ p.email }}</p>
+                      <p class="text-xs text-amber-700 mt-0.5 truncate" :title="p.missing_titles.join(', ')">
+                        Missing: {{ p.missing_titles.join(', ') }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-else class="rounded-xl border border-gray-200 p-4 text-center text-gray-400 text-sm">
+              No presenters to remind — everyone paid has already uploaded their presentation.
+            </div>
+
+            <!-- Already uploaded list -->
+            <div v-if="presReminderModal.preview.already_uploaded.length > 0">
+              <p class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+                Already Uploaded – Will Be Skipped ({{ presReminderModal.preview.already_uploaded.length }})
+              </p>
+              <div class="rounded-xl border border-green-200 overflow-hidden">
+                <div class="max-h-40 overflow-y-auto divide-y divide-gray-100">
+                  <div v-for="p in presReminderModal.preview.already_uploaded" :key="p.email"
+                    class="flex items-center gap-3 px-4 py-2.5 hover:bg-green-50">
+                    <div class="h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style="background:#f0fdf4;color:#15803d;">
+                      {{ (p.firstname?.[0] || '') + (p.lastname?.[0] || '') }}
+                    </div>
+                    <div class="min-w-0">
+                      <p class="text-sm font-medium text-gray-800 truncate">{{ p.firstname }} {{ p.lastname }}</p>
+                      <p class="text-xs text-gray-400 truncate">{{ p.email }}</p>
+                    </div>
+                    <span class="ml-auto text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0" style="background:#f0fdf4;color:#15803d;">✓ Uploaded</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <p v-if="presReminderModal.error" class="text-red-500 text-sm">{{ presReminderModal.error }}</p>
+          </div>
+
+          <!-- Step 3: Done -->
+          <div v-if="presReminderModal.step === 'done'" class="space-y-4">
+            <div class="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
+              <p class="text-3xl mb-2">✅</p>
+              <p class="font-bold text-green-700 text-base mb-1">
+                {{ presReminderModal.result.sent }} reminder{{ presReminderModal.result.sent !== 1 ? 's' : '' }} queued
+              </p>
+              <p class="text-sm text-gray-500">
+                {{ presReminderModal.result.already_uploaded }} presenter(s) who'd already uploaded were skipped.
+                Sending in the background — check Email Logs to confirm delivery.
+              </p>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="flex items-center justify-between gap-3 px-5 py-4 border-t flex-shrink-0">
+          <button v-if="presReminderModal.step === 'preview'" @click="presReminderModal.step = 'select'"
+            class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium">
+            ← Back
+          </button>
+          <div v-else></div>
+
+          <div class="flex gap-3">
+            <button @click="presReminderModal.open = false"
+              class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium">
+              {{ presReminderModal.step === 'done' ? 'Close' : 'Cancel' }}
+            </button>
+            <!-- Select step: Preview button -->
+            <button v-if="presReminderModal.step === 'select'"
+              @click="loadPresReminderPreview"
+              :disabled="presReminderModal.loading || !presReminderModal.eventId"
+              class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-xl disabled:opacity-50 transition hover:opacity-90"
+              style="background-color:#0095B6;">
+              <svg v-if="presReminderModal.loading" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+              {{ presReminderModal.loading ? 'Loading…' : 'Preview Recipients →' }}
+            </button>
+            <!-- Preview step: Send button -->
+            <button v-if="presReminderModal.step === 'preview'"
+              @click="runPresReminder"
+              :disabled="presReminderModal.sending || presReminderModal.preview.to_send.length === 0"
+              class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-xl disabled:opacity-50 transition hover:opacity-90"
+              style="background-color:#F7941D;">
+              <svg v-if="presReminderModal.sending" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+              {{ presReminderModal.sending ? 'Sending…' : `Send to ${presReminderModal.preview.to_send.length} Presenter${presReminderModal.preview.to_send.length !== 1 ? 's' : ''}` }}
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
     <!-- ══════════════════════════════════════════════════════════════════════
          NOTIFY REJECTED AUTHORS MODAL
     ════════════════════════════════════════════════════════════════════════ -->
@@ -2373,6 +2564,61 @@ const runRegReminder = async () => {
   try {
     const res = await api.post(`/abstracts/send-registration-reminders?event_id=${m.eventId}`)
     m.result = { sent: res.data.sent, total_authors: res.data.total_authors, already_registered: res.data.already_registered }
+    m.step = 'done'
+  } catch (e) {
+    m.error = e.response?.data?.detail || 'Failed to send reminders. Please try again.'
+  } finally {
+    m.sending = false
+  }
+}
+
+// ── Presentation Upload Reminder (paid presenters who haven't uploaded) ──────
+const presReminderModal = ref({
+  open: false,
+  step: 'select',   // 'select' | 'preview' | 'done'
+  eventId: null,
+  loading: false,
+  sending: false,
+  preview: { event_name: '', to_send: [], already_uploaded: [], total_presenters: 0 },
+  result: { sent: 0, total_presenters: 0, already_uploaded: 0 },
+  error: '',
+})
+
+const openPresReminder = () => {
+  const m = presReminderModal.value
+  m.step = 'select'
+  m.eventId = filterEvent.value ? Number(filterEvent.value) : null
+  m.loading = false
+  m.sending = false
+  m.preview = { event_name: '', to_send: [], already_uploaded: [], total_presenters: 0 }
+  m.result = { sent: 0, total_presenters: 0, already_uploaded: 0 }
+  m.error = ''
+  m.open = true
+}
+
+const loadPresReminderPreview = async () => {
+  const m = presReminderModal.value
+  if (!m.eventId) { m.error = 'Please select an event.'; return }
+  m.loading = true
+  m.error = ''
+  try {
+    const res = await api.get(`/abstracts/presentation-reminder-preview?event_id=${m.eventId}`)
+    m.preview = res.data
+    m.step = 'preview'
+  } catch (e) {
+    m.error = e.response?.data?.detail || 'Failed to load preview. Please try again.'
+  } finally {
+    m.loading = false
+  }
+}
+
+const runPresReminder = async () => {
+  const m = presReminderModal.value
+  m.sending = true
+  m.error = ''
+  try {
+    const res = await api.post(`/abstracts/send-presentation-reminders?event_id=${m.eventId}`)
+    m.result = { sent: res.data.sent, total_presenters: res.data.total_presenters, already_uploaded: res.data.already_uploaded }
     m.step = 'done'
   } catch (e) {
     m.error = e.response?.data?.detail || 'Failed to send reminders. Please try again.'
