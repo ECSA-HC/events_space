@@ -157,7 +157,16 @@ const onUpload = async (item, e) => {
     })
     await load()
   } catch (err) {
-    errors.value = { ...errors.value, [item.abstract_id]: err.response?.data?.detail || 'Upload failed' }
+    let msg = err.response?.data?.detail
+    if (!msg) {
+      // A rejected oversized file (nginx client_max_body_size) or a network
+      // drop comes back as a 413/non-JSON response with no `detail` field —
+      // give a specific hint instead of a bare "Upload failed".
+      msg = err.response?.status === 413
+        ? 'File is too large — please upload a file under 20MB.'
+        : 'Upload failed. Check your file size (max 20MB) and connection, then try again.'
+    }
+    errors.value = { ...errors.value, [item.abstract_id]: msg }
   } finally {
     uploading.value = { ...uploading.value, [item.abstract_id]: false }
     e.target.value = ''

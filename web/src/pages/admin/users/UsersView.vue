@@ -110,6 +110,13 @@
                     colorClass="text-gray-500 hover:text-blue-600"
                     @click="confirmDelete(user)"
                   />
+                  <ActionIcon
+                    :can="canAddUser"
+                    :icon="CalendarIcon"
+                    label="Link to Event"
+                    colorClass="text-gray-500 hover:text-[#0095B6]"
+                    @click="openLinkModal(user)"
+                  />
                 </div>
               </td>
             </tr>
@@ -162,6 +169,61 @@
         @cancel="showDeleteModal = false"
         @confirm="deleteUser"
       />
+
+      <!-- Link to Event Modal -->
+      <div v-if="showLinkModal"
+        class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+        @click.self="closeLinkModal">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[92vh]">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+            <div>
+              <p class="font-bold text-gray-800 text-sm">Link to Event</p>
+              <p class="text-xs text-gray-400">Register {{ linkUser?.firstname }} {{ linkUser?.lastname }} for an event</p>
+            </div>
+            <button @click="closeLinkModal" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="p-5 space-y-4 overflow-y-auto flex-1">
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Event *</label>
+              <select v-model="linkForm.event_id"
+                class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]">
+                <option :value="null" disabled>{{ loadingLinkEvents ? 'Loading events…' : 'Select an event…' }}</option>
+                <option v-for="ev in linkEvents" :key="ev.id" :value="ev.id">{{ ev.event }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Participation Role *</label>
+              <select v-model="linkForm.participation_role"
+                class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]">
+                <option value="" disabled>Select a role…</option>
+                <option v-for="role in PARTICIPATION_ROLES" :key="role.value" :value="role.value">{{ role.label }}</option>
+              </select>
+            </div>
+            <label class="flex items-center gap-3 cursor-pointer p-3 rounded-xl bg-gray-50 border border-gray-200 select-none">
+              <input type="checkbox" v-model="linkForm.send_invitation" class="w-4 h-4 accent-[#0095B6] rounded" />
+              <div>
+                <p class="text-sm font-semibold text-gray-700">Send invitation email</p>
+                <p class="text-xs text-gray-400 mt-0.5">Email the participant their login details and event information.</p>
+              </div>
+            </label>
+            <div v-if="linkError" class="flex items-start gap-2 p-3 rounded-xl text-sm text-red-700 bg-red-50 border border-red-200">❌ {{ linkError }}</div>
+            <div v-if="linkSuccess" class="flex items-start gap-2 p-3 rounded-xl text-sm text-green-700 bg-green-50 border border-green-200">✅ {{ linkSuccess }}</div>
+          </div>
+          <div class="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-100 flex-shrink-0">
+            <button @click="closeLinkModal"
+              class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition font-medium">Cancel</button>
+            <button @click="submitLinkToEvent"
+              :disabled="linking || !linkForm.event_id || !linkForm.participation_role"
+              class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-xl transition hover:opacity-90 disabled:opacity-50 bg-bondi-blue">
+              {{ linking ? 'Adding…' : 'Add to Event' }}
+            </button>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 </template>
@@ -170,13 +232,14 @@
 import { ref, computed, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
-import { EyeIcon, PencilSquareIcon, TrashIcon } from "@heroicons/vue/24/outline";
+import { EyeIcon, PencilSquareIcon, TrashIcon, CalendarIcon } from "@heroicons/vue/24/outline";
 import AdminBar from "@/components/common/AdminBar.vue";
 import api from "@/plugins/axios";
 import ActionIcon from "@/components/common/ActionIcon.vue";
 import DeleteConfirmationModal from "@/components/common/DeleteConfirmationModal.vue";
 import { debounce } from "lodash";
 import DataLoadingSpinner from "@/components/common/DataLoadingSpinner.vue";
+import { PARTICIPATION_ROLES } from "@/constants/participationRoles";
 
 const auth = useAuthStore();
 const route = useRoute();
@@ -276,4 +339,58 @@ const canAddUser = computed(() => auth.hasPermission("ADD_USER"));
 const canViewUser = computed(() => auth.hasPermission("VIEW_USER"));
 const canEditUser = computed(() => auth.hasPermission("UPDATE_USER"));
 const canDeleteUser = computed(() => auth.hasPermission("DELETE_USER"));
+
+// ── Link to Event modal ──────────────────────────────────────────────────
+const showLinkModal = ref(false);
+const linkUser = ref(null);
+const linkEvents = ref([]);
+const loadingLinkEvents = ref(false);
+const linkForm = ref({ event_id: null, participation_role: "", send_invitation: true });
+const linking = ref(false);
+const linkError = ref("");
+const linkSuccess = ref("");
+
+async function openLinkModal(user) {
+  linkUser.value = user;
+  linkForm.value = { event_id: null, participation_role: "", send_invitation: true };
+  linkError.value = "";
+  linkSuccess.value = "";
+  showLinkModal.value = true;
+  loadingLinkEvents.value = true;
+  try {
+    const res = await api.get("/events/", { params: { limit: 100 } });
+    linkEvents.value = res.data?.data || [];
+  } catch (error) {
+    console.error("Failed to load events for link modal:", error.response?.data || error.message);
+  } finally {
+    loadingLinkEvents.value = false;
+  }
+}
+
+function closeLinkModal() {
+  showLinkModal.value = false;
+  linkUser.value = null;
+}
+
+async function submitLinkToEvent() {
+  if (!linkForm.value.event_id || !linkForm.value.participation_role || !linkUser.value) return;
+  linking.value = true;
+  linkError.value = "";
+  linkSuccess.value = "";
+  try {
+    const res = await api.post(`/events/${linkForm.value.event_id}/admin-add-participant`, {
+      email: linkUser.value.email,
+      firstname: linkUser.value.firstname,
+      lastname: linkUser.value.lastname,
+      participation_role: linkForm.value.participation_role,
+      send_invitation: linkForm.value.send_invitation,
+    });
+    linkSuccess.value = res.data.message || "Added to event successfully.";
+    setTimeout(() => closeLinkModal(), 2000);
+  } catch (error) {
+    linkError.value = error.response?.data?.detail || "Failed to add participant to event.";
+  } finally {
+    linking.value = false;
+  }
+}
 </script>

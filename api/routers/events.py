@@ -1360,6 +1360,16 @@ async def register_with_payment(
         if not new_email:
             raise HTTPException(status_code=422, detail="Email is required for new registrations.")
         existing_account = db.query(User).filter(User.email == new_email).first()
+        if existing_account and existing_account.deleted_at is not None:
+            # email is UNIQUE at the DB level regardless of deleted_at — silently
+            # reusing a deleted account's id here would attach the new
+            # registration to a user row every other query filters out
+            # (deleted_at IS NULL), leaving them unable to log in or ever
+            # receive their credentials email.
+            raise HTTPException(
+                status_code=422,
+                detail="This email is associated with a previously removed account. Please use a different email address, or contact the secretariat for help.",
+            )
         if existing_account:
             user_id = existing_account.id
         else:

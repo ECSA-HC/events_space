@@ -2418,17 +2418,34 @@ function closeAddParticipantModal() {
   selectedUser.value = null
 }
 
-async function openAddParticipantModal() {
-  showAddParticipantModal.value = true
+// Users are searched live against the backend as the admin types, rather
+// than bulk-loading a fixed page of users up front — with 600+ active users
+// a flat limit=500 fetch was silently missing whoever fell outside that
+// page (in particular, someone just added could still be excluded once the
+// active total passes the limit).
+async function searchUsersForPicker(query) {
   loadingUsers.value = true
   try {
-    const res = await api.get('/users/?skip=0&limit=500')
+    const res = await api.get('/users/', { params: { skip: 0, limit: 30, search: query } })
     allUsers.value = res.data.data || res.data || []
   } catch (e) {
-    console.error('Failed to load users for picker', e)
+    console.error('Failed to search users for picker', e)
   } finally {
     loadingUsers.value = false
   }
+}
+
+let userPickerSearchTimeout = null
+watch(userPickerSearch, (val) => {
+  clearTimeout(userPickerSearchTimeout)
+  userPickerSearchTimeout = setTimeout(() => searchUsersForPicker(val.trim()), 300)
+})
+
+async function openAddParticipantModal() {
+  showAddParticipantModal.value = true
+  // Empty search shows the most recently added users by default (backend
+  // sorts newest-first), which is usually exactly who you just want to add.
+  await searchUsersForPicker('')
 }
 
 function selectUser(u) {
