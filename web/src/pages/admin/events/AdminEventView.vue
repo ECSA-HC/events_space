@@ -1647,20 +1647,21 @@ const roleCategoryLabel = computed(() =>
   roleCategories.value.find(c => c.key === roleFilter.value)?.label || 'All'
 )
 
-// Sorted by most recent proof-of-payment upload (updated_at), newest first
+// Sorted by registration date, newest first — registered_at is set once at
+// creation and never touched again, so it stays a true "who just signed up"
+// signal even when unrelated bulk admin actions (badge exports, data fixes)
+// bump many rows' updated_at at once without anyone actually re-registering.
 const filteredParticipants = computed(() => {
   const q = participantSearch.value.toLowerCase().trim()
   let list = [...participants.value].sort((a, b) => {
     // Proof-uploaded-but-not-yet-paid people always sort first — they need
-    // admin review/action, and unlike a pure recency sort this stays stable
-    // regardless of unrelated bulk operations (e.g. exporting badges) that
-    // touch many rows' updated_at at once.
+    // admin review/action ahead of pure recency.
     const pendingA = a.payment_proof && !a.paid ? 1 : 0
     const pendingB = b.payment_proof && !b.paid ? 1 : 0
     if (pendingA !== pendingB) return pendingB - pendingA
 
-    const da = a.updated_at ? new Date(a.updated_at) : (a.registered_at ? new Date(a.registered_at) : 0)
-    const db = b.updated_at ? new Date(b.updated_at) : (b.registered_at ? new Date(b.registered_at) : 0)
+    const da = a.registered_at ? new Date(a.registered_at) : 0
+    const db = b.registered_at ? new Date(b.registered_at) : 0
     return db - da
   })
   if (roleFilter.value !== 'all') {

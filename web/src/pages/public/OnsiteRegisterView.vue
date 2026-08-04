@@ -4,6 +4,18 @@
 
       <!-- Success State -->
       <div v-if="registered" class="bg-white rounded-2xl shadow-lg p-8 text-center">
+        <!-- Alert whoever's staffing the desk that this wasn't a fresh
+             registration — the person already had an account/registration
+             and it was just updated to paid, not created from scratch. -->
+        <div v-if="alreadyRegistered" class="mb-5 p-4 rounded-xl text-left flex items-start gap-3"
+          style="background:#fffbeb;border:1px solid #fde68a;">
+          <span class="text-xl leading-none flex-shrink-0">⚠️</span>
+          <div>
+            <p class="text-sm font-semibold" style="color:#92400e;">Already registered</p>
+            <p class="text-xs mt-0.5" style="color:#92400e;">This person already had a registration for this event — we've updated it and marked them as paid, not created a new one.</p>
+          </div>
+        </div>
+
         <div class="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
           <svg class="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
@@ -187,6 +199,7 @@ const registered = ref(false)
 const submitting = ref(false)
 const errorMsg = ref('')
 const successMessage = ref('')
+const alreadyRegistered = ref(false)
 const needsEventPicker = ref(false)
 const availableEvents = ref([])
 
@@ -286,6 +299,7 @@ async function submitRegistration() {
     })
 
     successMessage.value = res.data.message || 'Registration complete.'
+    alreadyRegistered.value = !!res.data.already_registered
     registered.value = true
   } catch (e) {
     errorMsg.value = e.response?.data?.detail || 'Registration failed. Please try again.'
@@ -299,5 +313,6 @@ function resetForm() {
   autoFilledRole.value = false
   registered.value = false
   successMessage.value = ''
+  alreadyRegistered.value = false
 }
 </script>

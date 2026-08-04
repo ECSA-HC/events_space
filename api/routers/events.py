@@ -4267,7 +4267,12 @@ def onsite_register(
         if organisation:
             existing.badge_organisation = organisation
         db.commit()
-        result = {"message": "Registration updated and marked as paid", "registration_id": existing.id, "user_id": user.id}
+        result = {
+            "message": "Registration updated and marked as paid",
+            "registration_id": existing.id,
+            "user_id": user.id,
+            "already_registered": True,
+        }
         is_new_registration = False
     else:
         # Create new registration (paid directly)
@@ -4286,6 +4291,7 @@ def onsite_register(
             "message": "Registered and marked as paid",
             "registration_id": registration.id,
             "user_id": user.id,
+            "already_registered": False,
         }
         is_new_registration = True
 
