@@ -121,6 +121,20 @@
                 View Report
               </button>
 
+              <!-- Select-for-PDF toggle (admin only) — lets the admin tick
+                   specific rows in the table below and export just those as
+                   a badge PDF, instead of hunting through the Downloads
+                   dropdown's fixed All/Paid/role-category options. -->
+              <button v-if="isFullAdmin" type="button" @click="togglePdfSelectMode"
+                class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition"
+                :class="pdfSelectMode ? 'text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'"
+                :style="pdfSelectMode ? { backgroundColor: '#5b21b6' } : {}">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                {{ pdfSelectMode ? 'Cancel Selecting' : 'Select for PDF' }}
+              </button>
+
               <!-- Manage Participants dropdown (admin only) -->
               <div v-if="isFullAdmin" class="relative" ref="manageDropdownRef">
                 <button type="button" @click="manageDropdownOpen = !manageDropdownOpen"
@@ -203,8 +217,6 @@
                     class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left disabled:opacity-50">
                     {{ downloadingBlankBadges ? 'Generating…' : 'Blank Role Badges (A5) — Ushers/Medical/Drivers/Media' }}
                   </button>
-                  <button @click="downloadsDropdownOpen = false; openBadgePicker()"
-                    class="w-full px-4 py-2 text-sm text-left" style="color:#5b21b6;">Paid &amp; POP — Choose Names…</button>
                   <p class="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest border-t border-gray-100 mt-1">
                     On-Site Registration
                   </p>
@@ -246,6 +258,30 @@
                   </button>
                 </div>
               </div>
+            </div>
+
+            <!-- PDF selection bar — appears while "Select for PDF" mode is
+                 active. Selection spans every filtered/searched row, not
+                 just the current page. -->
+            <div v-if="pdfSelectMode" class="mb-3 flex flex-wrap items-center gap-3 px-3 py-2 rounded-xl text-sm"
+              style="background:#f5f3ff;border:1px solid #ddd6fe;color:#5b21b6;">
+              <input type="checkbox" class="w-4 h-4 cursor-pointer" style="accent-color:#5b21b6;"
+                :checked="pdfSelected.size > 0 && pdfSelected.size === filteredParticipants.length"
+                :indeterminate="pdfSelected.size > 0 && pdfSelected.size < filteredParticipants.length"
+                @change="togglePdfSelectAll" title="Select all matching current search/filter" />
+              <span class="flex-1">
+                <strong>{{ pdfSelected.size }}</strong> of {{ filteredParticipants.length }} selected
+                <button v-if="pdfSelected.size > 0" @click="pdfSelected = new Set()" class="ml-2 underline hover:opacity-80">Clear</button>
+              </span>
+              <button @click="downloadSelectedParticipantsPdf" :disabled="pdfSelected.size === 0 || pdfSelectDownloading"
+                class="inline-flex items-center gap-2 px-4 py-1.5 text-sm font-semibold text-white rounded-full transition hover:opacity-90 disabled:opacity-50"
+                style="background-color:#5b21b6;">
+                <svg v-if="pdfSelectDownloading" class="w-4 h-4 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                </svg>
+                {{ pdfSelectDownloading ? 'Generating…' : `Download PDF (${pdfSelected.size})` }}
+              </button>
             </div>
 
             <!-- Reminder feedback -->
@@ -301,7 +337,9 @@
                         :checked="selectedUnpaid.length === unpaidParticipants.length && unpaidParticipants.length > 0"
                         @change="toggleSelectAllUnpaid" title="Select all unpaid" />
                     </th>
-                    <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">#</th>
+                    <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase w-8">
+                      <span v-if="!pdfSelectMode">#</span>
+                    </th>
                     <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Name</th>
                     <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Country</th>
                     <th class="px-4 py-2 text-left text-xs text-gray-500 uppercase">Email</th>
@@ -318,14 +356,18 @@
                     </td>
                   </tr>
                   <tr v-for="(p, idx) in paginatedParticipants" :key="p.id"
-                    :class="selectedUnpaid.includes(p.id) ? 'bg-orange-50' : p.reminder_sent_at && !p.paid ? 'bg-blue-50/40' : ''">
+                    :class="pdfSelected.has(p.user_id) ? 'bg-violet-50' : selectedUnpaid.includes(p.id) ? 'bg-orange-50' : p.reminder_sent_at && !p.paid ? 'bg-blue-50/40' : ''">
                     <td v-if="isFullAdmin" class="px-3 py-2">
                       <input v-if="!p.paid && !p.reminder_sent_at"
                         type="checkbox" class="accent-orange-500 w-4 h-4 cursor-pointer"
                         :checked="selectedUnpaid.includes(p.id)"
                         @change="toggleParticipant(p.id)" />
                     </td>
-                    <td class="px-4 py-2 text-gray-500 text-xs">{{ (currentPage - 1) * pageSize + idx + 1 }}</td>
+                    <td class="px-4 py-2 text-gray-500 text-xs">
+                      <input v-if="pdfSelectMode" type="checkbox" class="w-4 h-4 cursor-pointer" style="accent-color:#5b21b6;"
+                        :checked="pdfSelected.has(p.user_id)" @change="togglePdfSelectOne(p.user_id)" />
+                      <span v-else>{{ (currentPage - 1) * pageSize + idx + 1 }}</span>
+                    </td>
                     <td class="px-4 py-2 font-medium">
                       <router-link :to="{ name: 'AdminUserPerspective', params: { id: p.user_id } }"
                         class="hover:underline hover:text-[#0095B6] transition-colors">
@@ -1388,91 +1430,6 @@
         </div>
       </div>
 
-      <!-- Badge Picker Modal (choose names for Paid & POP badge PDF) -->
-      <div v-if="showBadgePicker"
-        class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
-        @click.self="closeBadgePicker">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[92vh]">
-
-          <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
-            <div class="flex items-center gap-3">
-              <div class="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#f5f3ff;">
-                <svg class="w-5 h-5" style="color:#5b21b6;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                </svg>
-              </div>
-              <div>
-                <p class="font-bold text-gray-800 text-sm">Choose Names for Badge PDF</p>
-                <p class="text-xs text-gray-400">Paid &amp; POP participants — pick who to include</p>
-              </div>
-            </div>
-            <button @click="closeBadgePicker" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
-
-          <div class="p-5 space-y-3 overflow-y-auto flex-1">
-            <input v-model="badgePickerSearch" type="text" placeholder="Search by name or email…"
-              class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5b21b6]" />
-
-            <div class="flex items-center justify-between">
-              <span class="text-xs px-2 py-1 rounded-full font-semibold" style="background:#f5f3ff;color:#5b21b6;">
-                {{ badgePickerSelected.size }} selected
-              </span>
-              <label v-if="paidOrPopParticipants.length > 0" class="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
-                <input type="checkbox" :checked="badgePickerSelected.size === paidOrPopParticipants.length"
-                  @change="toggleBadgePickerSelectAll"
-                  class="rounded border-gray-300 text-[#5b21b6] focus:ring-[#5b21b6]" />
-                Select all ({{ paidOrPopParticipants.length }})
-              </label>
-            </div>
-
-            <p v-if="alreadyExportedCount > 0" class="text-xs bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-3 py-2">
-              ⓘ {{ alreadyExportedCount }} {{ alreadyExportedCount === 1 ? 'person has' : 'people have' }} already had their badge exported — unchecked below by default so they're skipped, but you can still tick them to include anyway.
-            </p>
-
-            <div class="rounded-xl border border-gray-200 overflow-hidden">
-              <div class="max-h-96 overflow-y-auto divide-y divide-gray-100">
-                <div v-if="filteredBadgePickerParticipants.length === 0" class="text-xs text-gray-400 text-center py-6">
-                  No matching participants.
-                </div>
-                <div v-for="p in filteredBadgePickerParticipants" :key="p.user_id"
-                  class="px-3 py-2 flex items-center gap-2 cursor-pointer hover:bg-gray-50 transition"
-                  @click="toggleBadgePickerUser(p.user_id)">
-                  <input type="checkbox" :checked="badgePickerSelected.has(p.user_id)"
-                    @click.stop="toggleBadgePickerUser(p.user_id)"
-                    class="rounded border-gray-300 text-[#5b21b6] focus:ring-[#5b21b6]" />
-                  <div class="min-w-0 flex-1">
-                    <p class="text-sm font-medium text-gray-800 truncate">{{ p.firstname }} {{ p.lastname }}</p>
-                    <p class="text-xs text-gray-400 truncate">{{ p.email }}</p>
-                  </div>
-                  <span v-if="wasAlreadyExported(p)" class="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700 flex-shrink-0">
-                    {{ exportedDateLabel(p) }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-100 flex-shrink-0">
-            <button @click="closeBadgePicker"
-              class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition font-medium">Cancel</button>
-            <button @click="downloadSelectedBadges" :disabled="badgePickerSelected.size === 0 || badgePickerDownloading"
-              class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-xl transition hover:opacity-90 disabled:opacity-50"
-              style="background-color:#5b21b6;">
-              <svg v-if="badgePickerDownloading" class="w-4 h-4 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-              </svg>
-              {{ badgePickerDownloading ? 'Generating…' : `Download ${badgePickerSelected.size} Badge${badgePickerSelected.size === 1 ? '' : 's'}` }}
-            </button>
-          </div>
-        </div>
-      </div>
-
       <!-- Edit Role Modal -->
       <div v-if="showEditRoleModal"
         class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
@@ -2066,89 +2023,62 @@ async function downloadOnsiteQR() {
   }
 }
 
-// ── Badge picker (choose names for the Paid & POP badge PDF) ────────────────
-const showBadgePicker = ref(false)
-const badgePickerSearch = ref('')
-const badgePickerSelected = ref(new Set())
-
-const paidOrPopParticipants = computed(() =>
-  participants.value.filter(p => p.paid || p.payment_proof)
-)
+// ── Select-for-PDF mode (tick rows in the main table, export a badge PDF
+// for just those) — replaces the old separate "Choose Names" modal, which
+// only listed Paid/POP people in its own disconnected search box. This
+// version works on whatever the admin already has filtered/searched for. ──
+const pdfSelectMode = ref(false)
+const pdfSelected = ref(new Set())
+const pdfSelectDownloading = ref(false)
 
 function wasAlreadyExported(p) {
   return !!p.badge_exported_at
 }
 
-function exportedDateLabel(p) {
-  if (!p.badge_exported_at) return ''
-  const exported = new Date(p.badge_exported_at)
-  const now = new Date()
-  const isToday = exported.getUTCFullYear() === now.getUTCFullYear()
-    && exported.getUTCMonth() === now.getUTCMonth()
-    && exported.getUTCDate() === now.getUTCDate()
-  if (isToday) return 'Exported today'
-  return `Exported ${exported.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+function togglePdfSelectMode() {
+  pdfSelectMode.value = !pdfSelectMode.value
+  if (pdfSelectMode.value) {
+    // Default-skip anyone whose badge was already exported (any previous
+    // batch, not just today) so turning this on doesn't silently re-print
+    // already-printed badges — still easy to tick back on.
+    pdfSelected.value = new Set(
+      filteredParticipants.value.filter(p => !wasAlreadyExported(p)).map(p => p.user_id)
+    )
+  } else {
+    pdfSelected.value = new Set()
+  }
 }
 
-const alreadyExportedCount = computed(() =>
-  paidOrPopParticipants.value.filter(wasAlreadyExported).length
-)
-
-const filteredBadgePickerParticipants = computed(() => {
-  const q = badgePickerSearch.value.trim().toLowerCase()
-  if (!q) return paidOrPopParticipants.value
-  return paidOrPopParticipants.value.filter(p =>
-    `${p.firstname || ''} ${p.lastname || ''}`.toLowerCase().includes(q) || (p.email || '').toLowerCase().includes(q)
-  )
-})
-
-function openBadgePicker() {
-  showBadgePicker.value = true
-  badgePickerSearch.value = ''
-  // Default-skip anyone whose badge was already exported (any previous
-  // batch, not just today) so re-opening the picker doesn't silently
-  // re-print already-printed badges — still easy to tick back on.
-  badgePickerSelected.value = new Set(
-    paidOrPopParticipants.value.filter(p => !wasAlreadyExported(p)).map(p => p.user_id)
-  )
-}
-
-function closeBadgePicker() {
-  showBadgePicker.value = false
-}
-
-function toggleBadgePickerUser(userId) {
-  const s = new Set(badgePickerSelected.value)
+function togglePdfSelectOne(userId) {
+  const s = new Set(pdfSelected.value)
   if (s.has(userId)) s.delete(userId)
   else s.add(userId)
-  badgePickerSelected.value = s
+  pdfSelected.value = s
 }
 
-function toggleBadgePickerSelectAll() {
-  const allIds = new Set(paidOrPopParticipants.value.map(p => p.user_id))
-  badgePickerSelected.value = badgePickerSelected.value.size === allIds.size ? new Set() : allIds
+function togglePdfSelectAll() {
+  const allIds = new Set(filteredParticipants.value.map(p => p.user_id))
+  pdfSelected.value = pdfSelected.value.size === allIds.size ? new Set() : allIds
 }
 
-const badgePickerDownloading = ref(false)
-
-async function downloadSelectedBadges() {
-  if (badgePickerSelected.value.size === 0) return
-  badgePickerDownloading.value = true
+async function downloadSelectedParticipantsPdf() {
+  if (pdfSelected.value.size === 0) return
+  pdfSelectDownloading.value = true
   try {
-    const ids = [...badgePickerSelected.value].join(',')
-    // role_category deliberately omitted: the picker lists paid/POP people
-    // across every role regardless of the currently active tab, so scoping
-    // by role_category here would silently drop selected people whose role
-    // doesn't match whatever tab happens to be selected. user_ids alone
-    // already specifies exactly who to include.
-    const url = `/events/${eventId}/participants/badges?paid=true&role_category=all&user_ids=${ids}`
+    const ids = [...pdfSelected.value].join(',')
+    // paid/role_category deliberately left at "all": the selection already
+    // spans exactly who's ticked regardless of paid status or role, so
+    // scoping by either here would silently drop selected people who don't
+    // match. user_ids alone already specifies exactly who to include.
+    const url = `/events/${eventId}/participants/badges?paid=all&role_category=all&user_ids=${ids}`
     const response = await api.get(url, { responseType: 'blob' })
     _downloadPdfBlob(response, 'participant_badges.pdf')
-    closeBadgePicker()
+    pdfSelectMode.value = false
+    pdfSelected.value = new Set()
   } catch (error) {
     alert('Failed to download selected badges PDF.')
   } finally {
-    badgePickerDownloading.value = false
+    pdfSelectDownloading.value = false
   }
 }
 
