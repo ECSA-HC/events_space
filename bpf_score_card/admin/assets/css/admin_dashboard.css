@@ -1,0 +1,762 @@
+:root {
+    --admin-navy: #0b2a43;
+    --admin-navy-deep: #071f33;
+    --admin-blue: #1769aa;
+    --admin-blue-soft: #eaf4fc;
+    --admin-green: #16845d;
+    --admin-green-soft: #e8f7f0;
+    --admin-gold: #d69a14;
+    --admin-gold-soft: #fff6dc;
+    --admin-red: #c34b50;
+    --admin-bg: #f4f7fa;
+    --admin-surface: #ffffff;
+    --admin-text: #172536;
+    --admin-muted: #69798b;
+    --admin-border: #dfe6ed;
+    --admin-border-soft: #edf1f4;
+    --admin-shadow: 0 14px 34px rgba(11, 42, 67, 0.08);
+    --admin-radius: 14px;
+    --sidebar-width: 280px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    min-width: 1180px;
+    background: var(--admin-bg);
+}
+
+body {
+    min-height: 100vh;
+    margin: 0;
+    color: var(--admin-text);
+    background: var(--admin-bg);
+    font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Helvetica,
+        Arial,
+        sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+a,
+button,
+input,
+select,
+textarea {
+    font: inherit;
+}
+
+.admin-shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+}
+
+/* -------------------------------------------------------------------------
+   Sidebar
+   ------------------------------------------------------------------------- */
+
+.admin-sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    padding: 24px 18px 20px;
+    display: flex;
+    flex-direction: column;
+    color: #ffffff;
+    background:
+        linear-gradient(
+            180deg,
+            var(--admin-navy-deep),
+            var(--admin-navy)
+        );
+    box-shadow: 8px 0 28px rgba(7, 31, 51, 0.16);
+    z-index: 10;
+}
+
+.admin-sidebar__brand {
+    padding: 0 8px 24px;
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.11);
+}
+
+.admin-sidebar__logo {
+    width: 54px;
+    height: 54px;
+    padding: 6px;
+    flex: 0 0 auto;
+    object-fit: contain;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.admin-sidebar__eyebrow {
+    margin: 0 0 3px;
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 0.68rem;
+    font-weight: 850;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+}
+
+.admin-sidebar__title {
+    margin: 0;
+    color: #ffffff;
+    font-size: 1.08rem;
+    font-weight: 780;
+}
+
+.admin-sidebar__navigation {
+    margin-top: 24px;
+    display: grid;
+    gap: 8px;
+}
+
+.admin-sidebar__link {
+    min-height: 48px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: rgba(255, 255, 255, 0.74);
+    border-radius: 9px;
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 700;
+    transition:
+        color 150ms ease,
+        background-color 150ms ease,
+        transform 150ms ease;
+}
+
+.admin-sidebar__link i {
+    width: 20px;
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 1rem;
+    text-align: center;
+}
+
+.admin-sidebar__link:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateX(2px);
+}
+
+.admin-sidebar__link--active {
+    color: #ffffff;
+    background: var(--admin-blue);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
+}
+
+.admin-sidebar__link--active i {
+    color: #ffffff;
+}
+
+.admin-sidebar__footer {
+    margin-top: auto;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.11);
+}
+
+.admin-sidebar__account {
+    padding: 0 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-width: 0;
+}
+
+.admin-sidebar__avatar {
+    width: 38px;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    color: var(--admin-navy-deep);
+    border-radius: 50%;
+    background: #ffffff;
+    font-size: 0.82rem;
+    font-weight: 850;
+}
+
+.admin-sidebar__account-details {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+}
+
+.admin-sidebar__account-details strong,
+.admin-sidebar__account-details span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.admin-sidebar__account-details strong {
+    color: #ffffff;
+    font-size: 0.82rem;
+}
+
+.admin-sidebar__account-details span {
+    color: rgba(255, 255, 255, 0.56);
+    font-size: 0.68rem;
+}
+
+.admin-sidebar__logout {
+    min-height: 44px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    color: #ffd8da;
+    border-radius: 9px;
+    text-decoration: none;
+    font-size: 0.84rem;
+    font-weight: 750;
+    transition: background-color 150ms ease;
+}
+
+.admin-sidebar__logout:hover {
+    background: rgba(195, 75, 80, 0.18);
+}
+
+/* -------------------------------------------------------------------------
+   Content and top bar
+   ------------------------------------------------------------------------- */
+
+.admin-content {
+    min-width: 0;
+}
+
+.admin-topbar {
+    min-height: 92px;
+    padding: 18px 34px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    border-bottom: 1px solid var(--admin-border);
+    background: var(--admin-surface);
+}
+
+.admin-topbar__eyebrow {
+    margin: 0 0 4px;
+    color: var(--admin-blue);
+    font-size: 0.7rem;
+    font-weight: 850;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.admin-topbar__title {
+    margin: 0;
+    color: var(--admin-navy-deep);
+    font-size: 1.45rem;
+    font-weight: 780;
+}
+
+.admin-topbar__actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.admin-topbar__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--admin-muted);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.admin-topbar__status i {
+    color: #42c98d;
+    font-size: 0.52rem;
+}
+
+.admin-topbar__date {
+    min-height: 42px;
+    padding: 0 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--admin-muted);
+    border: 1px solid var(--admin-border);
+    border-radius: 9px;
+    background: #fbfcfd;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.admin-topbar__date i {
+    color: var(--admin-blue);
+}
+
+/* -------------------------------------------------------------------------
+   Main page
+   ------------------------------------------------------------------------- */
+
+.admin-main {
+    width: min(1480px, calc(100% - 56px));
+    margin: 0 auto;
+    padding: 34px 0 56px;
+}
+
+.admin-page-heading {
+    margin-bottom: 26px;
+}
+
+.admin-page-heading__label,
+.ranking-card__label,
+.winner-card__label {
+    margin: 0 0 6px;
+    color: var(--admin-blue);
+    font-size: 0.72rem;
+    font-weight: 850;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.admin-page-heading__title {
+    margin: 0;
+    color: var(--admin-navy-deep);
+    font-size: 1.65rem;
+    font-weight: 780;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+}
+
+.admin-page-heading__description {
+    max-width: 730px;
+    margin: 8px 0 0;
+    color: var(--admin-muted);
+    font-size: 0.94rem;
+    line-height: 1.58;
+}
+
+/* -------------------------------------------------------------------------
+   Winner cards
+   ------------------------------------------------------------------------- */
+
+.winner-grid {
+    margin-bottom: 28px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+}
+
+.winner-card,
+.ranking-card {
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius);
+    background: var(--admin-surface);
+    box-shadow: var(--admin-shadow);
+}
+
+.winner-card {
+    min-height: 286px;
+    padding: 25px;
+    border-top-width: 4px;
+}
+
+.winner-card--oral {
+    border-top-color: var(--admin-blue);
+}
+
+.winner-card--poster {
+    border-top-color: var(--admin-green);
+}
+
+.winner-card__header {
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.winner-card__icon {
+    width: 48px;
+    height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    border-radius: 12px;
+    font-size: 1.2rem;
+}
+
+.winner-card--oral .winner-card__icon {
+    color: var(--admin-blue);
+    background: var(--admin-blue-soft);
+}
+
+.winner-card--poster .winner-card__icon {
+    color: var(--admin-green);
+    background: var(--admin-green-soft);
+}
+
+.winner-card__category {
+    margin: 0;
+    color: var(--admin-navy-deep);
+    font-size: 1.14rem;
+    font-weight: 760;
+}
+
+.winner-card__result {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 28px;
+}
+
+.winner-card__presenter {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    min-width: 0;
+}
+
+.winner-card__position {
+    width: 43px;
+    height: 43px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    color: var(--admin-gold);
+    border-radius: 50%;
+    background: var(--admin-gold-soft);
+    font-size: 1.04rem;
+}
+
+.winner-card__name {
+    margin: 0;
+    color: var(--admin-navy-deep);
+    font-size: 1.17rem;
+    font-weight: 780;
+    line-height: 1.28;
+}
+
+.winner-card__institution {
+    margin: 5px 0 0;
+    color: var(--admin-muted);
+    font-size: 0.84rem;
+    line-height: 1.4;
+}
+
+.winner-card__score {
+    flex: 0 0 auto;
+    color: var(--admin-navy-deep);
+    font-size: 2rem;
+    font-weight: 850;
+    letter-spacing: -0.04em;
+}
+
+.winner-card__presentation-title {
+    margin: 18px 0 0 56px;
+    color: #46586a;
+    font-size: 0.88rem;
+    font-weight: 620;
+    line-height: 1.5;
+}
+
+.winner-card__meta {
+    margin-top: 21px;
+    padding-top: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    color: var(--admin-muted);
+    border-top: 1px solid var(--admin-border);
+    font-size: 0.79rem;
+    font-weight: 670;
+}
+
+.winner-card__meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.winner-card__meta i {
+    color: var(--admin-blue);
+}
+
+.winner-card__tie-divider {
+    margin: 20px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--admin-gold);
+    font-size: 0.72rem;
+    font-weight: 850;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.winner-card__tie-divider::before,
+.winner-card__tie-divider::after {
+    height: 1px;
+    content: "";
+    flex: 1;
+    background: var(--admin-border);
+}
+
+.winner-card__tie-notice {
+    margin-top: 18px;
+    padding: 11px 13px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: #76530b;
+    border: 1px solid #f4df9d;
+    border-radius: 8px;
+    background: var(--admin-gold-soft);
+    font-size: 0.8rem;
+    font-weight: 680;
+}
+
+/* -------------------------------------------------------------------------
+   Ranking cards and tables
+   ------------------------------------------------------------------------- */
+
+.ranking-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+    align-items: start;
+}
+
+.ranking-card {
+    overflow: hidden;
+}
+
+.ranking-card__header {
+    min-height: 86px;
+    padding: 20px 23px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    border-bottom: 1px solid var(--admin-border);
+}
+
+.ranking-card__title {
+    margin: 0;
+    color: var(--admin-navy-deep);
+    font-size: 1.05rem;
+    font-weight: 760;
+}
+
+.ranking-card__count {
+    padding: 7px 11px;
+    flex: 0 0 auto;
+    color: var(--admin-blue);
+    border-radius: 999px;
+    background: var(--admin-blue-soft);
+    font-size: 0.75rem;
+    font-weight: 780;
+}
+
+.ranking-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.ranking-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+}
+
+.ranking-table th {
+    padding: 13px 15px;
+    color: #728093;
+    background: #f9fbfc;
+    font-size: 0.68rem;
+    font-weight: 850;
+    letter-spacing: 0.06em;
+    text-align: left;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.ranking-table td {
+    padding: 15px;
+    color: #34475a;
+    border-top: 1px solid var(--admin-border-soft);
+    font-size: 0.81rem;
+    vertical-align: middle;
+}
+
+.ranking-table tbody tr {
+    transition: background-color 140ms ease;
+}
+
+.ranking-table tbody tr:hover {
+    background: #fbfcfd;
+}
+
+.ranking-table th:first-child,
+.ranking-table td:first-child {
+    width: 72px;
+}
+
+.ranking-table th:nth-last-child(2),
+.ranking-table td:nth-last-child(2) {
+    width: 88px;
+    text-align: center;
+}
+
+.ranking-table th:last-child,
+.ranking-table td:last-child {
+    width: 98px;
+    text-align: right;
+}
+
+.ranking-position {
+    min-width: 38px;
+    height: 30px;
+    padding: 0 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #5b6977;
+    border-radius: 7px;
+    background: #eef2f5;
+    font-size: 0.71rem;
+    font-weight: 850;
+}
+
+.ranking-position--first {
+    color: #775407;
+    background: var(--admin-gold-soft);
+}
+
+.ranking-position--second {
+    color: #566270;
+    background: #edf0f3;
+}
+
+.ranking-position--third {
+    color: #865830;
+    background: #faeee4;
+}
+
+.ranking-table__name {
+    display: block;
+    color: var(--admin-navy-deep);
+    font-size: 0.83rem;
+    font-weight: 760;
+    line-height: 1.36;
+}
+
+.ranking-table__institution {
+    margin-top: 4px;
+    display: block;
+    color: var(--admin-muted);
+    font-size: 0.73rem;
+    line-height: 1.35;
+}
+
+.ranking-table__title {
+    max-width: 250px;
+    color: #4f6072;
+    line-height: 1.45;
+}
+
+.ranking-table__score {
+    color: var(--admin-navy-deep);
+    font-size: 0.92rem;
+    font-weight: 820;
+    white-space: nowrap;
+}
+
+.judge-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--admin-muted);
+    font-weight: 720;
+}
+
+.judge-count i {
+    color: var(--admin-blue);
+}
+
+/* -------------------------------------------------------------------------
+   Empty states
+   ------------------------------------------------------------------------- */
+
+.winner-card__empty,
+.ranking-card__empty {
+    min-height: 155px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 11px;
+    color: var(--admin-muted);
+    text-align: center;
+}
+
+.winner-card__empty i,
+.ranking-card__empty i {
+    color: #aeb8c3;
+    font-size: 1.8rem;
+}
+
+.winner-card__empty p,
+.ranking-card__empty p {
+    margin: 0;
+    line-height: 1.5;
+}
+
+/* -------------------------------------------------------------------------
+   Desktop scaling
+   ------------------------------------------------------------------------- */
+
+@media (max-width: 1320px) {
+    :root {
+        --sidebar-width: 248px;
+    }
+
+    html {
+        min-width: 1080px;
+    }
+
+    .admin-main {
+        width: calc(100% - 40px);
+    }
+
+    .admin-topbar {
+        padding-right: 24px;
+        padding-left: 24px;
+    }
+
+    .winner-card__score {
+        font-size: 1.72rem;
+    }
+
+    .ranking-table th,
+    .ranking-table td {
+        padding-right: 11px;
+        padding-left: 11px;
+    }
+}

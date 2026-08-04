@@ -1,0 +1,1939 @@
+/*
+|--------------------------------------------------------------------------
+| Best Practices Forum Score Card
+|--------------------------------------------------------------------------
+| Main Application Stylesheet
+|--------------------------------------------------------------------------
+*/
+
+/* ==========================================================================
+   COLOR PALETTE
+   ========================================================================== */
+
+:root {
+    --ecsa-navy: #06124F;
+    --ecsa-blue: #0B1D83;
+    --ecsa-purple: #6A11CB;
+    --ecsa-gold: #F3C54B;
+    --ecsa-light: #F5F6FA;
+    --ecsa-white: #FFFFFF;
+    --ecsa-muted: #D9DEF4;
+
+    --bpf-radius: 16px;
+    --bpf-transition: .2s ease;
+}
+
+/* ==========================================================================
+   GLOBAL
+   ========================================================================== */
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    min-height: 100%;
+}
+
+body {
+    margin: 0;
+    background: var(--ecsa-light);
+
+    font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Helvetica,
+        Arial,
+        sans-serif;
+}
+
+
+/* ==========================================================================
+   WELCOME PAGE
+   ========================================================================== */
+
+.bpf-welcome-page {
+
+    min-height: 100dvh;
+
+    display: flex;
+
+    justify-content: center;
+
+    align-items: stretch;
+
+    padding: 0;
+
+}
+
+.bpf-welcome-card {
+
+    position: relative;
+
+    width: 100%;
+
+    min-height: 100dvh;
+
+    overflow: hidden;
+
+    display: flex;
+
+    flex-direction: column;
+
+    justify-content: center;
+
+    padding:
+        calc(32px + env(safe-area-inset-top))
+        24px
+        calc(28px + env(safe-area-inset-bottom));
+
+    color: var(--ecsa-white);
+
+    background:
+
+        radial-gradient(
+            circle at 85% 18%,
+            rgba(106,17,203,.40),
+            transparent 34%
+        ),
+
+        linear-gradient(
+            165deg,
+            var(--ecsa-navy),
+            var(--ecsa-blue),
+            #1737ac
+        );
+
+}
+
+.bpf-welcome-content {
+
+    position: relative;
+
+    z-index: 2;
+
+    width: 100%;
+
+    max-width: 430px;
+
+    margin: auto;
+
+    text-align: center;
+
+}
+
+
+/* ==========================================================================
+   LOGO
+   ========================================================================== */
+
+.bpf-logo-container {
+
+    width: 112px;
+
+    height: 112px;
+
+    margin: auto auto 22px;
+
+    padding: 10px;
+
+    border-radius: 50%;
+
+    background: white;
+
+    display: flex;
+
+    justify-content: center;
+
+    align-items: center;
+
+    box-shadow:
+        0 12px 32px rgba(0,0,0,.22),
+        0 0 0 6px rgba(255,255,255,.08);
+
+}
+
+.bpf-logo-container img {
+
+    width: 100%;
+
+    height: 100%;
+
+    object-fit: contain;
+
+}
+
+
+/* ==========================================================================
+   TITLES
+   ========================================================================== */
+
+.bpf-forum-title {
+
+    margin: 0;
+
+    font-size: clamp(2rem,8vw,3rem);
+
+    font-weight: 800;
+
+    line-height: 1.05;
+
+}
+
+.bpf-score-card-title {
+
+    margin-top: 8px;
+
+    color: var(--ecsa-gold);
+
+    font-size: clamp(1.6rem,6vw,2.3rem);
+
+    font-weight: 700;
+
+}
+
+.bpf-title-divider {
+
+    width: 90px;
+
+    height: 3px;
+
+    margin: 24px auto;
+
+    border-radius: 100px;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            var(--ecsa-gold),
+            transparent
+        );
+
+}
+
+.bpf-welcome-heading {
+
+    margin-bottom: 12px;
+
+    font-size: 1.35rem;
+
+    font-weight: 700;
+
+}
+
+.bpf-welcome-message {
+
+    margin: 0 auto 35px;
+
+    max-width: 360px;
+
+    line-height: 1.7;
+
+    color: rgba(255,255,255,.85);
+
+}
+
+
+/* ==========================================================================
+   BUTTONS
+   ========================================================================== */
+
+.bpf-action-buttons {
+
+    display: grid;
+
+    gap: 14px;
+
+}
+
+.bpf-btn {
+
+    min-height: 58px;
+
+    border-radius: 14px;
+
+    display: flex;
+
+    justify-content: center;
+
+    align-items: center;
+
+    gap: 10px;
+
+    font-weight: 700;
+
+    transition: var(--bpf-transition);
+
+}
+
+.bpf-btn:active {
+
+    transform: scale(.98);
+
+}
+
+.bpf-btn-start {
+
+    background: var(--ecsa-gold);
+
+    color: var(--ecsa-navy);
+
+    border: none;
+
+    box-shadow:
+        0 10px 25px rgba(0,0,0,.18);
+
+}
+
+.bpf-btn-start:hover {
+
+    background: #FFD86B;
+
+    color: var(--ecsa-navy);
+
+}
+
+.bpf-btn-tour {
+
+    background: rgba(255,255,255,.06);
+
+    color: white;
+
+    border: 1.5px solid rgba(255,255,255,.65);
+
+    backdrop-filter: blur(4px);
+
+}
+
+.bpf-btn-tour:hover {
+
+    background: rgba(255,255,255,.12);
+
+    border-color: white;
+
+    color: white;
+
+}
+
+
+/* ==========================================================================
+   SECURITY
+   ========================================================================== */
+
+.bpf-security-note {
+
+    margin-top: 22px;
+
+    font-size: .9rem;
+
+    color: rgba(255,255,255,.65);
+
+}
+
+.bpf-security-note i {
+
+    color: var(--ecsa-gold);
+
+    margin-right: 5px;
+
+}
+
+
+/* ==========================================================================
+   DECORATION
+   ========================================================================== */
+
+.bpf-background-decoration {
+
+    position: absolute;
+
+    left: 0;
+
+    right: 0;
+
+    bottom: 0;
+
+    height: 150px;
+
+    opacity: .10;
+
+}
+
+.bpf-background-decoration::before,
+.bpf-background-decoration::after {
+
+    content: "";
+
+    position: absolute;
+
+    bottom: -35px;
+
+    width: 260px;
+
+    height: 140px;
+
+    border: 2px solid rgba(255,255,255,.70);
+
+    border-radius: 50%;
+
+}
+
+.bpf-background-decoration::before {
+
+    left: -110px;
+
+}
+
+.bpf-background-decoration::after {
+
+    right: -100px;
+
+}
+
+
+/* ==========================================================================
+   RESPONSIVE
+   ========================================================================== */
+
+@media (min-width:768px) {
+
+    .bpf-welcome-page {
+
+        padding: 30px;
+
+        align-items: center;
+
+    }
+
+    .bpf-welcome-card {
+
+        max-width: 460px;
+
+        min-height: 760px;
+
+        border-radius: 30px;
+
+        box-shadow:
+            0 25px 65px rgba(6,18,79,.28);
+
+    }
+
+}
+
+@media (max-height:680px) {
+
+    .bpf-welcome-card {
+
+        justify-content: flex-start;
+
+        padding-top:
+            calc(24px + env(safe-area-inset-top));
+
+    }
+
+    .bpf-logo-container {
+
+        width: 90px;
+
+        height: 90px;
+
+    }
+
+}
+
+/* ==========================================================================
+   SHARED APPLICATION LAYOUT
+   ========================================================================== */
+
+.bpf-screen {
+    min-height: 100dvh;
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    padding: 0;
+    background: var(--ecsa-light);
+}
+
+.bpf-card {
+    width: 100%;
+    background: var(--ecsa-white);
+    display: flex;
+    flex-direction: column;
+}
+
+.bpf-card-full {
+    min-height: 100dvh;
+    padding:
+        calc(22px + env(safe-area-inset-top))
+        22px
+        calc(24px + env(safe-area-inset-bottom));
+}
+
+.bpf-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 36px;
+}
+
+.bpf-content {
+    width: 100%;
+    max-width: 430px;
+    margin: 0 auto;
+}
+
+.bpf-footer {
+    max-width: 360px;
+    margin: auto auto 0;
+    padding-top: 32px;
+    color: #8A91A6;
+    font-size: .82rem;
+    line-height: 1.5;
+    text-align: center;
+}
+
+
+/* ==========================================================================
+   SHARED BRAND ELEMENTS
+   ========================================================================== */
+
+.bpf-logo-small {
+    width: 58px;
+    height: 58px;
+    padding: 6px;
+    border-radius: 50%;
+    background: var(--ecsa-white);
+    box-shadow: 0 6px 18px rgba(6,18,79,.12);
+}
+
+.bpf-logo-small img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.bpf-icon-button {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ecsa-navy);
+    background: #EEF1FB;
+    text-decoration: none;
+    font-size: 1.2rem;
+    transition: var(--bpf-transition);
+}
+
+.bpf-icon-button:hover,
+.bpf-icon-button:focus {
+    color: var(--ecsa-navy);
+    background: #E2E7F8;
+}
+
+
+/* ==========================================================================
+   SHARED TYPOGRAPHY
+   ========================================================================== */
+
+.bpf-step-label {
+    margin: 0 0 8px;
+    color: var(--ecsa-purple);
+    font-size: .85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+}
+
+.bpf-title {
+    margin: 0 0 12px;
+    color: var(--ecsa-navy);
+    font-size: clamp(2rem, 8vw, 2.7rem);
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.bpf-description {
+    margin: 0 0 30px;
+    color: #5D647D;
+    font-size: 1rem;
+    line-height: 1.65;
+}
+
+
+/* ==========================================================================
+   SHARED FORMS
+   ========================================================================== */
+
+.bpf-form {
+    display: grid;
+    gap: 24px;
+}
+
+.bpf-form-group {
+    display: grid;
+    gap: 10px;
+}
+
+.bpf-form-label {
+    color: var(--ecsa-navy);
+    font-size: .95rem;
+    font-weight: 700;
+}
+
+.bpf-input-group {
+    position: relative;
+}
+
+.bpf-input-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    z-index: 2;
+    transform: translateY(-50%);
+    color: #7F87A3;
+    font-size: 1.1rem;
+    pointer-events: none;
+}
+
+.bpf-input {
+    min-height: 58px;
+    padding-left: 48px;
+    border: 1.5px solid #D9DEED;
+    border-radius: 14px;
+    color: var(--ecsa-navy);
+    font-size: 1rem;
+    box-shadow: none;
+}
+
+.bpf-input:focus {
+    border-color: var(--ecsa-blue);
+    box-shadow: 0 0 0 4px rgba(11,29,131,.10);
+}
+
+.bpf-input::placeholder {
+    color: #A0A6B8;
+}
+
+.bpf-helper {
+    margin: 0;
+    color: #7B8297;
+    font-size: .88rem;
+}
+
+.bpf-alert {
+    border-radius: 14px;
+    font-size: .92rem;
+}
+
+
+/* ==========================================================================
+   SHARED BUTTON VARIANTS
+   ========================================================================== */
+
+.bpf-btn-primary {
+    background: var(--ecsa-gold);
+    color: var(--ecsa-navy);
+    border: none;
+    box-shadow: 0 10px 25px rgba(0,0,0,.14);
+}
+
+.bpf-btn-primary:hover,
+.bpf-btn-primary:focus {
+    background: #FFD86B;
+    color: var(--ecsa-navy);
+}
+
+
+/* ==========================================================================
+   SHARED RESPONSIVE LAYOUT
+   ========================================================================== */
+
+@media (min-width: 768px) {
+
+    .bpf-screen {
+        padding: 30px;
+        align-items: center;
+    }
+
+    .bpf-card-full {
+        max-width: 460px;
+        min-height: 720px;
+        border-radius: 30px;
+        box-shadow: 0 25px 65px rgba(6,18,79,.16);
+    }
+
+}
+
+/* ==========================================================================
+   APPLICATION HEADER
+   ========================================================================== */
+
+.bpf-app-header {
+    margin:
+        calc(-22px - env(safe-area-inset-top))
+        -22px
+        30px;
+
+    padding:
+        calc(40px + env(safe-area-inset-top))
+        22px
+        40px;
+
+    color: var(--ecsa-white);
+
+    background:
+        radial-gradient(
+            circle at 85% 18%,
+            rgba(106, 17, 203, .40),
+            transparent 34%
+        ),
+        linear-gradient(
+            165deg,
+            var(--ecsa-navy),
+            var(--ecsa-blue),
+            #1737AC
+        );
+
+    border-radius: 0 0 28px 28px;
+}
+
+.bpf-header-row {
+    display: grid;
+    grid-template-columns: 44px 56px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+}
+
+.bpf-header-back {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    width: 40px;
+
+    height: 40px;
+
+    color: var(--ecsa-white);
+
+    text-decoration: none;
+
+    transition: var(--bpf-transition);
+
+}
+
+.bpf-header-back i {
+
+    font-size: 2rem;
+
+    font-weight: 300;
+
+    line-height: 1;
+
+}
+
+.bpf-header-back:hover,
+.bpf-header-back:focus {
+
+    color: var(--ecsa-gold);
+
+    transform: translateX(-2px);
+
+}
+
+/* .bpf-header-back:hover,
+.bpf-header-back:focus {
+    color: var(--ecsa-white);
+    background: rgba(255, 255, 255, .25);
+} */
+
+.bpf-logo-small {
+    width: 56px;
+    height: 56px;
+    padding: 6px;
+    border-radius: 50%;
+    background: var(--ecsa-white);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .18);
+}
+
+.bpf-logo-small img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.bpf-header-title {
+    min-width: 0;
+    text-align: left;
+}
+
+.bpf-header-forum-name {
+    margin: 0;
+    color: var(--ecsa-white);
+    font-size: 1.08rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.bpf-header-scorecard-name {
+    margin: 4px 0 0;
+    color: var(--ecsa-gold);
+    font-size: .92rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+/* ==========================================================
+   SUB-THEME PAGE
+========================================================== */
+
+.bpf-subtheme-content {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.bpf-subtheme-form {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+}
+
+
+/* ==========================================================
+   SUB-THEME LIST
+========================================================== */
+
+.bpf-subtheme-fieldset {
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.bpf-subtheme-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+
+    margin: 1rem 0 1.5rem;
+}
+
+.bpf-subtheme-option {
+    display: block;
+    cursor: pointer;
+
+    -webkit-tap-highlight-color: transparent;
+}
+
+.bpf-subtheme-input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.bpf-subtheme-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+
+    padding: 0.9rem 1rem;
+
+    border: 1px solid #dee2e6;
+    border-radius: 14px;
+
+    background: #ffffff;
+
+    transition: all .2s ease;
+}
+
+.bpf-subtheme-option:hover .bpf-subtheme-card {
+    border-color: #ced4da;
+}
+
+
+/* ==========================================================
+   NUMBER
+========================================================== */
+
+.bpf-subtheme-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    width: 48px;
+    height: 48px;
+
+    border: 2px solid var(--bpf-primary, #06124F);
+    border-radius: 50%;
+
+    color: var(--bpf-primary, #06124F);
+
+    font-size: 1rem;
+    font-weight: 700;
+
+    transition: all .2s ease;
+}
+
+
+/* ==========================================================
+   TITLE
+========================================================== */
+
+.bpf-subtheme-text {
+    flex: 1;
+
+    color: #1b1f23;
+
+    font-size: .95rem;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+
+/* ==========================================================
+   CHECK ICON
+========================================================== */
+
+.bpf-subtheme-check {
+    color: var(--bpf-primary, #06124F);
+
+    font-size: 1.25rem;
+
+    opacity: 0;
+
+    transition: .2s ease;
+}
+
+
+/* ==========================================================
+   SELECTED STATE
+========================================================== */
+
+.bpf-subtheme-input:checked + .bpf-subtheme-card {
+
+    border-color: var(--bpf-primary, #06124F);
+
+    background: rgba(6,18,79,.05);
+
+    box-shadow: 0 0 0 .2rem rgba(6,18,79,.08);
+
+}
+
+.bpf-subtheme-input:checked
++ .bpf-subtheme-card
+.bpf-subtheme-number {
+
+    background: var(--bpf-primary, #06124F);
+
+    color: #ffffff;
+
+}
+
+.bpf-subtheme-input:checked
++ .bpf-subtheme-card
+.bpf-subtheme-check {
+
+    opacity: 1;
+
+}
+
+
+/* ==========================================================
+   KEYBOARD ACCESSIBILITY
+========================================================== */
+
+.bpf-subtheme-input:focus-visible
++ .bpf-subtheme-card {
+
+    outline: 3px solid rgba(6,18,79,.18);
+    outline-offset: 3px;
+
+}
+
+
+/* ==========================================================
+   INFORMATION BOX
+========================================================== */
+
+.bpf-info-banner {
+
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+
+    margin-top: auto;
+    margin-bottom: 1rem;
+
+    padding: .85rem 1rem;
+
+    border-radius: 12px;
+
+    background: #f4f6fb;
+
+    color: #4b5563;
+
+    font-size: .85rem;
+
+}
+
+.bpf-info-banner i {
+
+    color: var(--bpf-primary, #06124F);
+    font-size: 1rem;
+
+}
+
+
+/* ==========================================================
+   SMALL PHONES
+========================================================== */
+
+@media (max-width: 380px) {
+
+    .bpf-subtheme-card {
+
+        padding: .8rem;
+
+    }
+
+    .bpf-subtheme-number {
+
+        width: 42px;
+        height: 42px;
+
+        font-size: .9rem;
+
+    }
+
+    .bpf-subtheme-text {
+
+        font-size: .88rem;
+
+    }
+
+}
+
+/* ==========================================================
+   ALLOW SUB-THEME PAGE TO SCROLL
+========================================================== */
+.bpf-card-full {
+    min-height: 100dvh;
+    height: 100dvh;
+    overflow: hidden;
+
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+
+.bpf-subtheme-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    padding-bottom: max(
+        1.25rem,
+        env(safe-area-inset-bottom)
+    );
+
+    -webkit-overflow-scrolling: touch;
+}
+
+
+.bpf-subtheme-form {
+    display: block;
+    width: 100%;
+}
+
+.bpf-subtheme-fieldset {
+    display: block;
+    width: 100%;
+}
+
+.bpf-subtheme-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+
+    width: 100%;
+    margin: 1.25rem 0;
+}
+
+.bpf-info-banner {
+    margin-top: 0;
+}
+
+/* ==========================================================
+   SELECT PRESENTER PAGE
+========================================================== */
+
+.bpf-presenter-content {
+    flex: 1;
+    min-height: 0;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    padding-bottom: max(
+        1.25rem,
+        env(safe-area-inset-bottom)
+    );
+
+    -webkit-overflow-scrolling: touch;
+}
+
+
+/* ==========================================================
+   SELECTED SUB-THEME
+========================================================== */
+
+.bpf-selected-subtheme {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+
+    width: 100%;
+    margin: 1.25rem 0;
+    padding: 0.85rem 1rem;
+
+    border-left: 4px solid var(--bpf-primary, #06124f);
+    border-radius: 0.75rem;
+
+    background: #f4f6fb;
+    color: #25315d;
+}
+
+.bpf-selected-subtheme > i {
+    flex-shrink: 0;
+
+    color: var(--bpf-primary, #06124f);
+    font-size: 1rem;
+}
+
+.bpf-selected-subtheme > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.bpf-selected-subtheme-label {
+    color: #667085;
+
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.bpf-selected-subtheme strong {
+    color: #101828;
+
+    font-size: 0.92rem;
+    line-height: 1.3;
+}
+
+
+/* ==========================================================
+   PRESENTER FIELDSET AND LIST
+========================================================== */
+
+.bpf-presenter-fieldset {
+    display: block;
+
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+
+    border: 0;
+}
+
+.bpf-presenter-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+
+    width: 100%;
+    margin: 0 0 1.25rem;
+    padding: 0;
+}
+
+
+/* ==========================================================
+   PRESENTER OPTION
+========================================================== */
+
+.bpf-presenter-option {
+    position: relative;
+
+    display: block;
+
+    width: 100%;
+    margin: 0;
+
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.bpf-presenter-input {
+    position: absolute;
+
+    width: 1px;
+    height: 1px;
+
+    opacity: 0;
+    pointer-events: none;
+}
+
+
+/* ==========================================================
+   PRESENTER CARD
+========================================================== */
+
+.bpf-presenter-card {
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 1fr) 1.35rem;
+    align-items: flex-start;
+    gap: 0.85rem;
+
+    width: 100%;
+    padding: 0.9rem;
+
+    border: 1px solid #d9deee;
+    border-radius: 0.85rem;
+
+    background: #ffffff;
+
+    box-shadow: 0 0.2rem 0.75rem rgba(8, 19, 71, 0.05);
+
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease,
+        box-shadow 150ms ease,
+        transform 150ms ease;
+}
+
+
+/* ==========================================================
+   PRESENTER AVATAR
+========================================================== */
+
+.bpf-presenter-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 3rem;
+    height: 3rem;
+
+    border-radius: 50%;
+
+    background: #eef0f8;
+    color: var(--bpf-primary, #06124f);
+
+    font-size: 1.25rem;
+
+    transition:
+        background-color 150ms ease,
+        color 150ms ease;
+}
+
+
+/* ==========================================================
+   PRESENTER DETAILS
+========================================================== */
+
+.bpf-presenter-details {
+    display: flex;
+    flex-direction: column;
+
+    min-width: 0;
+}
+
+.bpf-presenter-name {
+    display: block;
+
+    color: #101828;
+
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.bpf-presenter-institution {
+    display: block;
+
+    margin-top: 0.15rem;
+
+    color: #667085;
+
+    font-size: 0.78rem;
+    line-height: 1.35;
+}
+
+.bpf-presentation-title {
+    display: block;
+
+    margin-top: 0.5rem;
+
+    color: #344054;
+
+    font-size: 0.84rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+
+/* ==========================================================
+   CHECK ICON
+========================================================== */
+
+.bpf-presenter-check {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding-top: 0.15rem;
+
+    color: var(--bpf-primary, #06124f);
+    font-size: 1.15rem;
+
+    opacity: 0;
+    transform: scale(0.8);
+
+    transition:
+        opacity 150ms ease,
+        transform 150ms ease;
+}
+
+
+/* ==========================================================
+   SELECTED PRESENTER
+========================================================== */
+
+.bpf-presenter-input:checked + .bpf-presenter-card {
+    border-color: var(--bpf-primary, #06124f);
+
+    background: rgba(6, 18, 79, 0.05);
+
+    box-shadow: 0 0 0 0.2rem rgba(6, 18, 79, 0.08);
+}
+
+.bpf-presenter-input:checked
++ .bpf-presenter-card
+.bpf-presenter-avatar {
+    background: var(--bpf-primary, #06124f);
+    color: #ffffff;
+}
+
+.bpf-presenter-input:checked
++ .bpf-presenter-card
+.bpf-presenter-check {
+    opacity: 1;
+    transform: scale(1);
+}
+
+
+/* ==========================================================
+   ACCESSIBILITY AND TOUCH
+========================================================== */
+
+.bpf-presenter-input:focus-visible + .bpf-presenter-card {
+    outline: 3px solid rgba(6, 18, 79, 0.18);
+    outline-offset: 3px;
+}
+
+.bpf-presenter-option:active .bpf-presenter-card {
+    transform: scale(0.985);
+}
+
+
+/* ==========================================================
+   SMALL PHONES
+========================================================== */
+
+@media (max-width: 380px) {
+
+    .bpf-presenter-card {
+        grid-template-columns: 2.55rem minmax(0, 1fr) 1.1rem;
+        gap: 0.7rem;
+
+        padding: 0.8rem;
+    }
+
+    .bpf-presenter-avatar {
+        width: 2.55rem;
+        height: 2.55rem;
+
+        font-size: 1.05rem;
+    }
+
+    .bpf-presenter-name {
+        font-size: 0.88rem;
+    }
+
+    .bpf-presenter-institution {
+        font-size: 0.72rem;
+    }
+
+    .bpf-presentation-title {
+        font-size: 0.78rem;
+    }
+
+}
+
+/* ==========================================================
+   SCORING PAGE
+========================================================== */
+
+.bpf-score-content {
+    flex: 1;
+    min-height: 0;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    padding-bottom: max(
+        1.25rem,
+        env(safe-area-inset-bottom)
+    );
+
+    -webkit-overflow-scrolling: touch;
+}
+
+
+/* ==========================================================
+   PRESENTATION SUMMARY
+========================================================== */
+
+.bpf-score-presentation {
+    margin: 1.25rem 0;
+    padding: 1rem;
+
+    border: 1px solid #dfe3ef;
+    border-radius: 0.85rem;
+
+    background: #f8f9fc;
+
+    box-shadow: 0 0.2rem 0.75rem rgba(8, 19, 71, 0.04);
+}
+
+.bpf-score-presentation-theme {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+
+    margin-bottom: 0.7rem;
+
+    color: var(--bpf-primary, #06124f);
+
+    font-size: 0.76rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.bpf-score-presentation h2 {
+    margin: 0;
+
+    color: #101828;
+
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.45;
+}
+
+.bpf-score-presenter {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+
+    margin-top: 0.9rem;
+
+    color: #25315d;
+
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.bpf-score-presentation > p {
+    margin: 0.2rem 0 0 1.35rem;
+
+    color: #667085;
+
+    font-size: 0.76rem;
+    line-height: 1.35;
+}
+
+
+/* ==========================================================
+   SCORE FIELDSET
+========================================================== */
+
+.bpf-score-fieldset {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+
+    border: 0;
+}
+
+
+/* ==========================================================
+   SCORE CRITERION
+========================================================== */
+
+.bpf-score-item {
+    width: 100%;
+    margin-bottom: 0.85rem;
+    padding: 1rem;
+
+    border: 1px solid #dfe3ef;
+    border-radius: 0.85rem;
+
+    background: #ffffff;
+
+    box-shadow: 0 0.2rem 0.75rem rgba(8, 19, 71, 0.04);
+}
+
+.bpf-score-item-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.bpf-score-item-heading > div:first-child {
+    display: flex;
+    flex-direction: column;
+
+    min-width: 0;
+}
+
+.bpf-score-item-number {
+    margin-bottom: 0.15rem;
+
+    color: #667085;
+
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.bpf-score-item-title {
+    color: #101828;
+
+    font-size: 0.94rem;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.bpf-score-item-description {
+    max-width: calc(100% - 6rem);
+    margin: 0.65rem 0 0;
+
+    color: #667085;
+
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
+
+/* ==========================================================
+   SCORE INPUT
+========================================================== */
+
+.bpf-score-input-wrap {
+    position: relative;
+
+    flex-shrink: 0;
+
+    width: 5.5rem;
+}
+
+.bpf-score-input {
+    width: 100%;
+    height: 3rem;
+    padding: 0.5rem 1.8rem 0.5rem 0.75rem;
+
+    border: 1.5px solid #cfd5e5;
+    border-radius: 0.7rem;
+
+    color: #101828;
+
+    font-size: 1.05rem;
+    font-weight: 800;
+    line-height: 1;
+    text-align: center;
+
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+.bpf-score-input::-webkit-outer-spin-button,
+.bpf-score-input::-webkit-inner-spin-button {
+    margin: 0;
+
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.bpf-score-input:focus {
+    border-color: var(--bpf-primary, #06124f);
+
+    box-shadow: 0 0 0 0.2rem rgba(6, 18, 79, 0.1);
+}
+
+.bpf-score-input.is-invalid {
+    border-color: #dc3545;
+
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.1);
+}
+
+.bpf-score-unit {
+    position: absolute;
+    top: 50%;
+    right: 0.75rem;
+
+    color: #667085;
+
+    font-size: 0.85rem;
+    font-weight: 700;
+
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+
+/* ==========================================================
+   COMMENTS
+========================================================== */
+
+.bpf-score-comments {
+    margin-top: 1.25rem;
+}
+
+.bpf-optional-label {
+    margin-left: 0.35rem;
+
+    color: #7b8498;
+
+    font-size: 0.72rem;
+    font-weight: 500;
+}
+
+.bpf-score-textarea {
+    min-height: 7rem;
+    padding: 0.85rem 0.9rem;
+
+    border: 1.5px solid #cfd5e5;
+    border-radius: 0.75rem;
+
+    color: #101828;
+
+    font-size: 0.9rem;
+    line-height: 1.45;
+
+    resize: vertical;
+}
+
+.bpf-score-textarea:focus {
+    border-color: var(--bpf-primary, #06124f);
+
+    box-shadow: 0 0 0 0.2rem rgba(6, 18, 79, 0.1);
+}
+
+
+/* ==========================================================
+   SCORE SUMMARY
+========================================================== */
+
+.bpf-score-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+
+    width: 100%;
+    margin: 1.25rem 0 1rem;
+    padding: 1rem;
+
+    border-radius: 0.85rem;
+
+    background: var(--bpf-primary, #06124f);
+    color: #ffffff;
+}
+
+.bpf-score-summary > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.bpf-score-summary span {
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.bpf-score-summary small {
+    color: rgba(255, 255, 255, 0.72);
+
+    font-size: 0.7rem;
+}
+
+.bpf-score-summary strong {
+    flex-shrink: 0;
+
+    font-size: 1.65rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+
+/* ==========================================================
+   SMALL PHONES
+========================================================== */
+
+@media (max-width: 380px) {
+
+    .bpf-score-item {
+        padding: 0.85rem;
+    }
+
+    .bpf-score-item-heading {
+        gap: 0.75rem;
+    }
+
+    .bpf-score-input-wrap {
+        width: 4.8rem;
+    }
+
+    .bpf-score-input {
+        height: 2.8rem;
+        padding-right: 1.6rem;
+
+        font-size: 0.95rem;
+    }
+
+    .bpf-score-item-title {
+        font-size: 0.88rem;
+    }
+
+    .bpf-score-item-description {
+        max-width: 100%;
+
+        font-size: 0.74rem;
+    }
+
+    .bpf-score-summary strong {
+        font-size: 1.4rem;
+    }
+
+}
+
+/* ==========================================================
+   SCORE SUBMISSION SUCCESS MODAL
+========================================================== */
+
+.bpf-success-modal .modal-dialog {
+    width: calc(100% - 2rem);
+    max-width: 400px;
+    margin-right: auto;
+    margin-left: auto;
+}
+
+.bpf-success-modal .modal-content {
+    overflow: hidden;
+
+    border: none;
+    border-radius: 18px;
+
+    background: #ffffff;
+
+    box-shadow: 0 24px 60px rgba(6, 18, 79, 0.25);
+}
+
+.bpf-success-modal .modal-body {
+    padding: 28px 20px 20px;
+
+    text-align: center;
+}
+
+.bpf-success-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 68px;
+    height: 68px;
+    margin-bottom: 18px;
+
+    border-radius: 50%;
+
+    background: #06124f;
+    color: #ffffff;
+
+    font-size: 32px;
+}
+
+.bpf-success-title {
+    margin: 0 0 10px;
+
+    color: #101828;
+
+    font-size: 1.35rem;
+    font-weight: 800;
+}
+
+.bpf-success-message {
+    margin: 0;
+
+    color: #667085;
+
+    font-size: 0.92rem;
+    line-height: 1.5;
+}
+
+.bpf-success-question {
+    margin: 18px 0;
+
+    color: #101828;
+
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+.bpf-success-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.bpf-success-actions .bpf-btn,
+.bpf-success-actions .bpf-btn-secondary {
+    width: 100%;
+}
+
+.bpf-btn-secondary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: 50px;
+    padding: 12px 16px;
+
+    border: 1px solid #cfd5e5;
+    border-radius: 8px;
+
+    background: #ffffff;
+    color: #344054;
+
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.bpf-btn-secondary:hover,
+.bpf-btn-secondary:focus {
+    border-color: #06124f;
+
+    background: #f4f6fb;
+    color: #06124f;
+}
+
+.bpf-success-modal + .modal-backdrop,
+.modal-backdrop.show {
+    opacity: 0.55;
+}
+
+.bpf-page-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:1rem;
+    margin-bottom:.75rem;
+}
+
+.bpf-page-search{
+    flex:0 0 280px;
+}
+
+.bpf-page-search .bpf-input-group{
+    position:relative;
+}
+
+.bpf-page-search .bpf-input{
+    padding-right:2.8rem;
+}
+
+.bpf-search-clear{
+    position:absolute;
+    right:.75rem;
+    top:50%;
+    transform:translateY(-50%);
+    border:0;
+    background:none;
+    color:#6c757d;
+    cursor:pointer;
+    z-index:2;
+}
+
+.bpf-search-clear:hover{
+    color:#06124F;
+}
+
+@media (max-width:768px){
+
+    .bpf-page-header{
+        flex-direction:column;
+        align-items:stretch;
+    }
+
+    .bpf-page-search{
+        width:100%;
+        flex:1;
+    }
+
+}
+#bpf-presenter-search-input {
+    height: 34px !important;
+    min-height: 34px !important;
+    padding-top: 0.2rem !important;
+    padding-bottom: 0.2rem !important;
+    font-size: 0.85rem !important;
+    line-height: 1.2 !important;
+}
+
+.bpf-page-search .bpf-input-group {
+    min-height: 34px !important;
+}
+
+.bpf-page-search .bpf-input-icon {
+    font-size: 0.85rem !important;
+}
+
+.bpf-page-search .bpf-search-clear {
+    height: 24px !important;
+    width: 24px !important;
+    font-size: 0.75rem !important;
+}

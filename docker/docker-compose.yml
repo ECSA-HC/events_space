@@ -50,5 +50,22 @@ services:
       - ../web/dist:/app/web/dist
       - ../api/uploads:/app/api/uploads
 
+  bpf-scorecard:
+    build:
+      context: ../bpf_score_card
+      dockerfile: Dockerfile
+    container_name: bpf-scorecard
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      BPF_DB_HOST: mysql
+      BPF_DB_NAME: bpf_scorecard
+      BPF_DB_USER: root
+      BPF_DB_PASSWORD: root
+    volumes:
+      - ../bpf_score_card:/var/www/html
+
 volumes:
   mysql-data:
