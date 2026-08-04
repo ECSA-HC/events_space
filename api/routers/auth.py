@@ -1,5 +1,7 @@
+import os
 import uuid
 from datetime import datetime, timedelta
+from jose import jwt, JWTError
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session, joinedload
@@ -7,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 from core.database import get_db
 from typing import Annotated
 from dependencies.dependency import Dependency
-from dependencies.auth_dependency import Auth, get_current_user
+from dependencies.auth_dependency import Auth, get_current_user, oauth2_bearer
 import utils.mailer_util as mailer_util
 
 from models.models import (
@@ -166,8 +168,12 @@ async def login(
         .first()
     )
 
+    # 20 minutes was far too short for a real admin session — every API call
+    # made after that window 401s, and since /auth/refresh didn't exist
+    # until now, the frontend's reactive refresh-on-401 always failed and
+    # force-logged the user out. 12 hours covers a full working day.
     token = auth_dependencies.create_access_token(
-        user.email, user.id, timedelta(minutes=20)
+        user.email, user.id, timedelta(hours=12)
     )
 
     dependency.log_activity(
@@ -197,6 +203,45 @@ async def login(
         "access_token": token,
         "token_type": "bearer",
     }
+
+
+@router.post("/refresh")
+async def refresh_token(
+    token: Annotated[str, Depends(oauth2_bearer)],
+    db: Session = Depends(get_db),
+    auth_dependencies: Auth = Depends(get_auth_dependency),
+):
+    """Reissue a fresh access token for the user the given token belonged
+    to. The frontend only calls this reactively, after an API call has
+    already come back 401 — meaning the token handed in here has, by
+    definition, already expired. verify_exp is disabled deliberately so
+    that case actually works instead of just failing the same way again;
+    the signature itself is still fully verified, so this can't be used to
+    forge a token for someone else."""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(
+            token, os.getenv("SECRET_KEY", ""), algorithms=os.getenv("ALGORITHM", ""),
+            options={"verify_exp": False},
+        )
+    except JWTError as error:
+        raise credentials_exception from error
+
+    username = payload.get("sub")
+    user_id = payload.get("id")
+    if not username or not user_id:
+        raise credentials_exception
+
+    user = db.query(User).filter(User.id == user_id, User.deleted_at == None).first()
+    if not user:
+        raise credentials_exception
+
+    new_token = auth_dependencies.create_access_token(user.email, user.id, timedelta(hours=12))
+    return {"access_token": new_token, "token_type": "bearer"}
 
 
 @router.post("/password-reset-link", status_code=200)
