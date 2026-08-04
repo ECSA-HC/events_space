@@ -8,6 +8,7 @@ from passlib.hash import bcrypt
 import utils.mailer_util as mailer_util
 from datetime import datetime
 from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
 from typing import Annotated
 from core.database import get_db
 from sqlalchemy.orm import Session, joinedload
@@ -126,13 +127,28 @@ async def add_user(
 ):
     auth_dependency.secure_access("ADD_USER", current_user["user_id"])
 
-    existing_email = db.query(User).filter(User.email == user_schema.email, User.deleted_at == None).first()
+    # email/phone are UNIQUE at the DB level regardless of deleted_at, so a
+    # soft-deleted account still blocks a new one with the same value —
+    # check for that case too and give a specific, actionable message
+    # instead of letting it fall through to an unhandled IntegrityError.
+    existing_email = db.query(User).filter(User.email == user_schema.email).first()
     if existing_email:
-        raise HTTPException(status_code=400, detail="Email already exists")
+        if existing_email.deleted_at is None:
+            raise HTTPException(status_code=400, detail="Email already exists")
+        raise HTTPException(
+            status_code=400,
+            detail="This email belongs to a previously removed account. Use a different email, or ask an admin to restore that account.",
+        )
 
-    existing_phone = db.query(User).filter(User.phone == user_schema.phone, User.deleted_at == None).first()
-    if existing_phone:
-        raise HTTPException(status_code=400, detail="Phone number already exists")
+    if user_schema.phone:
+        existing_phone = db.query(User).filter(User.phone == user_schema.phone).first()
+        if existing_phone:
+            if existing_phone.deleted_at is None:
+                raise HTTPException(status_code=400, detail="Phone number already exists")
+            raise HTTPException(
+                status_code=400,
+                detail="This phone number belongs to a previously removed account. Use a different number, or ask an admin to restore that account.",
+            )
 
     password = auth_dependency.generate_random_password()
 
@@ -148,7 +164,11 @@ async def add_user(
     )
 
     db.add(create_user_model)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="A user with that email or phone number already exists")
     db.refresh(create_user_model)
 
     # Credentials are NOT sent at creation time.
