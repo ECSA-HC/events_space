@@ -3524,6 +3524,14 @@ async def admin_add_participant(
         db.commit()
         db.refresh(user)
         is_new_user = True
+
+        # Assign the default "User" role — without this the account has no
+        # role at all and shows "—" in the admin Users list.
+        from models.models import Role, UserRole
+        default_role = db.query(Role).filter(Role.role == "User").first()
+        if default_role:
+            db.add(UserRole(user_id=user.id, role_id=default_role.id))
+            db.commit()
     else:
         # Update name if the admin supplied different values
         changed = False
@@ -4020,6 +4028,14 @@ async def bulk_import_participants(
         db.commit()
         db.refresh(user)
 
+        # Assign the default "User" role — without this the account has no
+        # role at all and shows "—" in the admin Users list.
+        from models.models import Role, UserRole
+        default_role = db.query(Role).filter(Role.role == "User").first()
+        if default_role:
+            db.add(UserRole(user_id=user.id, role_id=default_role.id))
+            db.commit()
+
         new_reg = Registration(
             user_id=user.id, event_id=event_id,
             participation_role=role_enum, paid=paid or auto_paid_role,
@@ -4198,6 +4214,14 @@ async def bulk_import_names_only(
         db.add(user)
         db.commit()
         db.refresh(user)
+
+        # Assign the default "User" role — without this the account has no
+        # role at all and shows "—" in the admin Users list.
+        from models.models import Role, UserRole
+        default_role = db.query(Role).filter(Role.role == "User").first()
+        if default_role:
+            db.add(UserRole(user_id=user.id, role_id=default_role.id))
+            db.commit()
 
         new_reg = Registration(
             user_id=user.id, event_id=event_id,
