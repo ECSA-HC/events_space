@@ -11,7 +11,7 @@
     </div>
 
     <div v-else class="space-y-6">
-      <div v-for="item in items" :key="item.abstract_id" class="bg-white rounded-2xl shadow p-6 space-y-5">
+      <div v-for="item in sortedItems" :key="item.abstract_id" class="bg-white rounded-2xl shadow p-6 space-y-5">
         <div class="flex items-start justify-between gap-4 flex-wrap">
           <div class="flex-1">
             <h2 class="font-semibold text-gray-800 text-lg">{{ item.title }}</h2>
@@ -117,7 +117,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import api from '@/plugins/axios'
 import { fileUrl, isImage, isPdf, isOffice, officeViewerUrl } from '@/utils/filePreview'
 
@@ -126,6 +126,12 @@ const loading = ref(true)
 const uploading = ref({})
 const deleting = ref({})
 const errors = ref({})
+
+// Already-uploaded presentations first, so a presenter can immediately see
+// what's done vs. still outstanding instead of hunting through the list.
+const sortedItems = computed(() =>
+  [...items.value].sort((a, b) => (b.submission ? 1 : 0) - (a.submission ? 1 : 0))
+)
 
 const load = async () => {
   loading.value = true
