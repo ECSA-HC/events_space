@@ -4164,6 +4164,7 @@ def onsite_register(
     event_id: int = Form(...),
     firstname: str = Form(...),
     lastname: str = Form(...),
+    participation_role: str = Form("participant"),
     designation: str = Form(None),
     organisation: str = Form(None),
     email: Optional[str] = Form(None),
@@ -4174,6 +4175,11 @@ def onsite_register(
     event = db.query(Event).filter(Event.id == event_id, Event.deleted_at == None).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
+
+    try:
+        role_enum = ParticipationRole[participation_role]
+    except KeyError:
+        role_enum = ParticipationRole.participant
 
     # Find or create user
     user = None
@@ -4245,7 +4251,7 @@ def onsite_register(
     if existing:
         # Update to paid
         existing.paid = True
-        existing.participation_role = ParticipationRole.participant
+        existing.participation_role = role_enum
         if designation:
             existing.badge_position = designation
         if organisation:
@@ -4258,7 +4264,7 @@ def onsite_register(
         registration = Registration(
             user_id=user.id,
             event_id=event_id,
-            participation_role=ParticipationRole.participant,
+            participation_role=role_enum,
             paid=True,
             badge_position=designation or "",
             badge_organisation=organisation or "",
@@ -4283,7 +4289,7 @@ def onsite_register(
         def _fmt(d):
             return d.strftime("%-d %B %Y") if hasattr(d, "strftime") else str(d)
         event_dates = f"{_fmt(event.start_date)} – {_fmt(event.end_date)}" if event.start_date and event.end_date else None
-        role_label = _ROLE_LABELS.get("participant", "Participant")
+        role_label = _ROLE_LABELS.get(role_enum.name, "Participant")
 
         if fresh_password:
             user.credentials_sent = True

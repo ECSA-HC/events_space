@@ -38,6 +38,23 @@
         </div>
 
         <form @submit.prevent="submitRegistration" class="space-y-4">
+          <!-- Role -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Role <span class="text-red-500">*</span></label>
+            <select
+              v-model="form.participation_role"
+              required
+              @change="onRoleChange"
+              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm"
+            >
+              <option disabled value="">Select your role</option>
+              <option v-for="r in ONSITE_ROLES" :key="r.value" :value="r.value">{{ r.label }}</option>
+            </select>
+            <p v-if="autoFilledRole" class="text-xs text-gray-400 mt-1">
+              Designation and organisation filled in for you — edit below if needed.
+            </p>
+          </div>
+
           <!-- First Name -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">First Name <span class="text-red-500">*</span></label>
@@ -115,10 +132,33 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/plugins/axios'
+import { PARTICIPATION_ROLES } from '@/constants/participationRoles'
 
 const route = useRoute()
 
+// Roles someone might plausibly walk up and register as on the day —
+// the full admin list also has pre-registration-only categories
+// (Presenter, Speaker, Student, etc.) that don't make sense here.
+const ONSITE_ROLE_KEYS = [
+  'secretariat', 'local_secretariat', 'usher', 'driver', 'medical_staff',
+  'exhibitor', 'sponsor', 'delegate', 'member_state', 'other_africa',
+  'world', 'moh', 'participant',
+]
+const ONSITE_ROLES = PARTICIPATION_ROLES.filter(r => ONSITE_ROLE_KEYS.includes(r.value))
+
+// Known internal/support roles have a fixed designation & organisation —
+// fill them in automatically so whoever's staffing the desk doesn't have
+// to type the same thing for every usher/driver/medical staff member.
+const AUTO_FILL = {
+  secretariat:       { designation: 'ECSA-HC Secretariat', organisation: 'ECSA-HC' },
+  local_secretariat: { designation: 'Local Secretariat',    organisation: 'ECSA-HC' },
+  usher:             { designation: 'Usher',                organisation: 'ECSA-HC' },
+  driver:            { designation: 'Driver',                organisation: 'ECSA-HC' },
+  medical_staff:     { designation: 'Medical Staff',         organisation: 'ECSA-HC' },
+}
+
 const form = ref({
+  participation_role: '',
   firstname: '',
   lastname: '',
   designation: '',
@@ -126,12 +166,31 @@ const form = ref({
   email: '',
 })
 
+const autoFilledRole = ref(false)
 const eventId = ref(null)
 const eventName = ref('')
 const registered = ref(false)
 const submitting = ref(false)
 const errorMsg = ref('')
 const successMessage = ref('')
+
+function onRoleChange() {
+  const preset = AUTO_FILL[form.value.participation_role]
+  if (preset) {
+    form.value.designation = preset.designation
+    form.value.organisation = preset.organisation
+    autoFilledRole.value = true
+  } else {
+    // Only clear the fields if what's in them right now is our own
+    // auto-fill from a previous role — never wipe something the person
+    // actually typed themselves.
+    if (autoFilledRole.value) {
+      form.value.designation = ''
+      form.value.organisation = ''
+    }
+    autoFilledRole.value = false
+  }
+}
 
 onMounted(async () => {
   eventId.value = route.query.event_id
@@ -147,6 +206,10 @@ onMounted(async () => {
 
 async function submitRegistration() {
   errorMsg.value = ''
+  if (!form.value.participation_role) {
+    errorMsg.value = 'Please select your role.'
+    return
+  }
   if (!form.value.firstname.trim() || !form.value.lastname.trim()) {
     errorMsg.value = 'First name and last name are required.'
     return
@@ -160,6 +223,7 @@ async function submitRegistration() {
   try {
     const formData = new FormData()
     formData.append('event_id', eventId.value)
+    formData.append('participation_role', form.value.participation_role)
     formData.append('firstname', form.value.firstname.trim())
     formData.append('lastname', form.value.lastname.trim())
     if (form.value.designation.trim()) formData.append('designation', form.value.designation.trim())
@@ -180,7 +244,8 @@ async function submitRegistration() {
 }
 
 function resetForm() {
-  form.value = { firstname: '', lastname: '', designation: '', organisation: '', email: '' }
+  form.value = { participation_role: '', firstname: '', lastname: '', designation: '', organisation: '', email: '' }
+  autoFilledRole.value = false
   registered.value = false
   successMessage.value = ''
 }
