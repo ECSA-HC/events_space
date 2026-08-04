@@ -128,6 +128,12 @@
             />
           </div>
 
+          <!-- Country (optional) -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Country <span class="text-gray-400">(if available)</span></label>
+            <CountrySelect v-model="form.country_id" />
+          </div>
+
           <!-- Email (optional) -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Email <span class="text-gray-400">(optional)</span></label>
@@ -160,6 +166,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/plugins/axios'
 import { PARTICIPATION_ROLES } from '@/constants/participationRoles'
+import CountrySelect from '@/components/common/CountrySelect.vue'
 
 const route = useRoute()
 
@@ -190,6 +197,7 @@ const form = ref({
   lastname: '',
   designation: '',
   organisation: '',
+  country_id: null,
   email: '',
 })
 
@@ -293,6 +301,7 @@ async function submitRegistration() {
     formData.append('lastname', form.value.lastname.trim())
     if (form.value.designation.trim()) formData.append('designation', form.value.designation.trim())
     if (form.value.organisation.trim()) formData.append('organisation', form.value.organisation.trim())
+    if (form.value.country_id) formData.append('country_id', form.value.country_id)
     if (form.value.email.trim()) formData.append('email', form.value.email.trim())
 
     const res = await api.post('/events/onsite-register/', formData, {
@@ -310,7 +319,7 @@ async function submitRegistration() {
 }
 
 function resetForm() {
-  form.value = { participation_role: '', firstname: '', lastname: '', designation: '', organisation: '', email: '' }
+  form.value = { participation_role: '', firstname: '', lastname: '', designation: '', organisation: '', country_id: null, email: '' }
   autoFilledRole.value = false
   registered.value = false
   successMessage.value = ''

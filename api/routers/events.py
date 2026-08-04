@@ -18,7 +18,7 @@ from dependencies.dependency import Dependency
 from dependencies.auth_dependency import get_current_user, get_optional_current_user
 from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends, Query, Request
-from models.models import Event, User, Registration, Document, Link, Payment, ParticipationRole, UserProfile
+from models.models import Event, User, Registration, Document, Link, Payment, ParticipationRole, UserProfile, Country
 from schemas.events_space import EventSchema, EventUpdateSchema, RegistrationSchema, LinkSchema, PaymentSubmitSchema
 from PIL import Image
 from reportlab.lib.units import mm
@@ -4258,6 +4258,7 @@ def onsite_register(
     participation_role: str = Form("participant"),
     designation: str = Form(None),
     organisation: str = Form(None),
+    country_id: Optional[int] = Form(None),
     email: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     background_tasks: BackgroundTasks = None,
@@ -4266,6 +4267,14 @@ def onsite_register(
     event = db.query(Event).filter(Event.id == event_id, Event.deleted_at == None).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
+
+    # Resolve to a display name up front — badge_country is a free-text
+    # column (matches how bulk imports populate it), not a country_id FK.
+    country_name = None
+    if country_id:
+        country_row = db.query(Country).filter(Country.id == country_id).first()
+        if country_row:
+            country_name = country_row.country
 
     try:
         role_enum = ParticipationRole[participation_role]
@@ -4347,6 +4356,8 @@ def onsite_register(
             existing.badge_position = designation
         if organisation:
             existing.badge_organisation = organisation
+        if country_name:
+            existing.badge_country = country_name
         db.commit()
         result = {
             "message": "Registration updated and marked as paid",
@@ -4364,6 +4375,7 @@ def onsite_register(
             paid=True,
             badge_position=designation or "",
             badge_organisation=organisation or "",
+            badge_country=country_name or "",
         )
         db.add(registration)
         db.commit()
