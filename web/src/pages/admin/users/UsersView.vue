@@ -73,50 +73,15 @@
                 <span :title="formatFullDate(user.created_at)">{{ formatRelativeDate(user.created_at) }}</span>
               </td>
               <td class="px-6 py-4 block md:table-cell text-left md:text-right">
-                <div class="flex items-center space-x-3 justify-start md:justify-end">
-                  <router-link
-                    v-if="canViewUser"
-                    :to="{ name: 'AdminUserPerspective', params: { id: user.id } }"
-                    class="text-gray-500 hover:text-[#0095B6]"
-                    title="View as user"
+                <div class="flex justify-start md:justify-end">
+                  <button
+                    type="button"
+                    @click.stop="toggleRowMenu(user, $event)"
+                    class="p-1.5 rounded-lg text-gray-500 hover:text-[#0095B6] hover:bg-gray-100"
+                    title="Actions"
                   >
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                    </svg>
-                  </router-link>
-                  <router-link
-                    v-if="canViewUser"
-                    :to="{ name: 'User', params: { id: user.id } }"
-                    class="text-gray-500 hover:text-blue-600"
-                    title="View admin details"
-                  >
-                    <EyeIcon class="w-6 h-6" />
-                  </router-link>
-                  <router-link
-                    v-if="canEditUser"
-                    :to="{ name: 'EditUser', params: { id: user.id } }"
-                    class="text-gray-500 hover:text-blue-600"
-                    title="Edit"
-                  >
-                    <PencilSquareIcon class="w-6 h-6" />
-                  </router-link>
-                  <ActionIcon
-                    :can="canDeleteUser"
-                    :icon="TrashIcon"
-                    label="Delete"
-                    colorClass="text-gray-500 hover:text-blue-600"
-                    @click="confirmDelete(user)"
-                  />
-                  <ActionIcon
-                    :can="canAddUser"
-                    :icon="CalendarIcon"
-                    label="Link to Event"
-                    colorClass="text-gray-500 hover:text-[#0095B6]"
-                    @click="openLinkModal(user)"
-                  />
+                    <EllipsisVerticalIcon class="w-5 h-5" />
+                  </button>
                 </div>
               </td>
             </tr>
@@ -160,6 +125,54 @@
           </button>
         </div>
       </div>
+
+      <!-- Row actions menu — teleported to <body> so it isn't clipped by the
+           table's rounded-corner overflow-hidden, and positioned against the
+           trigger button's own coordinates. -->
+      <Teleport to="body">
+        <div v-if="menuUser"
+          :style="{ position: 'fixed', top: menuPosition.top + 'px', left: menuPosition.left + 'px' }"
+          class="w-52 bg-white border border-gray-200 rounded-xl shadow-xl z-50 py-1.5 overflow-hidden">
+          <router-link v-if="canViewUser"
+            :to="{ name: 'AdminUserPerspective', params: { id: menuUser.id } }"
+            @click="closeRowMenu"
+            class="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+            View as user
+          </router-link>
+          <router-link v-if="canViewUser"
+            :to="{ name: 'User', params: { id: menuUser.id } }"
+            @click="closeRowMenu"
+            class="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+            <EyeIcon class="w-4 h-4 flex-shrink-0" />
+            View admin details
+          </router-link>
+          <router-link v-if="canEditUser"
+            :to="{ name: 'EditUser', params: { id: menuUser.id } }"
+            @click="closeRowMenu"
+            class="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+            <PencilSquareIcon class="w-4 h-4 flex-shrink-0" />
+            Edit
+          </router-link>
+          <button v-if="canAddUser" type="button"
+            @click="openLinkModal(menuUser); closeRowMenu()"
+            class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">
+            <CalendarIcon class="w-4 h-4 flex-shrink-0" />
+            Link to Event
+          </button>
+          <button v-if="canDeleteUser" type="button"
+            @click="confirmDelete(menuUser); closeRowMenu()"
+            class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 text-left border-t border-gray-100 mt-1">
+            <TrashIcon class="w-4 h-4 flex-shrink-0" />
+            Delete
+          </button>
+        </div>
+      </Teleport>
 
       <!-- Delete Modal -->
       <DeleteConfirmationModal
@@ -229,13 +242,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
-import { EyeIcon, PencilSquareIcon, TrashIcon, CalendarIcon } from "@heroicons/vue/24/outline";
+import { EyeIcon, PencilSquareIcon, TrashIcon, CalendarIcon, EllipsisVerticalIcon } from "@heroicons/vue/24/outline";
 import AdminBar from "@/components/common/AdminBar.vue";
 import api from "@/plugins/axios";
-import ActionIcon from "@/components/common/ActionIcon.vue";
 import DeleteConfirmationModal from "@/components/common/DeleteConfirmationModal.vue";
 import { debounce } from "lodash";
 import DataLoadingSpinner from "@/components/common/DataLoadingSpinner.vue";
@@ -339,6 +351,45 @@ const canAddUser = computed(() => auth.hasPermission("ADD_USER"));
 const canViewUser = computed(() => auth.hasPermission("VIEW_USER"));
 const canEditUser = computed(() => auth.hasPermission("UPDATE_USER"));
 const canDeleteUser = computed(() => auth.hasPermission("DELETE_USER"));
+
+// ── Row actions menu — a single "⋮" button per row instead of a row of
+// icons; teleported to <body> and positioned off the trigger button so it
+// isn't clipped by the table's rounded-corner overflow-hidden. ─────────────
+const menuUser = ref(null);
+const menuPosition = ref({ top: 0, left: 0 });
+const MENU_WIDTH = 208; // matches w-52
+
+function toggleRowMenu(user, event) {
+  if (menuUser.value?.id === user.id) {
+    closeRowMenu();
+    return;
+  }
+  const rect = event.currentTarget.getBoundingClientRect();
+  menuPosition.value = {
+    top: rect.bottom + 4,
+    left: Math.max(8, rect.right - MENU_WIDTH),
+  };
+  menuUser.value = user;
+}
+
+function closeRowMenu() {
+  menuUser.value = null;
+}
+
+function handleWindowInteraction() {
+  if (menuUser.value) closeRowMenu();
+}
+
+onMounted(() => {
+  window.addEventListener("click", handleWindowInteraction);
+  window.addEventListener("scroll", handleWindowInteraction, true);
+  window.addEventListener("resize", handleWindowInteraction);
+});
+onUnmounted(() => {
+  window.removeEventListener("click", handleWindowInteraction);
+  window.removeEventListener("scroll", handleWindowInteraction, true);
+  window.removeEventListener("resize", handleWindowInteraction);
+});
 
 // ── Link to Event modal ──────────────────────────────────────────────────
 const showLinkModal = ref(false);
