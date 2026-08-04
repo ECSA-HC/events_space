@@ -494,7 +494,7 @@ const participationOptions = [
   { value: 'other_africa', label: 'Other African Countries' },
   { value: 'world', label: 'Rest of the World' },
   { value: 'student', label: 'Student' },
-  { value: 'exibitor', label: 'Sponsor / Exhibitor' },
+  { value: 'exhibitor', label: 'Sponsor / Exhibitor' },
 ]
 
 const countries = ref([])

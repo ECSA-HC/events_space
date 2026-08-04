@@ -18,7 +18,7 @@
               <option value="other_africa">Participant from other African countries</option>
               <option value="world">Participant from the Rest of the World</option>
               <option value="student">Student</option>
-              <option value="exibitor">Sponsor/Exhibitor</option>
+              <option value="exhibitor">Sponsor/Exhibitor</option>
       </select>
 
       <div class="mt-6 flex justify-end gap-3">
