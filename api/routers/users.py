@@ -13,7 +13,7 @@ from typing import Annotated
 from core.database import get_db
 from sqlalchemy.orm import Session, joinedload
 from dependencies.auth_dependency import Auth, get_current_user
-from models.models import User, UserPhoto, UserProfile, UserRole, ActivityLog
+from models.models import User, UserPhoto, UserProfile, UserRole, ActivityLog, Role
 from dependencies.dependency import Dependency
 from fastapi import (
     APIRouter,
@@ -165,10 +165,19 @@ async def add_user(
 
     db.add(create_user_model)
     try:
-        db.commit()
+        db.flush()
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=400, detail="A user with that email or phone number already exists")
+
+    # Default role — mirrors what the public registration flow already does
+    # for self-registered users; without this, admin-created users had no
+    # role at all and showed "—" in the Users list.
+    default_role = db.query(Role).filter(Role.role == "User").first()
+    if default_role:
+        db.add(UserRole(user_id=create_user_model.id, role_id=default_role.id))
+
+    db.commit()
     db.refresh(create_user_model)
 
     # Credentials are NOT sent at creation time.
