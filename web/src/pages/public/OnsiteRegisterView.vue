@@ -4,26 +4,27 @@
 
       <!-- Success State -->
       <div v-if="registered" class="bg-white rounded-2xl shadow-lg p-8 text-center">
-        <!-- Alert whoever's staffing the desk that this wasn't a fresh
-             registration — the person already had an account/registration
-             and it was just updated to paid, not created from scratch. -->
-        <div v-if="alreadyRegistered" class="mb-5 p-4 rounded-xl text-left flex items-start gap-3"
-          style="background:#fffbeb;border:1px solid #fde68a;">
-          <span class="text-xl leading-none flex-shrink-0">⚠️</span>
-          <div>
-            <p class="text-sm font-semibold" style="color:#92400e;">Already registered</p>
-            <p class="text-xs mt-0.5" style="color:#92400e;">This person already had a registration for this event — we've updated it and marked them as paid, not created a new one.</p>
+        <!-- One coherent state, not two contradictory ones: an already-
+             registered match gets its own amber framing entirely (no green
+             "Registration Complete!" checkmark implying a fresh sign-up). -->
+        <template v-if="alreadyRegistered">
+          <div class="h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4" style="background:#fef3c7;">
+            <span class="text-3xl leading-none">⚠️</span>
           </div>
-        </div>
-
-        <div class="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-          <svg class="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-          </svg>
-        </div>
-        <h2 class="text-xl font-bold text-gray-900 mb-2">Registration Complete!</h2>
-        <p class="text-gray-600 mb-1">{{ successMessage }}</p>
-        <p class="text-sm text-gray-400 mb-6">You have been marked as paid. No further payment required.</p>
+          <h2 class="text-xl font-bold text-gray-900 mb-2">Already Registered</h2>
+          <p class="text-gray-600 mb-1">This person already had a registration for this event — we've updated it, not created a new one.</p>
+          <p class="text-sm text-gray-400 mb-6">They are now marked as paid. No further payment required.</p>
+        </template>
+        <template v-else>
+          <div class="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+          </div>
+          <h2 class="text-xl font-bold text-gray-900 mb-2">Registration Complete!</h2>
+          <p class="text-gray-600 mb-1">{{ successMessage }}</p>
+          <p class="text-sm text-gray-400 mb-6">You have been marked as paid. No further payment required.</p>
+        </template>
         <button
           @click="resetForm"
           class="px-6 py-2 rounded-full font-semibold text-sm text-white transition hover:opacity-90"
