@@ -3461,6 +3461,17 @@ class AdminAddParticipantSchema(BaseModel):
     send_invitation: bool = True
     payment_url: str = "https://ecsahc.org/payment/"
     portal_url: str = "https://events.ecsahc.org"
+    # Optional full bio data (the "Register Participant" form) — when any of
+    # these are given, they're written to the user's UserProfile/phone too,
+    # not just the bare name+email the quick "Add Participant" flow sends.
+    title: Optional[str] = None
+    middle_name: Optional[str] = None
+    gender: Optional[str] = None
+    phone: Optional[str] = None
+    profession: Optional[str] = None
+    position: Optional[str] = None
+    organisation: Optional[str] = None
+    country_id: Optional[int] = None
 
 
 @router.post("/{event_id}/admin-add-participant")
@@ -3523,6 +3534,51 @@ async def admin_add_participant(
             user.lastname = body.lastname
             changed = True
         if changed:
+            db.commit()
+
+    if body.phone and body.phone != user.phone:
+        user.phone = body.phone
+        db.commit()
+
+    # ── 1b. Optional bio data (Register Participant's full form) ──────────────
+    bio_fields_given = any([
+        body.title, body.middle_name, body.gender, body.profession,
+        body.position, body.organisation, body.country_id,
+    ])
+    if bio_fields_given:
+        profile = db.query(UserProfile).filter(
+            UserProfile.user_id == user.id, UserProfile.deleted_at == None,
+        ).first()
+        if profile:
+            if body.title is not None:
+                profile.title = body.title
+            if body.middle_name is not None:
+                profile.middle_name = body.middle_name
+            if body.gender is not None:
+                profile.gender = body.gender
+            if body.country_id is not None:
+                profile.country_id = body.country_id
+            if body.profession is not None:
+                profile.profession = body.profession
+            if body.position is not None:
+                profile.position = body.position
+            if body.organisation is not None:
+                profile.organisation = body.organisation
+            db.commit()
+        elif body.title and body.gender and body.country_id:
+            # title/gender/country_id/middle_name are NOT NULL on UserProfile —
+            # only create one if the required trio is present; the rest are
+            # optional and default to "".
+            db.add(UserProfile(
+                user_id=user.id,
+                title=body.title,
+                middle_name=body.middle_name or "",
+                gender=body.gender,
+                country_id=body.country_id,
+                profession=body.profession or "",
+                position=body.position or "",
+                organisation=body.organisation or "",
+            ))
             db.commit()
 
     # ── 2. Register (or update role if already registered) ────────────────────

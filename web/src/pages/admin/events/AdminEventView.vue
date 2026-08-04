@@ -151,9 +151,13 @@
                   </svg>
                 </button>
                 <div v-if="manageDropdownOpen" class="absolute right-0 mt-1 w-56 bg-white border border-gray-200 rounded-xl shadow-xl z-30 py-1.5 overflow-hidden">
+                  <button @click="manageDropdownOpen = false; openRegisterParticipantModal()"
+                    class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 text-left">
+                    Register Participant
+                  </button>
                   <button @click="manageDropdownOpen = false; openAddParticipantModal()"
                     class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 text-left">
-                    Add Participant
+                    Add Participant (Quick)
                   </button>
                   <button @click="manageDropdownOpen = false; openImportModal()"
                     class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 text-left">
@@ -950,6 +954,132 @@
         </div>
       </div>
 
+      <!-- Register Participant Modal (full bio data, like MyProfileView's form) -->
+      <div v-if="showRegisterParticipantModal"
+        class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+        @click.self="closeRegisterParticipantModal">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[92vh]">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+            <div class="flex items-center gap-3">
+              <div class="h-9 w-9 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-[#0095B6]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+                </svg>
+              </div>
+              <div>
+                <p class="font-bold text-gray-800 text-sm">Register Participant</p>
+                <p class="text-xs text-gray-400">Full bio data, registered directly for this event</p>
+              </div>
+            </div>
+            <button @click="closeRegisterParticipantModal" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="p-5 space-y-4 overflow-y-auto flex-1">
+            <p class="text-xs font-semibold text-gray-500 uppercase tracking-widest">Bio Data</p>
+            <div class="grid md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <select v-model="registerForm.title" class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]">
+                  <option value="">Select title</option>
+                  <option value="Mr">Mr</option>
+                  <option value="Mrs">Mrs</option>
+                  <option value="Ms">Ms</option>
+                  <option value="Dr">Dr</option>
+                  <option value="Prof">Prof</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">First Name <span class="text-red-500">*</span></label>
+                <input v-model="registerForm.firstname" type="text" required
+                  class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Middle Name</label>
+                <input v-model="registerForm.middle_name" type="text"
+                  class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Last Name <span class="text-red-500">*</span></label>
+                <input v-model="registerForm.lastname" type="text" required
+                  class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                <select v-model="registerForm.gender" class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]">
+                  <option value="">Select gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Email <span class="text-red-500">*</span></label>
+                <input v-model="registerForm.email" type="email" required
+                  class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <input v-model="registerForm.phone" type="tel"
+                  class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Profession</label>
+                <input v-model="registerForm.profession" type="text"
+                  class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Position</label>
+                <input v-model="registerForm.position" type="text"
+                  class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Organisation</label>
+                <input v-model="registerForm.organisation" type="text"
+                  class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                <CountrySelect v-model="registerForm.country_id" />
+              </div>
+            </div>
+
+            <div class="border-t border-gray-100 pt-4">
+              <label class="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Participation Role <span class="text-red-500">*</span></label>
+              <select v-model="registerForm.participation_role"
+                class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0095B6]">
+                <option value="" disabled>Select a role…</option>
+                <option v-for="role in PARTICIPATION_ROLES" :key="role.value" :value="role.value">{{ role.label }}</option>
+              </select>
+            </div>
+
+            <label class="flex items-center gap-3 cursor-pointer p-3 rounded-xl bg-gray-50 border border-gray-200 select-none">
+              <input type="checkbox" v-model="registerForm.send_invitation" class="w-4 h-4 accent-[#0095B6] rounded" />
+              <div>
+                <p class="text-sm font-semibold text-gray-700">Send invitation email</p>
+                <p class="text-xs text-gray-400 mt-0.5">Email the participant their login details and event information. Always sent for new accounts.</p>
+              </div>
+            </label>
+
+            <div v-if="registerParticipantError" class="flex items-start gap-2 p-3 rounded-xl text-sm text-red-700 bg-red-50 border border-red-200">❌ {{ registerParticipantError }}</div>
+            <div v-if="registerParticipantSuccess" class="flex items-start gap-2 p-3 rounded-xl text-sm text-green-700 bg-green-50 border border-green-200">✅ {{ registerParticipantSuccess }}</div>
+          </div>
+
+          <div class="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-100 flex-shrink-0">
+            <button @click="closeRegisterParticipantModal"
+              class="px-4 py-2 text-sm border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition font-medium">Cancel</button>
+            <button @click="submitRegisterParticipant"
+              :disabled="registeringParticipant || !registerForm.firstname || !registerForm.lastname || !registerForm.email || !registerForm.participation_role"
+              class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-xl transition hover:opacity-90 disabled:opacity-50 bg-bondi-blue">
+              {{ registeringParticipant ? 'Registering…' : 'Register Participant' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Add Participant Modal -->
       <div v-if="showAddParticipantModal"
         class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
@@ -1502,6 +1632,7 @@ import ParticipantBadgeModal from '@/components/specific/ParticipantBadgeModal.v
 import DetailItem from '@/components/specific/DetailItem.vue'
 import UploadDocumentModal from '@/components/specific/UploadDocumentModal.vue'
 import AddLinkModal from '@/components/specific/AddLinkModal.vue'
+import CountrySelect from '@/components/common/CountrySelect.vue'
 import { PARTICIPATION_ROLES } from '@/constants/participationRoles'
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL
@@ -1748,6 +1879,66 @@ const showUploadModal = ref(false)
 const showAddLinkModal = ref(false)
 const showProofModal = ref(false)
 const proofParticipant = ref(null)
+
+// ── Register Participant modal (full bio data + role, one step) ─────────────
+const showRegisterParticipantModal = ref(false)
+const registeringParticipant = ref(false)
+const registerParticipantError = ref('')
+const registerParticipantSuccess = ref('')
+const registerForm = ref({
+  title: '', firstname: '', middle_name: '', lastname: '', gender: '',
+  email: '', phone: '', profession: '', position: '', organisation: '',
+  country_id: null, participation_role: '', send_invitation: true,
+})
+
+function openRegisterParticipantModal() {
+  registerForm.value = {
+    title: '', firstname: '', middle_name: '', lastname: '', gender: '',
+    email: '', phone: '', profession: '', position: '', organisation: '',
+    country_id: null, participation_role: '', send_invitation: true,
+  }
+  registerParticipantError.value = ''
+  registerParticipantSuccess.value = ''
+  showRegisterParticipantModal.value = true
+}
+
+function closeRegisterParticipantModal() {
+  showRegisterParticipantModal.value = false
+}
+
+async function submitRegisterParticipant() {
+  const f = registerForm.value
+  if (!f.firstname || !f.lastname || !f.email || !f.participation_role) return
+  registeringParticipant.value = true
+  registerParticipantError.value = ''
+  registerParticipantSuccess.value = ''
+  try {
+    const res = await api.post(`/events/${eventId}/admin-add-participant`, {
+      email: f.email,
+      firstname: f.firstname,
+      lastname: f.lastname,
+      participation_role: f.participation_role,
+      send_invitation: f.send_invitation,
+      title: f.title || null,
+      middle_name: f.middle_name || null,
+      gender: f.gender || null,
+      phone: f.phone || null,
+      profession: f.profession || null,
+      position: f.position || null,
+      organisation: f.organisation || null,
+      country_id: f.country_id || null,
+    })
+    registerParticipantSuccess.value = res.data.message
+    const refreshed = await api.get(`/events/${eventId}`)
+    participants.value = refreshed.data.participants
+    setTimeout(() => closeRegisterParticipantModal(), 2000)
+  } catch (e) {
+    registerParticipantError.value = e.response?.data?.detail || 'Failed to register participant.'
+  } finally {
+    registeringParticipant.value = false
+  }
+}
+
 const showAddParticipantModal = ref(false)
 const lookupResult = ref(null)
 const addingParticipant = ref(false)
