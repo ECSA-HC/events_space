@@ -167,7 +167,7 @@ const route = useRoute()
 // the full admin list also has pre-registration-only categories
 // (Presenter, Speaker, Student, etc.) that don't make sense here.
 const ONSITE_ROLE_KEYS = [
-  'secretariat', 'local_secretariat', 'usher', 'driver', 'medical_staff',
+  'secretariat', 'local_secretariat', 'usher', 'driver', 'medical_staff', 'media',
   'exhibitor', 'sponsor', 'delegate', 'member_state', 'other_africa',
   'world', 'moh', 'participant',
 ]

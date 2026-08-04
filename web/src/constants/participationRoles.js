@@ -22,4 +22,5 @@ export const PARTICIPATION_ROLES = [
   { value: 'usher',             label: 'Usher' },
   { value: 'driver',            label: 'Driver' },
   { value: 'medical_staff',     label: 'Medical Staff' },
+  { value: 'media',             label: 'Media' },
 ]

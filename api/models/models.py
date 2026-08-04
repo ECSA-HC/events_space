@@ -79,6 +79,7 @@ class ParticipationRole(PyEnum):
     usher = "usher"
     driver = "driver"
     medical_staff = "medical_staff"
+    media = "media"
 
 
 class PaymentMethod(PyEnum):
@@ -111,7 +112,7 @@ class User(BaseWithSoftDelete):
     phone = Column(String(25), nullable=True, unique=True)
     email = Column(String(45), nullable=False, unique=True)
     hashed_password = Column(String(200), nullable=False)
-    verified = Column(Boolean, nullable=False, server_default="False")
+    verified = Column(Boolean, nullable=False, server_default="0")
     credentials_sent = Column(Boolean, nullable=False, server_default="0")
     is_reviewer = Column(Boolean, nullable=False, server_default="0")
     must_change_password = Column(Boolean, nullable=False, server_default="0")
@@ -348,9 +349,9 @@ class ActivityLog(BaseWithSoftDelete):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=True)
-    action = Column(String, nullable=False)
-    target = Column(String, nullable=True)
-    ip_address = Column(String, nullable=True)
+    action = Column(String(255), nullable=False)
+    target = Column(String(255), nullable=True)
+    ip_address = Column(String(45), nullable=True)
     additional_data = Column(JSON, nullable=True)
     created_at = Column(
         TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
@@ -374,7 +375,7 @@ class PasswordReset(BaseWithSoftDelete):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
-    reset_token = Column(String, nullable=False, unique=True, index=True)
+    reset_token = Column(String(255), nullable=False, unique=True, index=True)
     expires_at = Column(TIMESTAMP(timezone=True), nullable=False)
     is_used = Column(Boolean, default=False)
     created_at = Column(
@@ -399,7 +400,7 @@ class AccountVerification(BaseWithSoftDelete):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
-    verification_token = Column(String, nullable=False, unique=True, index=True)
+    verification_token = Column(String(255), nullable=False, unique=True, index=True)
     expires_at = Column(TIMESTAMP(timezone=True), nullable=False)
     is_used = Column(Boolean, default=False)
     created_at = Column(
@@ -635,7 +636,7 @@ class Link(BaseWithSoftDelete):
 
     events = relationship("Event", back_populates="links")
 
-    __table_args__ = (Index("ix_document", "link", "deleted_at"),)
+    __table_args__ = (Index("ix_document", "deleted_at"),)
 
     def __repr__(self):
         return f"<Link link={self.link}, name={self.name}>"

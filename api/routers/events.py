@@ -166,7 +166,7 @@ BADGE_ROLE_LABELS = {
 # Roles exempt from payment (auto paid=True at creation, no payment reminders).
 # Support-staff categories (ushers/drivers/medical staff/local secretariat) are
 # never expected to pay like delegates — matches how "secretariat" already works.
-NO_PAYMENT_ROLES = {"secretariat", "local_secretariat", "usher", "driver", "medical_staff"}
+NO_PAYMENT_ROLES = {"secretariat", "local_secretariat", "usher", "driver", "medical_staff", "media"}
 
 # "local_secretariat" is an umbrella role_category filter covering the whole
 # local support team — ushers/drivers/medical staff included. Each still gets
@@ -3734,6 +3734,7 @@ _ROLE_LABELS = {
     "usher": "Usher",
     "driver": "Driver",
     "medical_staff": "Medical Staff",
+    "media": "Media",
 }
 _HONORIFICS = {"dr", "mr", "mrs", "ms", "prof", "rev", "eng", "hon"}
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
