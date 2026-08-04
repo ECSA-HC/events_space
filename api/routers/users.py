@@ -96,7 +96,8 @@ async def get_users(
         )
 
     total_count = users_query.count()
-    users = users_query.offset(skip).limit(limit).all()
+    # Most recently added first, so new users surface at the top of the list.
+    users = users_query.order_by(User.created_at.desc()).offset(skip).limit(limit).all()
 
     pages = math.ceil(total_count / limit)
     return {
@@ -109,6 +110,7 @@ async def get_users(
                 "email": u.email,
                 "phone": u.phone,
                 "role": u.user_roles[0].role.role if u.user_roles else "—",
+                "created_at": u.created_at.isoformat() if u.created_at else None,
             }
             for u in users
         ],

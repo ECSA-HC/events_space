@@ -182,13 +182,6 @@
                   <button @click="downloadsDropdownOpen = false; downloadParticipants('false')"
                     class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">Not Paid</button>
                   <p class="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest border-t border-gray-100 mt-1">
-                    Quick Lists
-                  </p>
-                  <button @click="downloadsDropdownOpen = false; downloadParticipants('all', 'local_secretariat')"
-                    class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">Local Secretariat</button>
-                  <button @click="downloadsDropdownOpen = false; downloadParticipants('all', 'djcc')"
-                    class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">DJCC Members</button>
-                  <p class="px-4 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest border-t border-gray-100 mt-1">
                     Badge List{{ roleFilter !== 'all' ? ` (${roleCategoryLabel})` : '' }}
                   </p>
                   <button @click="downloadsDropdownOpen = false; downloadBadgesAsPDF('all')"
@@ -197,10 +190,14 @@
                     class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">Paid &amp; POP</button>
                   <button @click="downloadsDropdownOpen = false; downloadBadgesAsPDF('false')"
                     class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">Not Paid</button>
+                  <button @click="downloadsDropdownOpen = false; downloadBadgesAsPDF('true', 'secretariat')"
+                    class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">Secretariat</button>
                   <button @click="downloadsDropdownOpen = false; downloadBadgesAsPDF('true', 'local_secretariat')"
                     class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">Local Secretariat</button>
                   <button @click="downloadsDropdownOpen = false; downloadBadgesAsPDF('true', 'djcc')"
                     class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">DJCC Members</button>
+                  <button @click="downloadsDropdownOpen = false; downloadBadgesAsPDF('true', 'other')"
+                    class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">Others</button>
                   <button @click="downloadsDropdownOpen = false; downloadBlankRoleBadges()"
                     :disabled="downloadingBlankBadges"
                     class="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left disabled:opacity-50">

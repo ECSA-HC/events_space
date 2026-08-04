@@ -10,6 +10,11 @@
       <h1 class="text-xl font-bold text-gray-800">Users</h1>
     </div>
 
+    <!-- Success banner (e.g. after adding a user) -->
+    <div v-if="successMessage" class="mx-6 mt-2 p-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-700">
+      {{ successMessage }}
+    </div>
+
     <!-- Search & Add -->
     <div class="px-6 pb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
       <input
@@ -38,12 +43,13 @@
               <th class="px-6 py-4">Email/Username</th>
               <th class="px-6 py-4">Phone</th>
               <th class="px-6 py-4">Role</th>
+              <th class="px-6 py-4">Added</th>
               <th class="px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="isLoading">
-              <td colspan="6" class="py-8">
+              <td colspan="7" class="py-8">
                 <div class="flex justify-center items-center">
                   <DataLoadingSpinner />
                 </div>
@@ -62,6 +68,9 @@
               <td class="px-6 py-4 block md:table-cell">{{ user.phone }}</td>
               <td class="px-6 py-4 block md:table-cell">
                 <span class="inline-block px-2 py-0.5 text-xs bg-blue-50 text-blue-700 rounded-full border border-blue-200">{{ user.role }}</span>
+              </td>
+              <td class="px-6 py-4 block md:table-cell text-gray-500 text-xs">
+                <span :title="formatFullDate(user.created_at)">{{ formatRelativeDate(user.created_at) }}</span>
               </td>
               <td class="px-6 py-4 block md:table-cell text-left md:text-right">
                 <div class="flex items-center space-x-3 justify-start md:justify-end">
@@ -106,7 +115,7 @@
             </tr>
 
             <tr v-if="!isLoading && filteredUsers.length === 0">
-              <td colspan="6" class="text-center px-6 py-4 text-gray-400">No users found.</td>
+              <td colspan="7" class="text-center px-6 py-4 text-gray-400">No users found.</td>
             </tr>
           </tbody>
         </table>
@@ -159,6 +168,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { EyeIcon, PencilSquareIcon, TrashIcon } from "@heroicons/vue/24/outline";
 import AdminBar from "@/components/common/AdminBar.vue";
@@ -169,6 +179,8 @@ import { debounce } from "lodash";
 import DataLoadingSpinner from "@/components/common/DataLoadingSpinner.vue";
 
 const auth = useAuthStore();
+const route = useRoute();
+const router = useRouter();
 const search = ref('');
 const debouncedSearch = ref('');
 const currentPage = ref(1);
@@ -179,6 +191,36 @@ const isLoading = ref(false);
 const deleting = ref(false);
 const showDeleteModal = ref(false);
 const selectedUser = ref(null);
+const successMessage = ref("");
+
+// Show a one-time success banner after redirecting back from Add User,
+// then strip the query param so it doesn't reappear on refresh/back.
+if (route.query.added) {
+  successMessage.value = String(route.query.added);
+  router.replace({ name: "Users" });
+  setTimeout(() => (successMessage.value = ""), 6000);
+}
+
+function formatRelativeDate(iso) {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  const diffMs = Date.now() - date.getTime();
+  const diffMin = Math.round(diffMs / 60000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.round(diffHr / 24);
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+function formatFullDate(iso) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleString(undefined, {
+    year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+}
 
 const updateDebouncedSearch = debounce((val) => {
   debouncedSearch.value = val.trim();

@@ -15,6 +15,9 @@
     <!-- Add User Form -->
     <main class="px-6 pb-6">
       <div class="w-full bg-white shadow rounded-lg p-6">
+        <div v-if="errorMsg" class="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+          {{ errorMsg }}
+        </div>
         <form @submit.prevent="submitUser" class="space-y-4" novalidate>
           <!-- First Name -->
           <div class="mb-4 w-full md:w-1/2">
@@ -105,9 +108,11 @@ const newUser = ref({
 
 const isSubmitting = ref(false)
 const submitted = ref(false)
+const errorMsg = ref('')
 
 const submitUser = async () => {
   submitted.value = true
+  errorMsg.value = ''
 
   if (!newUser.value.firstname || !newUser.value.lastname || !newUser.value.phone || !newUser.value.email) {
     return
@@ -116,8 +121,16 @@ const submitUser = async () => {
   try {
     isSubmitting.value = true
     await api.post('/users/', newUser.value)
-    router.push({ name: 'Users' })
+    const name = `${newUser.value.firstname} ${newUser.value.lastname}`.trim()
+    router.push({ name: 'Users', query: { added: `${name} has been added successfully.` } })
   } catch (error) {
+    const detail = error.response?.data?.detail || ''
+    if (detail.includes('already exists')) {
+      // "Email already exists" / "Phone number already exists" from the backend
+      errorMsg.value = `User already in the system — ${detail.toLowerCase()}.`
+    } else {
+      errorMsg.value = detail || 'Failed to add user. Please try again.'
+    }
     console.error('Failed to create user:', error.response?.data || error.message)
   } finally {
     isSubmitting.value = false

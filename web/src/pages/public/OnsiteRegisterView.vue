@@ -37,6 +37,20 @@
           {{ errorMsg }}
         </div>
 
+        <!-- Event picker — shown only when the QR link didn't carry an event_id -->
+        <div v-if="needsEventPicker" class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Event <span class="text-red-500">*</span></label>
+          <select
+            v-model="eventId"
+            required
+            @change="onEventPicked"
+            class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm"
+          >
+            <option disabled :value="null">Select the event</option>
+            <option v-for="ev in availableEvents" :key="ev.id" :value="ev.id">{{ ev.event }}</option>
+          </select>
+        </div>
+
         <form @submit.prevent="submitRegistration" class="space-y-4">
           <!-- Role -->
           <div>
@@ -173,6 +187,14 @@ const registered = ref(false)
 const submitting = ref(false)
 const errorMsg = ref('')
 const successMessage = ref('')
+const needsEventPicker = ref(false)
+const availableEvents = ref([])
+
+function onEventPicked() {
+  errorMsg.value = ''
+  const ev = availableEvents.value.find(e => e.id === eventId.value)
+  eventName.value = ev?.event || ''
+}
 
 function onRoleChange() {
   const preset = AUTO_FILL[form.value.participation_role]
@@ -193,14 +215,43 @@ function onRoleChange() {
 }
 
 onMounted(async () => {
-  eventId.value = route.query.event_id
-  if (eventId.value) {
+  if (route.query.event_id) {
+    eventId.value = Number(route.query.event_id)
     try {
       const res = await api.get(`/events/${eventId.value}`)
       eventName.value = res.data.event?.event || ''
     } catch (e) {
       console.error('Failed to load event', e)
     }
+    return
+  }
+
+  // The QR link didn't carry an event_id (stale link, bookmark, manual visit).
+  // Fall back to letting whoever's staffing the desk pick the event —
+  // auto-select it silently if there's exactly one currently running.
+  try {
+    const res = await api.get('/events/', { params: { limit: 100 } })
+    const events = res.data?.data || []
+    availableEvents.value = events
+
+    const today = new Date()
+    const current = events.filter(ev => {
+      if (!ev.start_date || !ev.end_date) return false
+      return new Date(ev.start_date) <= today && today <= new Date(ev.end_date)
+    })
+
+    if (current.length === 1) {
+      eventId.value = current[0].id
+      eventName.value = current[0].event
+    } else if (events.length === 1) {
+      eventId.value = events[0].id
+      eventName.value = events[0].event
+    } else {
+      needsEventPicker.value = true
+    }
+  } catch (e) {
+    console.error('Failed to load events list', e)
+    needsEventPicker.value = true
   }
 })
 
@@ -215,7 +266,7 @@ async function submitRegistration() {
     return
   }
   if (!eventId.value) {
-    errorMsg.value = 'No event specified.'
+    errorMsg.value = needsEventPicker.value ? 'Please select the event.' : 'No event specified.'
     return
   }
 
