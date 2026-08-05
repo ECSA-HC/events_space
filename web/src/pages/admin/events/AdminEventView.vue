@@ -808,6 +808,10 @@
                     </td>
                     <td class="px-4 py-2 flex space-x-2">
                       <button class="text-blue-500 hover:text-blue-700"><EyeIcon class="w-5 h-5" /></button>
+                      <button class="text-[#0095B6] hover:opacity-70" title="Download QR code linking to this document"
+                        :disabled="downloadingDocQrId === d.id" @click="downloadDocumentQR(d)">
+                        <QrCodeIcon class="w-5 h-5" :class="downloadingDocQrId === d.id ? 'opacity-40' : ''" />
+                      </button>
                       <button class="text-red-500 hover:text-red-700" @click="deleteDocument(d)"><TrashIcon class="w-5 h-5" /></button>
                     </td>
                   </tr>
@@ -1622,7 +1626,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { TabGroup, TabList, Tab, TabPanels, TabPanel } from '@headlessui/vue'
-import { EyeIcon, TrashIcon, DocumentTextIcon, PencilSquareIcon } from '@heroicons/vue/24/outline'
+import { EyeIcon, TrashIcon, DocumentTextIcon, PencilSquareIcon, QrCodeIcon } from '@heroicons/vue/24/outline'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AdminBar from '@/components/common/AdminBar.vue'
@@ -2211,6 +2215,29 @@ async function downloadOnsiteQR() {
     URL.revokeObjectURL(objectUrl)
   } catch (error) {
     alert('Failed to download on-site registration QR PDF.')
+  }
+}
+
+const downloadingDocQrId = ref(null)
+
+async function downloadDocumentQR(d) {
+  downloadingDocQrId.value = d.id
+  try {
+    const apiBase = import.meta.env.VITE_API_BASE_URL
+    const url = `${apiBase}/events/documents/${d.id}/qr-pdf`
+    const response = await fetch(url)
+    if (!response.ok) throw new Error('Failed')
+    const blob = await response.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = objectUrl
+    a.download = `document_qr_${d.name || 'document'}.pdf`
+    a.click()
+    URL.revokeObjectURL(objectUrl)
+  } catch (error) {
+    alert('Failed to download document QR PDF.')
+  } finally {
+    downloadingDocQrId.value = null
   }
 }
 

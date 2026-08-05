@@ -4550,3 +4550,111 @@ def generate_onsite_qr_pdf(
 
     return StreamingResponse(buf, media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+
+# ── QR Code PDF for a public document (e.g. the programme booklet) ────────────
+
+@router.get("/documents/{document_id}/qr-pdf")
+def generate_document_qr_pdf(
+    document_id: int,
+    db: Session = Depends(get_db),
+):
+    """Generate a downloadable A4 PDF with a QR code linking straight to an
+    uploaded document. /uploads is a plain static mount with no auth check,
+    so any document's URL is already reachable by anyone who has it — this
+    just makes that URL easy to scan and share, e.g. printed on a poster."""
+    document = db.query(Document).filter(Document.id == document_id, Document.deleted_at == None).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    event = db.query(Event).filter(Event.id == document.event_id, Event.deleted_at == None).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.lib import colors
+    from urllib.parse import quote
+
+    client_origin = os.getenv("CLIENT_ORIGIN", "https://events.ecsahc.org")
+    doc_url = f"{client_origin}/api/{quote(document.path, safe='/')}"
+
+    # Generate QR code
+    qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_H, box_size=10, border=2)
+    qr.add_data(doc_url)
+    qr.make(fit=True)
+    qr_img = qr.make_image(fill_color="#1B3F6E", back_color="white").convert("RGB")
+
+    qr_buf = io.BytesIO()
+    qr_img.save(qr_buf, format="PNG")
+    qr_buf.seek(0)
+    qr_reader = ImageReader(qr_buf)
+
+    try:
+        logo_right = load_logo_with_transparency("assets/logo_right.png")
+    except Exception:
+        logo_right = None
+
+    buf = io.BytesIO()
+    w, h = A4
+    c = canvas.Canvas(buf, pagesize=A4)
+
+    c.setFillColor(colors.HexColor("#F8FAFC"))
+    c.rect(0, 0, w, h, fill=1, stroke=0)
+
+    c.setFillColor(colors.HexColor("#1B3F6E"))
+    c.rect(0, h - 2.2 * cm, w, 2.2 * cm, fill=1, stroke=0)
+
+    if logo_right:
+        try:
+            logo_h = 1.4 * cm
+            logo_w = logo_h * 2.7
+            c.drawImage(logo_right, w - RM - logo_w - 0.3 * cm, h - 1.9 * cm, width=logo_w, height=logo_h,
+                        preserveAspectRatio=True, mask='auto')
+        except Exception:
+            pass
+
+    doc_label = (document.name or document.file_name or "DOCUMENT").upper()
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica-Bold", 18)
+    c.drawCentredString(w / 2, h - 1.5 * cm, doc_label[:40])
+
+    c.setFillColor(colors.HexColor("#1B3F6E"))
+    c.setFont("Helvetica-Bold", 14)
+    event_name = normalize_event_name(event.event) if event.event else ""
+    if len(event_name) > 60:
+        event_name = event_name[:57] + "..."
+    c.drawCentredString(w / 2, h - 3.8 * cm, event_name)
+
+    c.setFont("Helvetica", 11)
+    c.setFillColor(colors.HexColor("#475569"))
+    date_str = f"{event.start_date.strftime('%d %B %Y')} – {event.end_date.strftime('%d %B %Y')}" if event.start_date and event.end_date else ""
+    c.drawCentredString(w / 2, h - 4.8 * cm, f"{date_str}  •  {event.location or ''}")
+
+    qr_size = 9 * cm
+    qr_x = (w - qr_size) / 2
+    qr_y = h / 2 - qr_size / 2 + 1 * cm
+    c.drawImage(qr_reader, qr_x, qr_y, width=qr_size, height=qr_size)
+
+    c.setFillColor(colors.HexColor("#1B3F6E"))
+    c.setFont("Helvetica-Bold", 13)
+    c.drawCentredString(w / 2, qr_y - 1.2 * cm, "Scan to View")
+
+    c.setFont("Helvetica", 10)
+    c.setFillColor(colors.HexColor("#64748B"))
+    c.drawCentredString(w / 2, qr_y - 2.2 * cm, "Scan this QR code with your phone camera to open the document.")
+
+    c.setFillColor(colors.HexColor("#1B3F6E"))
+    c.rect(0, 0, w, 1.2 * cm, fill=1, stroke=0)
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica", 8)
+    c.drawCentredString(w / 2, 0.4 * cm, "ECSA-HC • East, Central and Southern Africa Health Community")
+
+    c.save()
+    buf.seek(0)
+
+    safe_name = unicodedata.normalize("NFKD", document.name or "document").encode("ascii", "ignore").decode("ascii")
+    safe_name = re.sub(r"[^\w\s-]", "", safe_name).strip().replace(" ", "_")[:30] or "document"
+    filename = f"document_qr_{safe_name}.pdf"
+
+    return StreamingResponse(buf, media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"})
