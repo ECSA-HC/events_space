@@ -11,8 +11,8 @@
     </div>
 
     <div v-else class="space-y-6">
-      <div v-for="item in sortedItems" :key="item.abstract_id" class="bg-white rounded-2xl shadow p-6 space-y-5">
-        <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div v-for="item in sortedItems" :key="item.abstract_id" class="bg-white rounded-2xl shadow p-6 flex flex-col gap-5">
+        <div class="order-1 flex items-start justify-between gap-4 flex-wrap">
           <div class="flex-1">
             <h2 class="font-semibold text-gray-800 text-lg">{{ item.title }}</h2>
             <p class="text-gray-500 text-sm mt-1">{{ item.event_name }}</p>
@@ -24,18 +24,20 @@
         </div>
 
         <!-- Instructional note -->
-        <div v-if="item.presentation_type === 'oral'" class="rounded-xl p-4 text-sm leading-relaxed"
+        <div v-if="item.presentation_type === 'oral'" class="order-2 rounded-xl p-4 text-sm leading-relaxed"
           style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;">
           Please note that each presentation is strictly limited to <strong>10 minutes per presenter</strong>.
           After populating the template below, please upload your presentation so that the secretariat can have it.
         </div>
-        <div v-else-if="item.presentation_type === 'poster'" class="rounded-xl p-4 text-sm leading-relaxed"
+        <div v-else-if="item.presentation_type === 'poster'" class="order-2 rounded-xl p-4 text-sm leading-relaxed"
           style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;">
           Please prepare your poster (PDF or image) using the guidance below, and upload it so the secretariat has a copy ahead of the event.
         </div>
 
-        <!-- Admin template -->
-        <div v-if="item.templates.length" class="border-t pt-4">
+        <!-- Admin template — shown after "Your Submission" once something's
+             been uploaded, so a returning presenter sees their own file
+             first instead of having to scroll past the template again. -->
+        <div v-if="item.templates.length" class="border-t pt-4" :class="item.submission ? 'order-4' : 'order-3'">
           <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Template / Guidance</p>
           <div v-for="t in item.templates" :key="t.id" class="mb-4">
             <div class="flex items-center justify-between gap-3 mb-2">
@@ -57,10 +59,10 @@
             <p v-else class="text-xs text-gray-400">Preview not available for this file type — use Download.</p>
           </div>
         </div>
-        <p v-else class="text-sm text-gray-400 border-t pt-4">No template has been uploaded for this event yet.</p>
+        <p v-else class="text-sm text-gray-400 border-t pt-4" :class="item.submission ? 'order-4' : 'order-3'">No template has been uploaded for this event yet.</p>
 
         <!-- Own submission -->
-        <div class="border-t pt-4">
+        <div class="border-t pt-4" :class="item.submission ? 'order-3' : 'order-4'">
           <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Your Submission</p>
 
           <div v-if="item.submission">
