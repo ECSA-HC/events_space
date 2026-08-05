@@ -3435,6 +3435,88 @@ async def send_pending_bulk_reminders(
     }
 
 
+# ── Admin: one-off "Conference Documents" announcement to all paid participants ──
+@router.post("/{event_id}/send-conference-documents-announcement")
+def send_conference_documents_announcement(
+    event_id: int,
+    current_user: user_dependency,
+    db: Session = Depends(get_db),
+    auth_dependency: Auth = Depends(get_auth_dependency),
+):
+    """Sent synchronously (not via background_tasks) so the response can
+    include an accurate sent/failed report from email_log right away —
+    this is a one-time admin-triggered broadcast, not a page action a user
+    is waiting on."""
+    auth_dependency.secure_access("ADMIN_DASHBOARD", current_user["user_id"])
+
+    event = db.query(Event).filter(Event.id == event_id, Event.deleted_at == None).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    from models.models import EmailLog
+    from sqlalchemy import func as _func
+
+    recipients = (
+        db.query(User)
+        .join(Registration, Registration.user_id == User.id)
+        .filter(
+            Registration.event_id == event_id,
+            Registration.deleted_at == None,
+            Registration.paid == True,
+            User.deleted_at == None,
+            User.email.isnot(None),
+        )
+        .distinct()
+        .all()
+    )
+    if not recipients:
+        return {"sent": 0, "failed": 0, "message": "No paid participants found for this event."}
+
+    import utils.mailer_util as mailer_util
+    subject = "Find the Programme Book & Abstract Book on Your Dashboard"
+    email_type = f"conference_documents_announcement_{event_id}"
+
+    messages = [
+        {
+            "recipient_email": r.email,
+            "subject": subject,
+            "body": mailer_util.templates.get_template("conference_documents_announcement_template.html").render(
+                subject=subject,
+                firstname=r.firstname or "Participant",
+                event_name=event.event,
+                portal_url=mailer_util.APP_BASE_URL,
+                year=mailer_util.YEAR,
+            ),
+            "email_type": email_type,
+            "sent_by_user_id": current_user["user_id"],
+        }
+        for r in recipients
+    ]
+
+    max_id_before = db.query(_func.max(EmailLog.id)).scalar() or 0
+
+    mailer_util.send_bulk_emails(messages, db)
+
+    rows = (
+        db.query(EmailLog)
+        .filter(EmailLog.id > max_id_before, EmailLog.email_type == email_type)
+        .all()
+    )
+    sent = [r for r in rows if r.status == "sent"]
+    failed = [r for r in rows if r.status != "sent"]
+
+    return {
+        "attempted": len(messages),
+        "logged": len(rows),
+        "sent": len(sent),
+        "failed": len(failed),
+        "failures": [
+            {"email": r.recipient_email, "error": r.error_message}
+            for r in failed
+        ],
+    }
+
+
 # ── Admin: look up user by email ──────────────────────────────────────────────
 @router.get("/{event_id}/lookup-user")
 async def lookup_user_by_email(
