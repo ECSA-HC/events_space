@@ -1866,7 +1866,11 @@ def presentations_zip(
 
     zip_buffer = io.BytesIO()
     used_names = set()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+    # ZIP_STORED (no compression), not ZIP_DEFLATED — presentations are
+    # PPTX/PDF, both already-compressed formats, so DEFLATE burns real CPU
+    # time for near-zero size reduction. This is most of what was making
+    # this endpoint slow with 100+MB of presentations.
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_STORED) as zf:
         seen_ids = set()
         for p in presentations:
             if p.id in seen_ids or not os.path.exists(p.file_path):
