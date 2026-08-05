@@ -880,6 +880,7 @@ async def get_event(
         # "paid"   → has a paid registration OR has admin/secretariat permission
         user_access = "none"
         is_admin = False
+        can_view_all_participants = False
         if current_user:
             uid = current_user["user_id"]
             # Check for admin permission (ADMIN_DASHBOARD) → always full access
@@ -892,6 +893,21 @@ async def get_event(
                 UserRole.user_id == uid,
                 Perm.permission_code == "ADMIN_DASHBOARD",
             ).first()
+
+            # Finance Officer (VERIFY_PAYMENT) needs the same full
+            # participant/pending-payment visibility as full admins on this
+            # page — without this, they were falling into the "regular
+            # attendee" branch below and only ever seeing their own
+            # registration row.
+            has_verify_payment = db.query(UserRole).join(
+                RolePermission, UserRole.role_id == RolePermission.role_id
+            ).join(
+                Perm, RolePermission.permission_id == Perm.id
+            ).filter(
+                UserRole.user_id == uid,
+                Perm.permission_code == "VERIFY_PAYMENT",
+            ).first()
+            can_view_all_participants = bool(is_admin or has_verify_payment)
 
             if is_admin:
                 user_access = "paid"
@@ -1019,7 +1035,7 @@ async def get_event(
             }
             for r in registrations
         ]
-        if is_admin:
+        if can_view_all_participants:
             _visible_participants = _all_participants_serialized
             _visible_pending = _build_pending_list(pending_payment_regs, db, event_id=event_id)
         elif current_user:
