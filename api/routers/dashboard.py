@@ -9,6 +9,16 @@ from models.models import User, Event, Registration, Abstract
 router = APIRouter()
 
 
+def _event_status(event, today):
+    """upcoming / ongoing / completed — an event isn't "completed" just
+    because it's started; it stays "ongoing" through its own end_date."""
+    if event.end_date < today:
+        return "completed"
+    if event.start_date <= today:
+        return "ongoing"
+    return "upcoming"
+
+
 class EventSummary(BaseModel):
     id: int
     name: str
@@ -80,7 +90,7 @@ def get_dashboard(db: Session = Depends(get_db)):
             .filter(Abstract.event_id == event.id, Abstract.deleted_at == None)
             .count()
         )
-        status = "upcoming" if event.start_date >= today else "completed"
+        status = _event_status(event, today)
 
         event_stats.append(
             EventStatRow(
@@ -97,7 +107,7 @@ def get_dashboard(db: Session = Depends(get_db)):
         reg_count = next(
             (s.registrations for s in event_stats if s.id == event.id), 0
         )
-        status = "upcoming" if event.start_date >= today else "completed"
+        status = _event_status(event, today)
         recent_events.append(
             EventSummary(
                 id=event.id,

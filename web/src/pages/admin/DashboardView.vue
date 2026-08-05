@@ -25,6 +25,15 @@ const eventStats = ref([])
 const loading = ref(false)
 const error = ref(null)
 
+const STATUS_BADGE_CLASS = {
+  upcoming: 'bg-blue-100 text-blue-600',
+  ongoing: 'bg-amber-100 text-amber-700',
+  completed: 'bg-green-100 text-green-600',
+}
+function statusBadgeClass(status) {
+  return STATUS_BADGE_CLASS[status] || 'bg-gray-100 text-gray-600'
+}
+
 async function loadDashboard() {
   loading.value = true
   error.value = null
@@ -159,7 +168,7 @@ onMounted(loadDashboard)
                   <td class="px-6 py-4 font-medium">{{ ev.name }}</td>
                   <td class="px-6 py-4 text-center">
                     <span
-                      :class="ev.status === 'upcoming' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'"
+                      :class="statusBadgeClass(ev.status)"
                       class="px-3 py-1 rounded-full text-xs font-semibold capitalize"
                     >{{ ev.status }}</span>
                   </td>
@@ -200,7 +209,7 @@ onMounted(loadDashboard)
                   <td class="px-6 py-4 text-center">{{ event.participants }}</td>
                   <td class="px-6 py-4 text-center">
                     <span
-                      :class="event.status === 'upcoming' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'"
+                      :class="statusBadgeClass(event.status)"
                       class="px-3 py-1 rounded-full text-xs font-semibold capitalize"
                     >{{ event.status }}</span>
                   </td>
