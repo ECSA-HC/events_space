@@ -3442,6 +3442,7 @@ def send_conference_documents_announcement(
     current_user: user_dependency,
     db: Session = Depends(get_db),
     auth_dependency: Auth = Depends(get_auth_dependency),
+    test_email: Optional[str] = Query(None),
 ):
     """Sent synchronously (not via background_tasks) so the response can
     include an accurate sent/failed report from email_log right away —
@@ -3456,25 +3457,35 @@ def send_conference_documents_announcement(
     from models.models import EmailLog
     from sqlalchemy import func as _func
 
-    recipients = (
-        db.query(User)
-        .join(Registration, Registration.user_id == User.id)
-        .filter(
-            Registration.event_id == event_id,
-            Registration.deleted_at == None,
-            Registration.paid == True,
-            User.deleted_at == None,
-            User.email.isnot(None),
+    if test_email:
+        # Dry run — always exactly one email, to whatever address is given,
+        # never touches the real recipient list.
+        class _Stub:
+            pass
+        stub = _Stub()
+        stub.email = test_email
+        stub.firstname = "Test"
+        recipients = [stub]
+    else:
+        recipients = (
+            db.query(User)
+            .join(Registration, Registration.user_id == User.id)
+            .filter(
+                Registration.event_id == event_id,
+                Registration.deleted_at == None,
+                Registration.paid == True,
+                User.deleted_at == None,
+                User.email.isnot(None),
+            )
+            .distinct()
+            .all()
         )
-        .distinct()
-        .all()
-    )
     if not recipients:
         return {"sent": 0, "failed": 0, "message": "No paid participants found for this event."}
 
     import utils.mailer_util as mailer_util
     subject = "Find the Programme Book & Abstract Book on Your Dashboard"
-    email_type = f"conference_documents_announcement_{event_id}"
+    email_type = "conference_documents_announcement_test" if test_email else f"conference_documents_announcement_{event_id}"
 
     messages = [
         {
