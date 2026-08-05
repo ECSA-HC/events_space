@@ -271,6 +271,30 @@ function rankLabel(int $rank): string
             </a>
 
             <a
+                href="scores.php"
+                class="admin-sidebar__link"
+            >
+                <i
+                    class="bi bi-clipboard-data-fill"
+                    aria-hidden="true"
+                ></i>
+
+                <span>Manage scores</span>
+            </a>
+
+            <a
+                href="judges.php"
+                class="admin-sidebar__link"
+            >
+                <i
+                    class="bi bi-people-fill"
+                    aria-hidden="true"
+                ></i>
+
+                <span>Manage judges</span>
+            </a>
+
+            <a
                 href="create_admin.php"
                 class="admin-sidebar__link"
             >
