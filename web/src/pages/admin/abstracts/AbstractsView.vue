@@ -156,19 +156,29 @@
                 <span class="text-xs text-gray-400">Uses the event filter above</span>
               </div>
             </button>
-            <button @click="exportsDropdownOpen = false; downloadPresentationsZip(filterEvent)" :disabled="downloadingPresentationsZip"
-              class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-gray-50 transition disabled:opacity-50">
-              <div class="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background-color:#f5f3ff;">
-                <svg class="w-4 h-4" style="color:#5b21b6;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2v-7m16 0V5a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0H4"/>
-                </svg>
+            <div class="px-4 py-2">
+              <div class="flex items-center gap-3">
+                <div class="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background-color:#f5f3ff;">
+                  <svg class="w-4 h-4" style="color:#5b21b6;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2v-7m16 0V5a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0H4"/>
+                  </svg>
+                </div>
+                <span class="font-medium text-gray-700 block text-sm">{{ downloadingPresentationsZip ? 'Zipping…' : 'Presentations (ZIP)' }}</span>
               </div>
-              <div>
-                <span class="font-medium text-gray-700 block">{{ downloadingPresentationsZip ? 'Zipping…' : 'Presentations (ZIP)' }}</span>
-                <span class="text-xs text-gray-400">Uses the event filter above</span>
+              <p class="text-xs text-gray-400 mt-1 mb-1.5">Uses the event filter above</p>
+              <div class="flex gap-1.5">
+                <button @click="exportsDropdownOpen = false; downloadPresentationsZip(filterEvent, null)" :disabled="downloadingPresentationsZip"
+                  class="flex-1 px-2 py-1 rounded-md text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
+                  style="background:#f5f3ff; color:#5b21b6; border:1px solid #c4b5fd;">All</button>
+                <button @click="exportsDropdownOpen = false; downloadPresentationsZip(filterEvent, 'oral')" :disabled="downloadingPresentationsZip"
+                  class="flex-1 px-2 py-1 rounded-md text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
+                  style="background:#f5f3ff; color:#5b21b6; border:1px solid #c4b5fd;">Oral Only</button>
+                <button @click="exportsDropdownOpen = false; downloadPresentationsZip(filterEvent, 'poster')" :disabled="downloadingPresentationsZip"
+                  class="flex-1 px-2 py-1 rounded-md text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
+                  style="background:#f5f3ff; color:#5b21b6; border:1px solid #c4b5fd;">Poster Only</button>
               </div>
-            </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1027,7 +1037,7 @@
               </svg>
               {{ downloadingPresentersReport ? 'Preparing…' : 'Presenters Report (Excel)' }}
             </button>
-            <button @click="downloadPresentationsZip()" :disabled="downloadingPresentationsZip"
+            <button @click="downloadPresentationsZip(null, null)" :disabled="downloadingPresentationsZip"
               class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
               style="background:#f5f3ff; color:#5b21b6; border:1px solid #c4b5fd;">
               <svg v-if="!downloadingPresentationsZip" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1040,9 +1050,19 @@
               </svg>
               {{ downloadingPresentationsZip ? 'Zipping…' : 'Download All (ZIP)' }}
             </button>
+            <button @click="downloadPresentationsZip(null, 'oral')" :disabled="downloadingPresentationsZip"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
+              style="background:#f5f3ff; color:#5b21b6; border:1px solid #c4b5fd;">
+              {{ downloadingPresentationsZip ? 'Zipping…' : 'Oral Only (ZIP)' }}
+            </button>
+            <button @click="downloadPresentationsZip(null, 'poster')" :disabled="downloadingPresentationsZip"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
+              style="background:#f5f3ff; color:#5b21b6; border:1px solid #c4b5fd;">
+              {{ downloadingPresentationsZip ? 'Zipping…' : 'Poster Only (ZIP)' }}
+            </button>
           </div>
           <p v-if="presentationsModal.eventId" class="text-[11px] text-gray-400">
-            Oral presentations only, paid registrants only.
+            Oral + poster presentations, paid registrants only.
           </p>
         </div>
 
@@ -2418,22 +2438,26 @@ const downloadPresentersReport = async (eventId) => {
   }
 }
 
-const downloadPresentationsZip = async (eventId) => {
+const downloadPresentationsZip = async (eventId, presentationType) => {
   const id = eventId ?? presentationsModal.value.eventId
   if (!id) { alert('Select an event (in the filters below, or in the All Presentations picker) first.'); return }
   downloadingPresentationsZip.value = true
   try {
+    const params = { event_id: id }
+    if (presentationType) params.presentation_type = presentationType
     const res = await api.get('/abstracts/presentations-zip', {
-      params: { event_id: id },
+      params,
       responseType: 'blob',
     })
     const url = URL.createObjectURL(new Blob([res.data], { type: 'application/zip' }))
     const a = document.createElement('a')
-    a.href = url; a.download = 'presentations.zip'; a.click()
+    a.href = url
+    a.download = presentationType ? `${presentationType}_presentations.zip` : 'presentations.zip'
+    a.click()
     URL.revokeObjectURL(url)
   } catch (e) {
     alert(e.response?.status === 404
-      ? 'No uploaded presentations found for paid presenters in this event.'
+      ? `No uploaded ${presentationType ? presentationType + ' ' : ''}presentations found for paid presenters in this event.`
       : 'Zip download failed. Please try again.')
   } finally {
     downloadingPresentationsZip.value = false

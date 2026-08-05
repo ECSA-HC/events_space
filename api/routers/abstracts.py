@@ -1845,24 +1845,36 @@ def presentations_report(
 @router.get("/presentations-zip")
 def presentations_zip(
     event_id: int = Query(...),
+    presentation_type: str = Query(None, description="Filter to 'oral' or 'poster' only; omit for all"),
     current_user: user_dependency = None,
     db: Session = Depends(get_db),
     auth_dependency: Auth = Depends(get_auth_dep),
 ):
-    """Admin: download every uploaded presentation file — oral and poster —
-    from paid presenters for an event, bundled into a single zip."""
+    """Admin: download uploaded presentation files from paid presenters for
+    an event, bundled into a single zip. By default includes both oral and
+    poster; pass presentation_type=oral or presentation_type=poster to
+    restrict to just one."""
     auth_dependency.secure_access("VIEW_ABSTRACTS", current_user["user_id"])
     import zipfile
     from models.models import Event as EventModel
+
+    if presentation_type and presentation_type not in ("oral", "poster"):
+        raise HTTPException(status_code=400, detail="presentation_type must be 'oral' or 'poster'")
 
     event = db.query(EventModel).filter(EventModel.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
     entries, abstracts_by_id, _ = _paid_presenter_entries(event_id, db, include_posters=True)
+    if presentation_type:
+        entries = [e for e in entries if e["presentation_type"] == presentation_type]
     presentations = [e["presentation"] for e in entries if e["presentation"]]
     if not presentations:
-        raise HTTPException(status_code=404, detail="No uploaded presentations found for paid presenters")
+        detail = (
+            f"No uploaded {presentation_type} presentations found for paid presenters"
+            if presentation_type else "No uploaded presentations found for paid presenters"
+        )
+        raise HTTPException(status_code=404, detail=detail)
 
     zip_buffer = io.BytesIO()
     used_names = set()
@@ -1888,7 +1900,7 @@ def presentations_zip(
             zf.write(p.file_path, arcname=arcname)
 
     zip_buffer.seek(0)
-    filename = "presentations.zip"
+    filename = f"{presentation_type}_presentations.zip" if presentation_type else "presentations.zip"
     return StreamingResponse(
         zip_buffer,
         media_type="application/zip",
